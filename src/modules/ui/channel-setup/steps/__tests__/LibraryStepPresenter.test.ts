@@ -20,6 +20,7 @@ import { ChannelSetupBuildExecutor } from '../../../../../core/channel-setup/bui
 import type { ChannelSetupBuildCommitter } from '../../../../../core/channel-setup/build/ChannelSetupBuildCommitter';
 import { createMockPlexLibrary, createFacetPlanningTag } from '../../../../../core/channel-setup/__tests__/ChannelSetupFacetPlanningTestHelpers';
 import type { IChannelManager } from '../../../../scheduler/channel-manager';
+import type { ChannelSetupInventory } from '../../../../../core/channel-setup/planning/ChannelSetupInventory';
 
 const createContext = (): StepRenderContext => ({
     contentEl: document.createElement('div'),
@@ -215,6 +216,42 @@ describe('LibraryStepPresenter', () => {
 
         expect(ctx.contentEl.querySelector<HTMLButtonElement>('#setup-next')?.disabled).toBe(false);
         expect(renderStep).not.toHaveBeenCalled();
+    });
+
+    it('restores the scan button when a library edit cancels a scan before its first progress', async () => {
+        let finish!: (inventory: ChannelSetupInventory) => void;
+        const inventory: ChannelSetupInventory = { scopeKey: 'scope', generation: 1, libraries: [],
+            acceptedReadyLibraryIds: [], sharedPlaylistsStatus: 'unused' };
+        const scanSetupInventory = jest.fn().mockImplementationOnce(() => new Promise<ChannelSetupInventory>(resolve => {
+            finish = resolve;
+        })).mockResolvedValue(inventory);
+        const workflowPort = createWorkflowPort({ scanSetupInventory, getLibrariesForSetup: jest.fn().mockResolvedValue([
+            makeLibrary({ id: 'movies' }), makeLibrary({ id: 'shows' }),
+        ]) });
+        const session = new ChannelSetupSessionController({ workflowPort, getSelectedServerId: (): string => 'server-1' });
+        const ctx = createContext();
+        const render = (): void => { ctx.contentEl.replaceChildren(); presenter.render(ctx); };
+        const presenter = new LibraryStepPresenter({ session,
+            focus: new ChannelSetupFocusCoordinator({ getNavigation: (): INavigationManager | null => null }),
+            screenPorts: createScreenPorts(), contentEl: ctx.contentEl,
+            getPreferredFocusId: (): string | null => null, setPreferredFocusId: jest.fn(), renderStep: render,
+        });
+        session.beginSession();
+        await session.loadLibraries();
+        const pending = session.scanInventory(render);
+        try {
+            expect(ctx.contentEl.querySelector('#setup-scan')?.textContent).toBe('Cancel scan');
+            ctx.contentEl.querySelector<HTMLButtonElement>('#setup-lib-shows')?.click();
+            expect(session.getSnapshot().isInventoryLoading).toBe(false);
+            expect(ctx.contentEl.querySelector('#setup-scan')?.textContent).toBe('Scan selected libraries');
+            expect(ctx.contentEl.querySelector<HTMLButtonElement>('#setup-next')?.disabled).toBe(false);
+            ctx.contentEl.querySelector<HTMLButtonElement>('#setup-scan')?.click();
+            expect(scanSetupInventory).toHaveBeenCalledTimes(2);
+        } finally {
+            finish(inventory);
+            await pending;
+            session.endSession();
+        }
     });
 
     it('recovers from an optional facet failure through Configure while incomplete Review remains blocked', async () => {

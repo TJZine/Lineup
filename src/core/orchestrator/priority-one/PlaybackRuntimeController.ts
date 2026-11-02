@@ -565,14 +565,19 @@ export class PlaybackRuntimeController {
     private async _handleNonRecoverablePlaybackError(error: PlaybackError): Promise<void> {
         const playbackRecovery = this._deps.playback.playbackRecovery;
         const admission = this.captureAdmission();
-        if (admission === null) return;
+        const programIdentity = this._deps.getScheduledProgramIdentity();
+        if (admission === null || !programIdentity) return;
+        // A scheduled handoff can replace the program without changing user intent.
+        const isCurrent = (): boolean => this.isAdmissionCurrent(admission)
+            && scheduledProgramIdentitiesMatch(this._deps.getScheduledProgramIdentity(), programIdentity);
         try {
             const fallbackApplied = await playbackRecovery.attemptTranscodeFallbackForCurrentProgram?.('video-player');
-            if (!this.isAdmissionCurrent(admission)) return;
+            if (!isCurrent()) return;
             if (fallbackApplied) {
                 return;
             }
         } catch (fallbackError: unknown) {
+            if (!isCurrent()) return;
             this._reportRecoverableAsyncFailureSafely(
                 'orchestrator.playbackRecovery.attemptTranscodeFallbackForCurrentProgram',
                 'Playback transcode fallback handler threw',
@@ -584,11 +589,13 @@ export class PlaybackRuntimeController {
             );
         }
 
+        if (!isCurrent()) return;
         if (playbackRecovery.handlePlaybackFailure) {
             try {
                 playbackRecovery.handlePlaybackFailure('video-player', error);
                 return;
             } catch (handlerError: unknown) {
+                if (!isCurrent()) return;
                 this._reportRecoverableAsyncFailureSafely(
                     'orchestrator.playbackRecovery.handlePlaybackFailure',
                     'Playback recovery failure handler threw',
@@ -602,6 +609,7 @@ export class PlaybackRuntimeController {
             }
         }
 
+        if (!isCurrent()) return;
         this._deps.uiRuntime.handleGlobalError(
             {
                 code: error.code,

@@ -443,6 +443,7 @@ describe('ChannelManager persistence and storage keys', () => {
                 name: 'Old Channel',
                 contentSource: createMockContentSource('old-lib'),
             });
+            const pendingSave = manager.saveChannels();
 
             const loadedChannel = createBaseChannel({
                 id: 'loaded-channel',
@@ -458,6 +459,7 @@ describe('ChannelManager persistence and storage keys', () => {
             }));
 
             await manager.loadChannels();
+            await pendingSave;
             await settleSaveDebounce();
 
             const persisted = JSON.parse(mockLocalStorage.getItem(STORAGE_KEY) ?? '{}') as {
@@ -529,6 +531,7 @@ describe('ChannelManager persistence and storage keys', () => {
                 name: 'Old Channel',
                 contentSource: createMockContentSource(),
             });
+            const pendingSave = manager.saveChannels();
 
             await manager.replaceAllChannels([
                 createBaseChannel({
@@ -539,6 +542,7 @@ describe('ChannelManager persistence and storage keys', () => {
                 }),
             ], { currentChannelId: 'replacement-channel' });
 
+            await pendingSave;
             await settleSaveDebounce();
 
             const persisted = JSON.parse(mockLocalStorage.getItem(STORAGE_KEY) ?? '{}') as {

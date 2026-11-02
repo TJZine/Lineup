@@ -1936,24 +1936,6 @@ describe('AppOrchestrator', () => {
             }
         });
 
-        it('waits for the matching accepted program start before routing Guide to Player', async () => {
-            const harness = await prepareDeferredGuideStart();
-            try {
-                const switching = harness.input.actions.switchToChannelWithOutcome(mockChannel.id, {
-                    fromGuideSelection: true, selectedProgram: harness.selectedProgram,
-                });
-                await flushPromises(12);
-                expect(mockScheduler.loadChannel).toHaveBeenCalledTimes(1);
-                expect(mockNavigation.replaceScreen).not.toHaveBeenCalledWith('player');
-
-                harness.start.resolve({ kind: 'started' });
-                await expect(switching).resolves.toEqual({ kind: 'switched' });
-                expect(mockNavigation.replaceScreen).toHaveBeenCalledWith('player');
-            } finally {
-                harness.restore();
-            }
-        });
-
         it('routes only after a real deferred stream start creates an accepted current session', async () => {
             const harness = await prepareDeferredGuideStart();
             harness.restore();
@@ -1972,6 +1954,7 @@ describe('AppOrchestrator', () => {
                     fromGuideSelection: true, selectedProgram: harness.selectedProgram,
                 });
                 await flushPromises(12);
+                expect(mockScheduler.loadChannel).toHaveBeenCalledTimes(1);
                 expect(resolveStream).toHaveBeenCalledTimes(1);
                 expect(mockNavigation.replaceScreen).not.toHaveBeenCalledWith('player');
 

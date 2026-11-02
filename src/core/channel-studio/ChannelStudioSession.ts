@@ -27,6 +27,7 @@ export class ChannelStudioSession {
     private verifiedRequest: StudioAirCheckRequest | null = null;
     private savedChannelId: string | null = null;
     private saveToken = 0;
+    private tuneToken = 0;
     private commitStarted = false;
 
     constructor(ports: ChannelStudioPorts) { this.ports = ports; }
@@ -47,6 +48,7 @@ export class ChannelStudioSession {
 
     close(): void {
         this.generation++; this.saveToken++; this.saving = false; this.savedChannelId = null;
+        this.tuneToken++; this.tuning = false;
         this.commitStarted = false;
         this.previewController?.abort(); this.previewController = null;
         this.extensionController?.abort(); this.extensionController = null; this.extensionStatus = null;
@@ -57,6 +59,7 @@ export class ChannelStudioSession {
 
     invalidateVerification(): void {
         this.generation++;
+        this.tuneToken++; this.tuning = false;
         this.previewController?.abort(); this.previewController = null;
         this.extensionController?.abort(); this.extensionController = null; this.extensionStatus = null;
         this.verifiedRequest = null;
@@ -302,9 +305,15 @@ export class ChannelStudioSession {
 
     async tuneNow(): Promise<void> {
         if (!this.savedChannelId || this.tuning) return;
+        const token = ++this.tuneToken;
         this.tuning = true;
         try { await this.ports.tuneNow(this.savedChannelId); }
-        catch { this.notice = { kind: 'saved-warning', text: 'Channel saved. Tune failed. Try again or open Guide.' }; }
-        finally { this.tuning = false; }
+        catch {
+            if (token === this.tuneToken) {
+                this.notice = { kind: 'saved-warning', text: 'Channel saved. Tune failed. Try again or open Guide.' };
+            }
+        } finally {
+            if (token === this.tuneToken) this.tuning = false;
+        }
     }
 }

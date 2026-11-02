@@ -132,22 +132,4 @@ describe('ChannelStudioDraft', () => {
         expect(reopened.channel.contentSource).toEqual(source);
         expect(reopened.validate([persisted])).toEqual([]);
     });
-    it('clears previously saved sort and runtime bounds through the typed update command', () => {
-        const channel = createBaseChannel({ ...saved, sortOrder: 'year_desc', minEpisodeRunTimeMs: 60_000,
-            maxEpisodeRunTimeMs: 180_000 });
-        const draft = ChannelStudioDraft.open({ kind: 'inspect', channelId: 'saved', expectedBase: base },
-            [channel], base, 9000, 'prospective');
-        draft.clearSortOrder(); draft.clearRuntimeBound('minEpisodeRunTimeMs'); draft.clearRuntimeBound('maxEpisodeRunTimeMs');
-        expect(draft.toUpdateInput().clearFields).toEqual(['sortOrder', 'minEpisodeRunTimeMs', 'maxEpisodeRunTimeMs']);
-        const authoring = new ChannelAuthoringService({ generateId: (): string => 'unused', now: (): number => 9200 });
-        const persisted = authoring.updateChannel(channel, draft.toUpdateInput(), []);
-        expect(persisted.sortOrder).toBeUndefined();
-        expect(persisted.minEpisodeRunTimeMs).toBeUndefined();
-        expect(persisted.maxEpisodeRunTimeMs).toBeUndefined();
-        const reopened = ChannelStudioDraft.open({ kind: 'inspect', channelId: 'saved', expectedBase: base },
-            [persisted], base, 9300, 'another');
-        expect(reopened.channel.sortOrder).toBeUndefined();
-        expect(reopened.channel.minEpisodeRunTimeMs).toBeUndefined();
-        expect(reopened.channel.maxEpisodeRunTimeMs).toBeUndefined();
-    });
 });

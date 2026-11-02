@@ -206,17 +206,6 @@ describe('bootstrap seam', () => {
         expect(shutdown).toHaveBeenCalledTimes(1);
     });
 
-    it('installs the measured flex gap class before constructing App', async () => {
-        let classAtConstruction = false;
-        await importBootstrapModule({
-            onAppConstruct: () => {
-                classAtConstruction = document.documentElement.classList.contains('no-flex-gap');
-            },
-        });
-
-        expect(classAtConstruction).toBe(true);
-    });
-
     it('reuses an in-flight bootstrap call instead of creating duplicate Apps', async () => {
         setDocumentReadyState('loading');
         const startDeferred = createDeferred<void>();
@@ -680,7 +669,7 @@ describe('bootstrap seam', () => {
         expect(start).toHaveBeenCalledTimes(1);
     });
 
-    it('installs required web APIs before constructing the application', async () => {
+    it('installs required web APIs and the measured layout class before constructing the application', async () => {
         setDocumentReadyState('loading');
         const replaceChildrenDescriptor = Object.getOwnPropertyDescriptor(
             Element.prototype,
@@ -694,6 +683,7 @@ describe('bootstrap seam', () => {
         Reflect.deleteProperty(AbortSignal.prototype, 'throwIfAborted');
 
         const onAppConstruct = jest.fn(() => {
+            expect(document.documentElement.classList.contains('no-flex-gap')).toBe(true);
             const container = document.createElement('div');
             container.replaceChildren('ready');
             expect(container.textContent).toBe('ready');

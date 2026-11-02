@@ -1049,13 +1049,11 @@ describe('NavigationCoordinator', () => {
         expect(deps.keyModeRouter.playback.playerOsd.coordinator?.poke).not.toHaveBeenCalled();
     });
 
-    it.each(['audio', 'subtitles', 'more-info', 'sleep', 'mini-guide', 'ordinary modal', 'settings', 'guide'])(
+    it.each(['player child', 'mini-guide', 'ordinary modal', 'settings', 'guide'])(
         'does not dispatch native transport behind %s', (context) => {
             const { handlers, navigation, epg, videoPlayer, deps } = setup({
                 isMiniGuideVisible: jest.fn().mockReturnValue(context === 'mini-guide'),
-                isPlayerTransportContext: jest.fn().mockReturnValue(
-                    !['audio', 'subtitles', 'more-info', 'sleep'].includes(context)
-                ),
+                isPlayerTransportContext: jest.fn().mockReturnValue(context !== 'player child'),
             });
             if (context === 'ordinary modal') (navigation.isModalOpen as jest.Mock).mockReturnValue(true);
             if (context === 'settings' || context === 'guide') {

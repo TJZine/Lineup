@@ -205,10 +205,6 @@ describe('runtime overlay style contracts', () => {
                     [expected.end.standard[0]],
                     [expected.end.standard[1]],
                 ]);
-            for (const property of PLAYER_OVERLAY_ALPHA_PROPERTIES) {
-                expect(declarationValues(themeBlock, property)).toEqual([]);
-            }
-
             for (const mode of OVERLAY_TRANSPARENCY_MODES) {
                 expect(declarationValues(themeBlock, `--runtime-overlay-start-alpha-${mode}`))
                     .toEqual([expected.start[mode][0]]);

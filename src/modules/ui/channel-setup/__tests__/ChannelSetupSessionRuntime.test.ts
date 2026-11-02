@@ -8,6 +8,7 @@ import { ChannelSetupSessionState } from '../ChannelSetupSessionState';
 import { CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS } from '../constants';
 import { expectConsoleWarn, flushPromises } from '../../../../__tests__/helpers';
 import type { ChannelBuildSummary, ChannelSetupApplyResult } from '../../../../core/channel-setup/types';
+import type { ChannelSetupInventory } from '../../../../core/channel-setup/planning/ChannelSetupInventory';
 
 const createUnavailableError = (): Error => {
     const error = new Error('Channel setup not initialized');
@@ -127,6 +128,108 @@ describe('ChannelSetupSessionRuntime', () => {
         await expect(loadPromise).resolves.toBeUndefined();
         await expect(buildPromise).resolves.toEqual({ kind: 'canceled' });
         expect(workflowPort.markSetupComplete).not.toHaveBeenCalled();
+    });
+
+    it.each(['toggle', 'select-all', 'clear-all', 'strategy'] as const)('settles inventory immediately when a %s edit retires its scan', async (edit) => {
+        const pending = createDeferred<ChannelSetupInventory>();
+        let signal: AbortSignal | undefined;
+        const workflowPort = createWorkflowPort({ scanSetupInventory: jest.fn((_config, options) => {
+            signal = options?.signal;
+            return pending.promise;
+        }) });
+        const { runtime, state } = createRuntime({ workflowPort });
+        state.libraries = [makeLibrary({ id: 'a' }), makeLibrary({ id: 'b' })];
+        state.selectedLibraryIds = new Set(['a', 'b']);
+        const scan = runtime.scanInventory(jest.fn());
+        expect(state.isInventoryLoading).toBe(true);
+        if (edit === 'toggle') runtime.toggleLibrary('b');
+        else if (edit === 'select-all') runtime.selectAllLibraries();
+        else if (edit === 'clear-all') runtime.clearAllLibraries();
+        else runtime.updateStrategyState(draft => { draft.maxChannels = 25; });
+        expect(signal?.aborted).toBe(true);
+        expect(state.isInventoryLoading).toBe(false);
+        pending.resolve({ scopeKey: 'scope', generation: 1, libraries: [],
+            acceptedReadyLibraryIds: [], sharedPlaylistsStatus: 'unused' });
+        await scan;
+        expect(state.isInventoryLoading).toBe(false);
+        expect(state.inventory).toBeNull();
+    });
+
+    it.each(['ready-subset', 'deselected-consent'] as const)('keeps inventory streaming across a %s planning edit', async (edit) => {
+        const pending = createDeferred<ChannelSetupInventory>();
+        let publish!: (inventory: ChannelSetupInventory) => void;
+        let signal: AbortSignal | undefined;
+        const workflowPort = createWorkflowPort({ scanSetupInventory: jest.fn((_config, options) => {
+            signal = options?.signal;
+            publish = (inventory): void => options?.onProgress?.(inventory);
+            return pending.promise;
+        }) });
+        const { runtime, state } = createRuntime({ workflowPort });
+        state.selectedLibraryIds = new Set(['a', 'b']);
+        const scan = runtime.scanInventory(jest.fn());
+        const progress: ChannelSetupInventory = { scopeKey: 'scope', generation: 1, sharedPlaylistsStatus: 'unused',
+            acceptedReadyLibraryIds: ['a'], libraries: [
+                { libraryId: 'a', libraryName: 'A', requiredFamilies: [], generation: 1, status: 'ready' },
+                { libraryId: 'b', libraryName: 'B', requiredFamilies: [], generation: 1, status: 'pending' },
+            ] };
+        publish(progress);
+        if (edit === 'ready-subset') expect(runtime.acceptReadySubset(['a'])).toBe(true);
+        else runtime.confirmDeselectedLibraries(['c']);
+        const completed: ChannelSetupInventory = { ...progress, acceptedReadyLibraryIds: ['a', 'b'],
+            libraries: progress.libraries.map(fact => ({ ...fact, status: 'ready' })) };
+        publish(completed);
+        expect(signal?.aborted).toBe(false);
+        expect(state.inventory).toBe(completed);
+        expect(state.knownReadyLibraryIds).toEqual(new Set(['a', 'b']));
+        pending.resolve(completed);
+        await scan;
+        expect(state.isInventoryLoading).toBe(false);
+        expect(state.inventory).toBe(completed);
+        if (edit === 'ready-subset') expect(state.acceptedReadyLibraryIds).toEqual(new Set(['a']));
+        else expect(state.confirmedDeselectedLibraryIds).toEqual(new Set(['c']));
+    });
+
+    it('does not let an edited scan clear a newer scan loading state', async () => {
+        const first = createDeferred<ChannelSetupInventory>();
+        const second = createDeferred<ChannelSetupInventory>();
+        const workflowPort = createWorkflowPort({ scanSetupInventory: jest.fn()
+            .mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise) });
+        const { runtime, state } = createRuntime({ workflowPort });
+        state.selectedLibraryIds = new Set(['a', 'b']);
+        const oldScan = runtime.scanInventory(jest.fn());
+        runtime.toggleLibrary('b');
+        const newScan = runtime.scanInventory(jest.fn());
+        const inventory: ChannelSetupInventory = { scopeKey: 'scope', generation: 1, libraries: [],
+            acceptedReadyLibraryIds: [], sharedPlaylistsStatus: 'unused' };
+        first.resolve(inventory);
+        await oldScan;
+        expect(state.isInventoryLoading).toBe(true);
+        expect(state.inventory).toBeNull();
+        second.resolve(inventory);
+        await newScan;
+        expect(state.isInventoryLoading).toBe(false);
+        expect(state.inventory).toBe(inventory);
+    });
+
+    it.each(['cancel', 'end-session'] as const)('leaves inventory idle after %s and rejects progress from a previous session', async (action) => {
+        const pending = createDeferred<ChannelSetupInventory>();
+        let publish!: (inventory: ChannelSetupInventory) => void;
+        const workflowPort = createWorkflowPort({ scanSetupInventory: jest.fn((_config, options) => {
+            publish = (inventory): void => options?.onProgress?.(inventory);
+            return pending.promise;
+        }) });
+        const { runtime, state } = createRuntime({ workflowPort });
+        const scan = runtime.scanInventory(jest.fn());
+        if (action === 'cancel') runtime.cancelInventory();
+        else runtime.endSession();
+        expect(state.isInventoryLoading).toBe(false);
+        runtime.endSession(); runtime.beginSession();
+        const inventory: ChannelSetupInventory = { scopeKey: 'old', generation: 1, libraries: [],
+            acceptedReadyLibraryIds: [], sharedPlaylistsStatus: 'unused' };
+        publish(inventory); pending.resolve(inventory);
+        await scan;
+        expect(state.isInventoryLoading).toBe(false);
+        expect(state.inventory).toBeNull();
     });
 
     it('syncSetupContext keeps recognized contexts and falls back to unknown on unavailable errors', () => {

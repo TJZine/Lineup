@@ -132,9 +132,11 @@ test('rejects modified or added bundled JavaScript against an approved generated
     const item = fixture();
     try {
         const approved = verifyOfflineNotices(item.root, item.dist);
-        writeFileSync(path.join(item.dist, 'assets/index.js'),
-            readFileSync(path.join(item.dist, 'assets/index.js')) + '\n// altered helper');
+        const indexPath = path.join(item.dist, 'assets/index.js');
+        const originalIndex = readFileSync(indexPath);
+        writeFileSync(indexPath, originalIndex + '\n// altered helper');
         assert.throws(() => verifyOfflineNotices(item.root, item.dist, approved), /Generated JavaScript\/assets differ/);
+        writeFileSync(indexPath, originalIndex);
         writeFileSync(path.join(item.dist, 'assets/helper.js'), 'extra helper');
         assert.throws(() => verifyOfflineNotices(item.root, item.dist, approved), /Generated JavaScript\/assets differ/);
     } finally { item.dispose(); }

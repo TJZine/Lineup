@@ -129,15 +129,6 @@ describe('ChannelManager durable authored boundary', () => {
         expect(JSON.parse(mockLocalStorage.getItem(STORAGE_KEY) ?? '{}').channels).toEqual([]);
     });
 
-    it('supersedes queued metadata snapshots before a structural replacement', async () => {
-        await manager.replaceAllChannels([createBaseChannel({ id: 'old' })]);
-        const queued = manager.saveChannels();
-        await manager.replaceAllChannels([createBaseChannel({ id: 'new' })]);
-        await queued;
-        await manager.flushSaves();
-        expect(JSON.parse(mockLocalStorage.getItem(STORAGE_KEY) ?? '{}').channelOrder).toEqual(['new']);
-    });
-
     it('rejects invalid replacement without changing old body and reports a pointer warning after commit', async () => {
         await manager.replaceAllChannels([createBaseChannel({ id: 'old' })]);
         const body = mockLocalStorage.getItem(STORAGE_KEY);

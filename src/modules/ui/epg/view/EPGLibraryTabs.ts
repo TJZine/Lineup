@@ -1,4 +1,5 @@
 interface EPGLibraryTabsConfig {
+    onFocus?: () => void;
     onSelect: (libraryId: string | null) => void;
 }
 
@@ -69,6 +70,7 @@ export class EPGLibraryTabs {
         const index = allTabs.findIndex((id) => id === this.selectedId);
         this.focusedIndex = index >= 0 ? index : 0; // 0 is "All"
         this.isPillFocused = true;
+        this.config.onFocus?.();
         this.applyPillClasses();
         this.applyPickerClasses();
     }
@@ -155,6 +157,7 @@ export class EPGLibraryTabs {
     }
 
     private openPicker(): void {
+        this.config.onFocus?.();
         this.focusedIndex = this.getFocusedIndexForOpen();
         this.renderPicker();
         this.applyPickerClasses();

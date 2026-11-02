@@ -592,6 +592,70 @@ describe('PlaybackRuntimeController', () => {
             jest.useRealTimers();
         }
     });
+    it.each(['resolved', 'rejected'] as const)(
+        'ignores a %s old fallback after the scheduler advances within the same admission', async (settlement) => {
+            const now = jest.spyOn(Date, 'now').mockReturnValue(1_000_000);
+            const scheduler = new ChannelScheduler();
+            const fallback = createDeferred<boolean>();
+            const item = { ratingKey: 'old', title: 'Old', fullTitle: 'Old', type: 'movie' as const,
+                durationMs: 10_000, thumb: null, year: 2026, scheduledIndex: 0 };
+            const deps = makeDeps({
+                getScheduledProgramIdentity: () => buildScheduledProgramIdentityFromState(scheduler.getState()),
+            });
+            deps.playback.playbackRecovery.attemptTranscodeFallbackForCurrentProgram =
+                jest.fn().mockReturnValue(fallback.promise);
+            const runtime = new PlaybackRuntimeController(deps);
+            try {
+                scheduler.loadChannel({ channelId: 'channel-1', anchorTime: 1_000_000,
+                    content: [item, { ...item, ratingKey: 'next', title: 'Next', scheduledIndex: 1 }],
+                    playbackMode: 'sequential', shuffleSeed: 1 });
+                const tune = runtime.beginIntentionalTune('channel-1');
+                runtime.acceptCommittedSession(currentDescriptor);
+                runtime.finishIntentionalTune(tune);
+                const admission = runtime.captureAdmission();
+                runtime.handlePlaybackError(makePlaybackError());
+
+                now.mockReturnValue(1_010_000);
+                scheduler.syncToCurrentTime();
+                runtime.acceptCommittedSession(currentDescriptor);
+                expect(scheduler.getCurrentProgram()?.item.ratingKey).toBe('next');
+                expect(runtime.captureAdmission()).toBe(admission);
+
+                if (settlement === 'resolved') fallback.resolve(false);
+                else fallback.reject(new Error('old fallback failed'));
+                await flushPromises();
+
+                expect(deps.playback.playbackRecovery.handlePlaybackFailure).not.toHaveBeenCalled();
+                expect(deps.uiRuntime.handleGlobalError).not.toHaveBeenCalled();
+                expect(deps.reportRecoverableAsyncFailure).not.toHaveBeenCalled();
+            } finally {
+                scheduler.unloadChannel();
+                now.mockRestore();
+            }
+        }
+    );
+
+    it.each(['scope', 'tune'] as const)(
+        'ignores a fallback rejection after %s invalidates its admission', async (invalidation) => {
+            const fallback = createDeferred<boolean>();
+            const deps = makeDeps();
+            deps.playback.playbackRecovery.attemptTranscodeFallbackForCurrentProgram =
+                jest.fn().mockReturnValue(fallback.promise);
+            const runtime = new PlaybackRuntimeController(deps);
+            runtime.beginIntentionalTune('channel-1');
+            runtime.handlePlaybackError(makePlaybackError());
+            if (invalidation === 'scope') runtime.invalidateScope();
+            else runtime.beginIntentionalTune('channel-2');
+
+            fallback.reject(new Error('superseded fallback failed'));
+            await flushPromises();
+
+            expect(deps.playback.playbackRecovery.handlePlaybackFailure).not.toHaveBeenCalled();
+            expect(deps.uiRuntime.handleGlobalError).not.toHaveBeenCalled();
+            expect(deps.reportRecoverableAsyncFailure).not.toHaveBeenCalled();
+        }
+    );
+
     it('reports async failures when non-recoverable playback error surfacing rejects', async () => {
         const globalErrorFailure = new Error('global error failed');
         const deps = makeDeps({

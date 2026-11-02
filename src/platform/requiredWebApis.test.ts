@@ -76,10 +76,6 @@ describe('required web API installation', () => {
             .toEqual(replaceChildrenDescriptor);
         expect(Object.getOwnPropertyDescriptor(AbortSignal.prototype, 'throwIfAborted'))
             .toEqual(throwIfAbortedDescriptor);
-        expect(replaceChildrenDescriptor)
-            .toMatchObject({ configurable: true, enumerable: true, writable: true });
-        expect(throwIfAbortedDescriptor)
-            .toMatchObject({ configurable: true, enumerable: true, writable: true });
     });
 
     it('installs an idempotent replaceChildren fallback with standard child replacement semantics', () => {

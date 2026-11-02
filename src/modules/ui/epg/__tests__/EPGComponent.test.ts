@@ -375,6 +375,42 @@ describe('EPGComponent', () => {
         expect(container.querySelector('.epg-menu-overlay')).toBeNull();
     });
 
+    it('keeps the focused menu action authoritative on an empty Guide', () => {
+        epg.show();
+        const onSetup = jest.fn();
+        epg.on('setupRequested', onSetup);
+        epg.openLineupMenu();
+        epg.handleBack();
+        expect(container.querySelector('.epg-classic-header-brand.epg-toolbar-focused')).not.toBeNull();
+
+        epg.handleSelect();
+
+        expect(container.querySelector('.epg-menu-overlay')).not.toBeNull();
+        expect(onSetup).not.toHaveBeenCalled();
+    });
+
+    it('reaches the toolbar from an empty Guide and preserves setup only for empty-grid OK', () => {
+        epg.show();
+        expect((container.querySelector('.epg-empty-state') as HTMLElement).hidden).toBe(false);
+        const onSetup = jest.fn();
+        epg.on('setupRequested', onSetup);
+        expect(epg.getState().focusedCell).toBeNull();
+        expect(epg.handleSelect()).toBe(true);
+        expect(onSetup).toHaveBeenCalledTimes(1);
+
+        expect(epg.handleNavigation('up')).toBe(true);
+        expect(container.querySelector('[data-action="search"].epg-toolbar-focused')).not.toBeNull();
+        for (let step = 0; step < 4; step++) epg.handleNavigation('right');
+        epg.handleSelect();
+
+        expect(container.querySelector('[data-action="hours"]')?.textContent).toContain('4 hours');
+        expect(onSetup).toHaveBeenCalledTimes(1);
+        expect(epg.getState().focusedCell).toBeNull();
+        epg.handleNavigation('down');
+        epg.handleSelect();
+        expect(onSetup).toHaveBeenCalledTimes(2);
+    });
+
     it('routes every remote menu action and empty-state setup through the production deferred facade', async () => {
         const deferredContainer = document.createElement('div');
         deferredContainer.id = 'epg-deferred-actions';
@@ -416,6 +452,8 @@ describe('EPGComponent', () => {
             expect(onRoute).toHaveBeenCalledTimes(routes.length + 1);
 
             deferred.loadChannels([]);
+            // The route spy leaves the menu invoker focused; return to the empty grid first.
+            deferred.handleBack();
             deferredContainer.querySelector<HTMLButtonElement>('.epg-empty-state button')?.click();
             deferred.handleSelect();
             expect(onSetup).toHaveBeenCalledTimes(2);
@@ -1255,35 +1293,6 @@ describe('EPGComponent', () => {
 
             expect(handler).toHaveBeenCalledTimes(1);
         });
-
-        it('should return false if no program focused', () => {
-            const newEpg = new EPGComponent();
-            const newContainer = document.createElement('div');
-            newContainer.id = 'epg-container-2';
-            document.body.appendChild(newContainer);
-
-            newEpg.initialize({
-                containerId: 'epg-container-2',
-                visibleChannels: 5,
-                timeSlotMinutes: 30,
-                visibleHours: 3,
-                totalHours: 24,
-                pixelsPerMinute: 4,
-                rowHeight: 80,
-                autoScrollToNow: false,
-            });
-            newEpg.show();
-
-            expect((newContainer.querySelector('.epg-empty-state') as HTMLElement).hidden).toBe(false);
-
-            const onSetup = jest.fn();
-            newEpg.on('setupRequested', onSetup);
-            expect(newEpg.handleSelect()).toBe(true);
-            expect(onSetup).toHaveBeenCalledTimes(1);
-
-            newEpg.destroy();
-            newContainer.remove();
-        });
     });
 
     describe('schedule focus stability', () => {
@@ -1542,6 +1551,8 @@ describe('EPGComponent', () => {
             expect(onFilter).not.toHaveBeenCalled();
             const overlay = container.querySelector('.epg-library-picker-overlay');
             expect(overlay).not.toBeNull();
+            // The grid supplies the popup's bounds and spacing below the separate video plane.
+            expect(overlay?.parentElement).toBe(container.querySelector('.epg-grid'));
         });
 
         it('moves from the library pill into the toolbar on RIGHT', () => {
@@ -1558,6 +1569,88 @@ describe('EPGComponent', () => {
             expect(container.querySelector('.epg-toolbar-button.epg-toolbar-focused')).not.toBeNull();
             const focused = epg.getState().focusedCell;
             expect(focused?.channelIndex).toBe(0);
+        });
+
+        it('hands library focus to a pointer-selected toolbar control before returning to the grid', () => {
+            setupWithPicker();
+            const onChannel = jest.fn();
+            epg.on('channelSelected', onChannel);
+            epg.handleNavigation('up');
+
+            container.querySelector<HTMLButtonElement>('[data-action="hours"]')?.click();
+            expect(container.querySelector('.epg-library-pill.focused')).toBeNull();
+            epg.handleNavigation('down');
+            epg.handleSelect();
+
+            expect(container.classList.contains('epg-focus-in-toolbar')).toBe(false);
+            expect(container.querySelector('.epg-library-picker-overlay')).toBeNull();
+            expect(onChannel).toHaveBeenCalledTimes(1);
+        });
+
+        it('hands toolbar focus to a pointer-opened library picker for remote selection', () => {
+            setupWithPicker();
+            const onFilter = jest.fn();
+            epg.on('libraryFilterChanged', onFilter);
+            epg.handleNavigation('up');
+            epg.handleNavigation('right');
+
+            container.querySelector<HTMLButtonElement>('.epg-library-pill')?.click();
+            epg.handleNavigation('down');
+            expect(container.querySelector('.epg-library-picker-item.focused')?.textContent).toBe('TV');
+            epg.handleSelect();
+
+            expect(onFilter).toHaveBeenCalledWith({ libraryId: 'lib2' });
+            expect(container.querySelector('.epg-toolbar-button.epg-toolbar-focused')).toBeNull();
+            expect(container.querySelector('.epg-search-overlay')).toBeNull();
+            expect(container.querySelector('.epg-library-picker-overlay')).toBeNull();
+            expect(container.querySelector('.epg-library-pill.focused')).not.toBeNull();
+        });
+
+        it('closes a library picker when a pointer-selected toolbar control takes focus', () => {
+            setupWithPicker();
+            epg.handleNavigation('up');
+            epg.handleSelect();
+
+            container.querySelector<HTMLButtonElement>('[data-action="hours"]')?.click();
+
+            expect(container.querySelector('.epg-library-picker-overlay')).toBeNull();
+            expect(container.querySelector('.epg-library-pill.focused')).toBeNull();
+            expect(container.querySelector('[data-action="hours"].epg-toolbar-focused')).not.toBeNull();
+            expect(epg.handleBack()).toBe(true);
+            expect(container.classList.contains('epg-focus-in-toolbar')).toBe(false);
+        });
+
+        it('keeps one popup owner when the Lineup menu replaces a library picker', () => {
+            setupWithPicker();
+            epg.handleNavigation('up');
+            epg.handleSelect();
+
+            epg.openLineupMenu();
+
+            expect(container.querySelector('.epg-library-picker-overlay')).toBeNull();
+            expect(container.querySelector('.epg-library-pill.focused')).toBeNull();
+            expect(container.querySelector('.epg-menu-overlay')).not.toBeNull();
+            epg.handleBack();
+            expect(container.querySelector('.epg-classic-header-brand.epg-toolbar-focused')).not.toBeNull();
+            epg.handleNavigation('down');
+            expect(container.querySelector('.epg-library-pill.focused')).not.toBeNull();
+        });
+
+        it('closes search when the pointer opens the Lineup menu and relinquishes menu focus to the toolbar', () => {
+            setupWithPicker();
+            container.querySelector<HTMLButtonElement>('[data-action="search"]')?.click();
+            expect(document.activeElement).toBe(container.querySelector('.epg-search-input'));
+
+            container.querySelector<HTMLButtonElement>('[data-action="menu"]')?.click();
+
+            expect(container.querySelector('.epg-search-overlay')).toBeNull();
+            expect(container.querySelector('.epg-toolbar-button.epg-toolbar-focused')).toBeNull();
+            expect(container.querySelector('.epg-menu-overlay')).not.toBeNull();
+
+            container.querySelector<HTMLButtonElement>('[data-action="hours"]')?.click();
+            expect(container.querySelector('.epg-menu-overlay')).toBeNull();
+            expect(container.querySelector('.epg-classic-header-brand.epg-toolbar-focused')).toBeNull();
+            expect(container.querySelector('[data-action="hours"].epg-toolbar-focused')).not.toBeNull();
         });
 
         it('UP/DOWN moves highlighted item while picker open', () => {

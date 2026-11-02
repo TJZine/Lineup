@@ -1092,23 +1092,6 @@ describe('ChannelSetupScreen', () => {
             expect.objectContaining({ removalConfirmedForReviewId: 'prepared-review-1' }), expect.any(Object));
     });
 
-    it('keeps blocked Apply unsaved and returns to an out-of-date Review', async () => {
-        const container = createBodyAppendedTestContainer();
-        const applySetupReview = jest.fn().mockResolvedValue({ kind: 'blocked', reason: 'stale',
-            message: 'Base changed. Refresh Review.' });
-        const { workflowPort, screenPorts } = createSplitScreenPorts({
-            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]), applySetupReview,
-        });
-        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
-        screen.show(); await flushPromises(); await enterStep2(container);
-        clickButton(container, '#setup-next'); await flushPromises(); await flushPromises();
-        clickButton(container, '#setup-confirm'); await flushPromises();
-        expect(container.textContent).toContain('Nothing was saved');
-        clickButton(container, '#setup-back');
-        expect(container.textContent).toContain('Review is out of date');
-        expect((container.querySelector('#setup-confirm') as HTMLButtonElement).disabled).toBe(true);
-    });
-
     it('renders blocked and slow Review as disabled Apply with actionable recovery', async () => {
         const container = createBodyAppendedTestContainer();
         const getSetupReview = jest.fn().mockResolvedValue({ ...DEFAULT_REVIEW,

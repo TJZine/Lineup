@@ -403,6 +403,9 @@ describe('ChannelManager collection reference recovery', () => {
     it('keeps a queued old snapshot pending when recovery persistence fails', async () => {
         const channel = await createPersistedCollectionChannel();
         await manager.reorderChannels([channel.id]);
+        const pendingSave = manager.saveChannels();
+        const saveSettled = jest.fn();
+        void pendingSave.then(saveSettled, saveSettled);
 
         mockLibrary.getCollectionItems.mockImplementation(async (key) => {
             if (key === 'old-key') throw missingCollectionError();
@@ -415,7 +418,7 @@ describe('ChannelManager collection reference recovery', () => {
             thumb: null,
             childCount: 67,
         }]);
-        mockLocalStorage.setItem.mockImplementation(() => {
+        mockLocalStorage.setItem.mockImplementationOnce(() => {
             throw new DOMException('quota', 'QuotaExceededError');
         });
         expectConsoleWarn([
@@ -426,6 +429,7 @@ describe('ChannelManager collection reference recovery', () => {
         await expect(manager.refreshChannelContent(channel.id)).rejects.toMatchObject({
             code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
         });
+        expect(saveSettled).not.toHaveBeenCalled();
         expect(manager.getChannel(channel.id)?.contentSource).toMatchObject({ collectionKey: 'old-key' });
         expect(JSON.parse(mockLocalStorage.getItem(STORAGE_KEY) ?? '{}')).toEqual(
             expect.objectContaining({
@@ -435,6 +439,10 @@ describe('ChannelManager collection reference recovery', () => {
                 })],
             })
         );
+        await manager.flushSaves();
+        await expect(pendingSave).resolves.toBeUndefined();
+        expect(JSON.parse(mockLocalStorage.getItem(STORAGE_KEY) ?? '{}').channels[0]?.contentSource)
+            .toMatchObject({ collectionKey: 'old-key' });
     });
 
     it('preserves an unrelated queued channel edit when recovery persistence succeeds', async () => {
@@ -451,6 +459,7 @@ describe('ChannelManager collection reference recovery', () => {
         );
         await manager.flushSaves();
         await manager.updateChannel(other.id, { name: 'Pending Rename' });
+        const pendingSave = manager.saveChannels();
 
         mockLibrary.getCollectionItems.mockImplementation(async (key) => {
             if (key === 'old-key') throw missingCollectionError();
@@ -465,6 +474,7 @@ describe('ChannelManager collection reference recovery', () => {
         }]);
 
         await manager.refreshChannelContent(channel.id);
+        await pendingSave;
         await manager.flushSaves();
 
         const persisted = JSON.parse(mockLocalStorage.getItem(STORAGE_KEY) ?? '{}') as {

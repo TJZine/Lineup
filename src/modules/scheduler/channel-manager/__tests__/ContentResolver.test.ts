@@ -780,20 +780,70 @@ describe('ContentResolver', () => {
             expect(result).toHaveLength(1);
         });
 
-        // Issue 7: Manual source now uses cached metadata without fetching from Plex
-        it('should resolve manual source from cached metadata', async () => {
+        it('hydrates hand-picked metadata once per key while preserving occurrence order', async () => {
             const source: ManualContentSource = {
                 type: 'manual',
-                items: [{ ratingKey: 'm1', title: 'Manual Item', durationMs: 3600000 }],
+                items: ['episode', 'movie', 'episode'].map(ratingKey => ({
+                    ratingKey, title: 'Old cached title', durationMs: 1,
+                })),
             };
+            mockLibrary.getItem.mockImplementation(async ratingKey => ratingKey === 'episode'
+                ? createMockEpisode(0, 2, { ratingKey, title: 'Current episode', year: 2026, viewCount: 1,
+                    genres: ['Drama'], durationMs: 1800000 })
+                : createMockItem({ ratingKey, title: 'Current movie', durationMs: 7200000 }));
 
             const result = await resolver.resolveSource(source);
 
-            // Should NOT call getItem - uses cached metadata
-            expect(mockLibrary.getItem).not.toHaveBeenCalled();
-            expect(result).toHaveLength(1);
-            expect(result[0]!.title).toBe('Manual Item');
-            expect(result[0]!.durationMs).toBe(3600000);
+            expect(mockLibrary.getItem).toHaveBeenCalledTimes(2);
+            expect(result.map(item => item.ratingKey)).toEqual(['episode', 'movie', 'episode']);
+            expect(result.map(item => item.scheduledIndex)).toEqual([0, 1, 2]);
+            expect(result[0]).toMatchObject({ type: 'episode', title: 'Current episode', year: 2026,
+                seasonNumber: 0, episodeNumber: 2, showTitle: 'Test Show', watched: true,
+                genres: ['Drama'], durationMs: 1800000 });
+            expect(result[1]).toMatchObject({ type: 'movie', title: 'Current movie', durationMs: 7200000 });
+            expect(result[2]).toEqual({ ...result[0], scheduledIndex: 2 });
+
+            await resolver.resolveSource(source);
+            expect(mockLibrary.getItem).toHaveBeenCalledTimes(2);
+            await resolver.resolveSource(source, { cacheMode: 'revalidate' });
+            expect(mockLibrary.getItem).toHaveBeenCalledTimes(4);
+        });
+
+        it.each([
+            ['missing', null],
+            ['wrong identity', createMockItem({ ratingKey: 'another' })],
+            ['container', createMockItem({ ratingKey: 'unavailable', type: 'show' })],
+            ['zero duration', createMockItem({ ratingKey: 'unavailable', durationMs: 0 })],
+            ['nonfinite duration', createMockItem({ ratingKey: 'unavailable', durationMs: Number.NaN })],
+        ] as const)('rejects the whole hand-picked source for a %s program', async (_label, unavailable) => {
+            mockLibrary.getItem.mockImplementation(async ratingKey => ratingKey === 'valid'
+                ? createMockItem({ ratingKey }) : unavailable);
+            const source: ManualContentSource = { type: 'manual', items: ['valid', 'unavailable'].map(ratingKey => ({
+                ratingKey, title: ratingKey, durationMs: 3600000,
+            })) };
+            await expect(resolver.resolveSource(source)).rejects.toThrow('Hand-picked program');
+        });
+
+        it.each(['caller abort', 'cache invalidation'] as const)('stops hand-picked hydration after %s', async mode => {
+            const pending = createDeferredPromise<PlexMediaItemMinimal | null>();
+            let producerSignal: AbortSignal | null | undefined;
+            mockLibrary.getItem.mockImplementation((_key, options) => {
+                producerSignal = options?.signal;
+                return pending.promise;
+            });
+            const controller = new AbortController();
+            const source: ManualContentSource = { type: 'manual', items: ['first', 'second'].map(ratingKey => ({
+                ratingKey, title: ratingKey, durationMs: 3600000,
+            })) };
+            const inFlight = resolver.resolveSource(source, { signal: controller.signal });
+            const rejected = expect(inFlight).rejects.toMatchObject({ name: 'AbortError' });
+            if (mode === 'caller abort') controller.abort();
+            else resolver.clearCaches();
+            await rejected;
+            pending.resolve(createMockItem({ ratingKey: 'first' }));
+            await resolver.whenIdle();
+            expect(producerSignal?.aborted).toBe(true);
+            expect(mockLibrary.getItem).toHaveBeenCalledTimes(1);
         });
 
         it('should resolve mixed source with sequential mode', async () => {

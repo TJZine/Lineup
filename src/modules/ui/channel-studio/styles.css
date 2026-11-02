@@ -47,7 +47,7 @@
 .channel-studio button, .channel-studio input, .channel-studio select {
   box-sizing: border-box;
   min-height: 48px;
-  border: 1px solid var(--panel-border);
+  border: var(--panel-border);
   border-radius: var(--panel-radius, 8px);
   background: transparent;
   color: inherit;
@@ -105,7 +105,7 @@
   flex-wrap: wrap;
   gap: 16px;
   padding: 24px 0;
-  border-top: 1px solid var(--panel-border);
+  border-top: var(--panel-border);
 }
 .studio-field {
   display: flex;
@@ -172,7 +172,7 @@
   flex-wrap: wrap;
   gap: 8px;
   padding: 12px 0;
-  border-bottom: 1px solid var(--panel-border);
+  border-bottom: var(--panel-border);
 }
 .studio-item span {
   flex: 1 1 220px;
@@ -206,7 +206,7 @@
   overflow-y: auto;
   padding: 32px;
   background: var(--panel-surface);
-  border: 1px solid var(--panel-border);
+  border: var(--panel-border);
   border-radius: var(--panel-radius, 8px);
 }
 .studio-dialog button {

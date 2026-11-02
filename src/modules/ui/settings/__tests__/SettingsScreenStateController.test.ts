@@ -153,3 +153,49 @@ it('publishes Guide hours and source labels only after successful persistence', 
     expect(onGuideSettingChange).toHaveBeenNthCalledWith(1, { key: 'guideHours', hours: 4 });
     expect(onGuideSettingChange).toHaveBeenNthCalledWith(2, { key: 'sourceLabels', enabled: true });
 });
+
+it('a retained migration retry preserves a newer saved Guide range', () => {
+    localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY, 'wide');
+    const blockedWrite = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+        throw new DOMException('blocked', 'SecurityError');
+    });
+    const onGuideSettingChange = jest.fn();
+    const state = controller({ onGuideSettingChange });
+    const items = state.getCategories().find(category => category.id === 'guide')?.items;
+    const retry = items?.find(item => item.id === 'settings-guide-hours-retry');
+    const hours = items?.find(item => item.id === 'settings-guide-hours');
+    if (!retry || !('action' in retry) || !hours || !('options' in hours)) {
+        throw new Error('Missing Guide migration controls');
+    }
+    blockedWrite.mockRestore();
+    expect(hours.onChange(2)).toEqual({ ok: true });
+    expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_HOURS)).toBe('4');
+
+    retry.action();
+
+    expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_HOURS)).toBe('4');
+    expect(onGuideSettingChange).toHaveBeenLastCalledWith({ key: 'guideHours', hours: 4 });
+});
+
+it('does not overwrite an unreadable Guide preference with the displayed default on retry', () => {
+    localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_HOURS, '4');
+    const nativeGet = Storage.prototype.getItem;
+    const blockedRead = jest.spyOn(Storage.prototype, 'getItem').mockImplementation(function (
+        this: Storage, key: string
+    ): string | null {
+        if (key === LINEUP_STORAGE_KEYS.EPG_GUIDE_HOURS) throw new DOMException('blocked', 'SecurityError');
+        return nativeGet.call(this, key);
+    });
+    const onGuideSettingChange = jest.fn();
+    const state = controller({ onGuideSettingChange });
+    const retry = state.getCategories().find(category => category.id === 'guide')?.items
+        .find(item => item.id === 'settings-guide-hours-retry');
+    if (!retry || !('action' in retry)) throw new Error('Missing Guide migration retry');
+    const write = jest.spyOn(Storage.prototype, 'setItem');
+
+    expect(() => retry.action()).toThrow();
+    expect(write).not.toHaveBeenCalled();
+    expect(onGuideSettingChange).not.toHaveBeenCalled();
+    blockedRead.mockRestore();
+    expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_HOURS)).toBe('4');
+});

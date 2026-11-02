@@ -11,13 +11,16 @@ export class EPGGuideToolbar {
     private searchIndex = 0;
     private channels: ChannelConfig[] = [];
     private statusElement: HTMLElement | null = null;
+    private onFocus: () => void = () => {};
     private onAction: (action: GuideToolbarAction) => void = () => {};
     private onPickChannel: (index: number) => void = () => {};
 
     initialize(host: HTMLElement, overlayHost: HTMLElement, callbacks: {
+        onFocus: () => void;
         onAction: (action: GuideToolbarAction) => void;
         onPickChannel: (index: number) => void;
     }): void {
+        this.onFocus = callbacks.onFocus;
         this.onAction = callbacks.onAction;
         this.onPickChannel = callbacks.onPickChannel;
         const definitions: Array<[GuideToolbarAction, string]> = [
@@ -35,8 +38,7 @@ export class EPGGuideToolbar {
                 later: 'Next time', hours: 'Guide hours',
             }[action]);
             button.addEventListener('click', () => {
-                this.focusedIndex = this.buttons.indexOf(button);
-                this.syncFocus();
+                this.focus(this.buttons.indexOf(button));
                 if (action === 'search') this.openSearch(overlayHost);
                 else this.onAction(action);
             });
@@ -73,6 +75,7 @@ export class EPGGuideToolbar {
 
     focus(index = 0): void {
         this.focusedIndex = Math.max(0, Math.min(index, this.buttons.length - 1));
+        this.onFocus();
         this.syncFocus();
     }
 

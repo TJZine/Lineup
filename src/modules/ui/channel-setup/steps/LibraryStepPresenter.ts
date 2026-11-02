@@ -119,10 +119,11 @@ export class LibraryStepPresenter {
     }
 
     private _handleToggleLibrary(ctx: StepRenderContext, libraryId: string, focusId: string): void {
-        const hadInventory = this._deps.session.getSnapshot().inventory !== null;
+        const previous = this._deps.session.getSnapshot();
+        const needsRender = previous.inventory !== null || previous.isInventoryLoading;
         this._deps.setPreferredFocusId(focusId);
         const selected = this._deps.session.toggleLibrary(libraryId);
-        if (hadInventory) {
+        if (needsRender) {
             this._deps.renderStep();
             return;
         }

@@ -376,22 +376,26 @@ describe('PlaybackOptionsCoordinator', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
         const player = createPlayer([makeBurnInTrack({ id: 'burn' })]);
         const deferred = createDeferred<{ outcome: 'ignored'; reason: 'program_changed' }>();
+        const requestBurnInSubtitle = jest.fn().mockReturnValue(deferred.promise);
         let identity = 'first-program';
         const notifyToast = jest.fn();
         const onSelectionChange = jest.fn();
         const coordinator = new PlaybackOptionsCoordinator({
             getVideoPlayer: (): IVideoPlayer => player,
             getMediaIdentity: (): string => identity,
-            requestBurnInSubtitle: jest.fn().mockReturnValue(deferred.promise),
+            requestBurnInSubtitle,
             notifyToast,
             onSelectionChange,
         });
-        coordinator.getViewModel().subtitles.options[0]?.onSelect();
+        coordinator.getViewModel().subtitles.options
+            .find((option) => option.id === 'playback-subtitle-burn')?.onSelect();
+        expect(requestBurnInSubtitle).toHaveBeenCalledWith('burn', expect.any(String));
         identity = 'later-program';
         deferred.resolve({ outcome: 'ignored', reason: 'program_changed' });
         await flushPlaybackOptionsPromises();
 
-        expect(coordinator.getViewModel().subtitles.options[0]?.state).toBeUndefined();
+        expect(coordinator.getViewModel().subtitles.options
+            .find((option) => option.id === 'playback-subtitle-burn')?.state).toBeUndefined();
         expect(notifyToast).not.toHaveBeenCalledWith({ message: 'Failed to load burn-in subtitles', type: 'warning' });
         expect(onSelectionChange).toHaveBeenCalledTimes(1);
     });

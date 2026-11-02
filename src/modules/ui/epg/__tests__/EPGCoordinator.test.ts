@@ -474,9 +474,9 @@ describe('EPGCoordinator', () => {
         );
     });
 
-    it('openEPG handles promise rejection by hiding EPG and reporting warning', async () => {
+    it('openEPG hides and reports initialization failure, then allows retry', async () => {
         const error = new Error('Init failed');
-        const ensure = jest.fn().mockRejectedValue(error);
+        const ensure = jest.fn().mockRejectedValueOnce(error).mockResolvedValueOnce(undefined);
         const { deps, epg } = makeDeps({
             getEpgUiStatus: () => 'pending',
             ensureEpgInitialized: ensure,
@@ -506,24 +506,6 @@ describe('EPGCoordinator', () => {
                 errorKind: 'non-abort',
             })
         );
-    });
-
-    it('retries deferred Guide initialization after a hidden failure', async () => {
-        const ensure = jest.fn()
-            .mockRejectedValueOnce(new Error('Guide unavailable'))
-            .mockResolvedValueOnce(undefined);
-        const { deps, epg } = makeDeps({
-            getEpgUiStatus: () => 'pending',
-            ensureEpgInitialized: ensure,
-        });
-        let visible = false;
-        (epg.show as jest.Mock).mockImplementation(() => { visible = true; });
-        (epg.hide as jest.Mock).mockImplementation(() => { visible = false; });
-        (epg.isVisible as jest.Mock).mockImplementation(() => visible);
-        const coordinator = new EPGCoordinator(deps);
-
-        coordinator.openEPG();
-        await flushPromises();
         expect(visible).toBe(false);
 
         coordinator.openEPG();

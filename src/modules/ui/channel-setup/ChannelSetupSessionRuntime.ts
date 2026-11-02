@@ -82,8 +82,7 @@ export class ChannelSetupSessionRuntime {
         this._cleanupPlanningAsyncState();
         this._loadAbortController?.abort();
         this._loadAbortController = null;
-        this._inventoryAbortController?.abort();
-        this._inventoryAbortController = null;
+        this._retireInventoryScan();
         this._buildAbortController?.abort();
         this._buildAbortController = null;
         this._deps.state.isLoading = false;
@@ -211,10 +210,12 @@ export class ChannelSetupSessionRuntime {
             onStateChange();
             return;
         }
-        this._inventoryAbortController?.abort();
+        this._retireInventoryScan();
         const controller = new AbortController();
         this._inventoryAbortController = controller;
-        const token = state.sessionToken;
+        // Planning edits can accept a ready subset while this scan is still running.
+        // Inventory ownership changes only when its controller is retired or replaced.
+        const isCurrent = (): boolean => this._inventoryAbortController === controller;
         state.isInventoryLoading = true;
         state.inventoryError = null;
         onStateChange();
@@ -222,7 +223,7 @@ export class ChannelSetupSessionRuntime {
             const inventory = await this._deps.workflowPort.scanSetupInventory(state.buildConfig(serverId), {
                 signal: controller.signal,
                 onProgress: (progress) => {
-                    if (token !== state.sessionToken || this._inventoryAbortController !== controller) return;
+                    if (!isCurrent()) return;
                     state.inventory = progress;
                     for (const fact of progress.libraries) {
                         if (fact.status === 'ready') state.knownReadyLibraryIds.add(fact.libraryId);
@@ -230,18 +231,18 @@ export class ChannelSetupSessionRuntime {
                     onStateChange();
                 },
             });
-            if (token !== state.sessionToken || this._inventoryAbortController !== controller) return;
+            if (!isCurrent()) return;
             state.inventory = inventory;
             for (const fact of inventory.libraries) {
                 if (fact.status === 'ready') state.knownReadyLibraryIds.add(fact.libraryId);
             }
         } catch (error) {
-            if (token !== state.sessionToken || this._inventoryAbortController !== controller) return;
+            if (!isCurrent()) return;
             if (!isAbortLikeError(error, controller.signal)) {
                 state.inventoryError = error instanceof Error ? error.message : 'Unable to scan libraries.';
             }
         } finally {
-            if (token === state.sessionToken && this._inventoryAbortController === controller) {
+            if (isCurrent()) {
                 this._inventoryAbortController = null;
                 state.isInventoryLoading = false;
                 onStateChange();
@@ -283,7 +284,7 @@ export class ChannelSetupSessionRuntime {
         this._deps.state.acceptedReadyLibraryIds.clear();
         this._deps.state.confirmedDeselectedLibraryIds.clear();
         this._deps.state.knownReadyLibraryIds.clear();
-        this._inventoryAbortController?.abort();
+        this._retireInventoryScan();
         this.clearReviewForEdits();
     }
 
@@ -502,8 +503,15 @@ export class ChannelSetupSessionRuntime {
         this._deps.state.inventory = null;
         this._deps.state.previewStatus = 'idle';
         this._deps.state.acceptedReadyLibraryIds.clear();
-        this._inventoryAbortController?.abort();
+        this._retireInventoryScan();
         this.clearReviewForEdits();
+    }
+
+    private _retireInventoryScan(): void {
+        const controller = this._inventoryAbortController;
+        this._inventoryAbortController = null;
+        this._deps.state.isInventoryLoading = false;
+        controller?.abort();
     }
 
     private _getSetupRecordOrDefault(): ChannelSetupRecord | null {
@@ -658,7 +666,7 @@ export class ChannelSetupSessionRuntime {
     private _resetState(): void {
         const state = this._deps.state;
         this._loadAbortController?.abort();
-        this._inventoryAbortController?.abort();
+        this._retireInventoryScan();
         this._buildAbortController?.abort();
         this._previewAbortController?.abort();
         this._reviewAbortController?.abort();

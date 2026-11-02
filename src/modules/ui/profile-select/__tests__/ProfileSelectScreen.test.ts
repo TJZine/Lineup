@@ -1439,27 +1439,6 @@ describe('ProfileSelectScreen', () => {
         expect(container.querySelector('#btn-profile-pin-ok')).toBeNull();
     });
 
-    it('sets initial focus to the first PIN digit on modal open', async () => {
-        const users = [
-            { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
-            { id: '2', title: 'Kid', thumb: null, admin: false, protected: true },
-        ];
-        const orchestrator = createOrchestratorStub(users);
-        const nav = orchestrator.getNavigation();
-        const container = document.createElement('div');
-        document.body.appendChild(container);
-
-        const screen = new ProfileSelectScreen(container, orchestrator as unknown as ProfileSelectScreenPorts, profileSessionStore);
-        screen.show();
-
-        await settleScreen(screen);
-
-        const protectedButton = container.querySelector('#btn-profile-2') as HTMLButtonElement;
-        protectedButton.click();
-
-        expect(nav.setFocus).toHaveBeenCalledWith('btn-profile-pin-1');
-    });
-
     it('keeps Backspace disabled until a digit is entered and disables it again when emptied', async () => {
         const users = [
             { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },

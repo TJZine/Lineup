@@ -196,10 +196,11 @@
 
 .epg-library-picker-panel {
   position: absolute;
-  top: 56px;
+  top: var(--space-3);
   left: var(--space-3);
   width: 240px;
-  max-height: 70vh;
+  max-height: calc(100% - var(--space-3) * 2);
+  box-sizing: border-box;
   overflow-y: auto;
   background: rgba(14, 14, 16, 0.92);
   border: 1px solid rgba(255, 255, 255, 0.12);

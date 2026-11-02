@@ -28,6 +28,15 @@ function request(source: ChannelContentSource, mode: 'sequential' | 'shuffle' | 
     };
 }
 
+function createManualLibrary(source: Extract<ChannelContentSource, { type: 'manual' }>): ReturnType<typeof createMockLibrary> {
+    const library = createMockLibrary();
+    library.getItem.mockImplementation(async ratingKey => {
+        const item = source.items.find(candidate => candidate.ratingKey === ratingKey);
+        return item ? createMockItem({ ...item }) : null;
+    });
+    return library;
+}
+
 describe('ProductionAirCheck', () => {
     const movie = (key: string): ReturnType<typeof createMockItem> => createMockItem({ ratingKey: key, title: `Movie ${key}`, durationMs: 30 * 60_000 });
     const episode = (key: string, season: number): ReturnType<typeof createMockItem> => createMockItem({ ratingKey: key, type: 'episode',
@@ -48,7 +57,7 @@ describe('ProductionAirCheck', () => {
     ];
 
     it.each(sourceCases)('uses the production resolver and scheduler for %s', async (_, source) => {
-        const library = createMockLibrary();
+        const library = source.type === 'manual' ? createManualLibrary(source) : createMockLibrary();
         library.getLibraryItems.mockResolvedValue([movie('a'), movie('b')]);
         library.getCollectionItems.mockResolvedValue([movie('a'), movie('b')]);
         library.getShowEpisodes.mockResolvedValue([episode('s0', 0), episode('s1', 1)]);
@@ -68,6 +77,56 @@ describe('ProductionAirCheck', () => {
         if (source.type === 'manual') expect(actual.items.map(item => item.ratingKey)).toEqual(['a', 'a']);
         if (source.type === 'show') expect(actual.items.map(item => item.ratingKey)).toEqual(['s1']);
         if (source.type === 'library') expect(library.getLibraryItems).toHaveBeenCalledWith('lib', expect.objectContaining({ filter: { genre: 'Drama' } }));
+    });
+
+    it.each(['missing', 'request-failed'] as const)('rejects %s hand-picked metadata instead of trusting the previous verified result', async (failure) => {
+        const source: ChannelContentSource = { type: 'manual', items: [
+            { ratingKey: 'removed', title: 'Cached title', durationMs: 30 * 60_000 },
+        ] };
+        const library = createMockLibrary();
+        library.getItem.mockResolvedValueOnce(movie('removed'));
+        if (failure === 'missing') library.getItem.mockResolvedValueOnce(null);
+        else library.getItem.mockRejectedValueOnce(new Error('Private Plex request failed'));
+        const check = new ProductionAirCheck({ library, getStructuralBase: (): typeof base => base, now: (): number => at });
+        const input = request(source);
+        expect((await check.verify(input, new AbortController().signal)).kind).toBe('verified');
+        expect(await check.verify(input, new AbortController().signal)).toMatchObject({
+            kind: 'error', reason: 'Could not verify the source. Retry Air Check.',
+        });
+        expect(library.getItem).toHaveBeenCalledTimes(2);
+    });
+
+    it('applies episode selection and filters to authoritative hand-picked metadata', async () => {
+        const source: ChannelContentSource = { type: 'manual', items: ['special', 'regular'].map(ratingKey => ({
+            ratingKey, title: 'Cached', durationMs: 1,
+        })) };
+        const library = createMockLibrary();
+        library.getItem.mockImplementation(async ratingKey => createMockItem({ ...episode(ratingKey, ratingKey === 'special' ? 0 : 1),
+            year: 2026, viewCount: 1, genres: ['Drama'] }));
+        const input = request(source, 'block');
+        input.candidate.includeSpecials = false;
+        input.candidate.contentFilters = [{ field: 'year', operator: 'gte', value: 2025 },
+            { field: 'watched', operator: 'eq', value: true }, { field: 'genre', operator: 'contains', value: 'Drama' }];
+        const result = await new ProductionAirCheck({ library, getStructuralBase: (): typeof base => base, now: (): number => at })
+            .verify(input, new AbortController().signal);
+        expect(result.kind).toBe('verified');
+        if (result.kind !== 'verified') return;
+        expect(result.items).toHaveLength(1);
+        expect(result.items[0]).toMatchObject({ ratingKey: 'regular', type: 'episode', seasonNumber: 1,
+            year: 2026, watched: true, durationMs: 20 * 60_000 });
+    });
+
+    it('does not verify the playable subset when a mixed hand-picked source is incomplete', async () => {
+        const source: ChannelContentSource = { type: 'mixed', mixMode: 'sequential', sources: [
+            { type: 'library', libraryId: 'lib', libraryType: 'movie', includeWatched: true },
+            { type: 'manual', items: ['valid', 'missing'].map(ratingKey => ({ ratingKey, title: ratingKey, durationMs: 30 * 60_000 })) },
+        ] };
+        const library = createMockLibrary();
+        library.getLibraryItems.mockResolvedValue([movie('library-movie')]);
+        library.getItem.mockImplementation(async ratingKey => ratingKey === 'valid' ? movie(ratingKey) : null);
+        const result = await new ProductionAirCheck({ library, getStructuralBase: (): typeof base => base, now: (): number => at })
+            .verify(request(source), new AbortController().signal);
+        expect(result.kind).toBe('error');
     });
 
     it.each(['sequential', 'shuffle', 'block', 'random'] as const)('matches actual %s scheduling, including fixed seed and anchor', async mode => {
@@ -124,7 +183,7 @@ describe('ProductionAirCheck', () => {
         input.candidate.startTimeAnchor = new Date(2026, 10, 1).getTime();
         input.candidate.phaseSeed = 0;
         const midnight = new Date(2026, 10, 2).getTime();
-        const result = await new ProductionAirCheck({ library: createMockLibrary(),
+        const result = await new ProductionAirCheck({ library: createManualLibrary(source),
             getStructuralBase: (): typeof base => base, now: (): number => input.asOf })
             .verify(input, new AbortController().signal);
         expect(result.kind).toBe('verified');
@@ -148,7 +207,7 @@ describe('ProductionAirCheck', () => {
         input.candidate.scheduleAnchorMode = 'daily';
         input.candidate.phaseSeed = 0;
         const midnight = new Date(2026, 10, 2).getTime();
-        const result = await new ProductionAirCheck({ library: createMockLibrary(),
+        const result = await new ProductionAirCheck({ library: createManualLibrary(source),
             getStructuralBase: (): typeof base => base, now: (): number => input.asOf })
             .verify(input, new AbortController().signal);
         expect(result.kind).toBe('verified');
@@ -187,7 +246,7 @@ describe('ProductionAirCheck', () => {
         const input = { ...request(source, 'shuffle'), asOf, horizonMs: 24 * 60 * 60_000 };
         input.candidate.scheduleAnchorMode = 'daily';
         input.candidate.phaseSeed = 0;
-        const result = await new ProductionAirCheck({ library: createMockLibrary(),
+        const result = await new ProductionAirCheck({ library: createManualLibrary(source),
             getStructuralBase: (): typeof base => base, now: (): number => asOf })
             .verify(input, new AbortController().signal);
         expect(result.kind).toBe('verified');
@@ -207,7 +266,7 @@ describe('ProductionAirCheck', () => {
     it('applies one safe program budget across calendar-day segments', async () => {
         const source: ChannelContentSource = { type: 'manual', items: [{ ratingKey: 'short', title: 'Short', durationMs: 60_000 }] };
         const input = { ...request(source), asOf: new Date(2026, 10, 3, 12).getTime(), horizonMs: 24 * 60 * 60_000 };
-        const result = await new ProductionAirCheck({ library: createMockLibrary(),
+        const result = await new ProductionAirCheck({ library: createManualLibrary(source),
             getStructuralBase: (): typeof base => base, now: (): number => input.asOf })
             .verify(input, new AbortController().signal);
         expect(result.kind).toBe('partial');
@@ -313,8 +372,8 @@ describe('ProductionAirCheck', () => {
     });
 
     it('does not call a capped, undercovered horizon verified', async () => {
-        const library = createMockLibrary();
         const source: ChannelContentSource = { type: 'manual', items: [{ ratingKey: 'short', title: 'Short', durationMs: 1_000 }] };
+        const library = createManualLibrary(source);
         const result = await new ProductionAirCheck({ library, getStructuralBase: (): typeof base => base, now: (): number => at })
             .verify(request(source), new AbortController().signal);
         expect(result.kind).toBe('partial');

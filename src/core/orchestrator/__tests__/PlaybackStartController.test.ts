@@ -25,13 +25,14 @@ const makeProgram = (ratingKey = 'item-1'): ScheduledProgram => ({
 const makeDeps = (
     overrides: Partial<PlaybackStartControllerDeps> = {}
 ): PlaybackStartControllerDeps => {
+    const videoPlayer = {
+        loadStream: jest.fn().mockResolvedValue(undefined),
+        play: jest.fn().mockResolvedValue(undefined),
+        getCurrentDescriptor: jest.fn().mockReturnValue(null),
+        stop: jest.fn(),
+    };
     const deps: PlaybackStartControllerDeps = {
-        getVideoPlayer: () => ({
-            loadStream: jest.fn().mockResolvedValue(undefined),
-            play: jest.fn().mockResolvedValue(undefined),
-            getCurrentDescriptor: jest.fn().mockReturnValue(null),
-            stop: jest.fn(),
-        }),
+        getVideoPlayer: () => videoPlayer,
         captureAdmission: jest.fn().mockReturnValue(1),
         isAdmissionCurrent: jest.fn().mockReturnValue(true),
         resolveStreamForProgram: jest.fn().mockResolvedValue(makePrepared()),
@@ -87,11 +88,12 @@ describe('PlaybackStartController', () => {
             resolveStreamForProgram: jest.fn(() => new Promise((done) => { resolve = done; })),
             isAdmissionCurrent: jest.fn(() => admitted),
         });
+        const player = deps.getVideoPlayer();
         const start = new PlaybackStartController(deps).handleProgramStart(makeProgram());
         admitted = false;
         resolve(makePrepared());
         expect(await start).toEqual({ kind: 'superseded' });
-        expect(deps.getVideoPlayer()?.loadStream).not.toHaveBeenCalled();
+        expect(player?.loadStream).not.toHaveBeenCalled();
         expect(deps.discardPreparedStream).toHaveBeenCalledTimes(1);
         expect(deps.commitPreparedStream).not.toHaveBeenCalled();
     });

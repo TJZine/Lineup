@@ -74,6 +74,26 @@ it('writes Guide hours and keeps a valid migrated wide choice', () => {
     expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY)).toBeNull();
 });
 
+it('removes obsolete migration recovery controls after saving a new Guide range', () => {
+    localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY, 'wide');
+    const blockedWrite = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+        throw new DOMException('blocked', 'SecurityError');
+    });
+    const { container, nav, screen } = createScreen();
+    activateCategory(container, 'guide');
+    expect(container.querySelector('#settings-guide-hours-retry')).not.toBeNull();
+    blockedWrite.mockRestore();
+
+    choose(container, 'settings-guide-hours', 2);
+
+    expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_HOURS)).toBe('4');
+    expect(container.querySelector('#settings-guide-hours .setup-toggle-value')?.textContent).toBe('4 hours');
+    expect(container.querySelector('#settings-guide-hours-retry')).toBeNull();
+    expect(nav.focusables.has('settings-guide-hours-retry')).toBe(false);
+    expect(nav.getFocusedElement()?.id).toBe('settings-guide-hours');
+    screen.destroy();
+});
+
 it('writes source labels and the retained Guide toggles without moving scoped library state', () => {
     const callback = jest.fn();
     const { container } = createScreen({ onGuideSettingChange: callback });

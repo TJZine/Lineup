@@ -235,7 +235,9 @@ it('composes the real panel Run → loading → verified Save gate and canceled 
     app.screen.show({ kind: 'inspect', channelId: 'saved', expectedBase: { generation: 1, revision: 2 } });
     expect(app.container.querySelectorAll('#air-check-run')).toHaveLength(1);
     click(app.container, 'air-check-run');
+    expect(verify).toHaveBeenCalledTimes(1);
     expect(app.container.querySelector('#air-check-cancel')).not.toBeNull();
+    expect(app.container.querySelector('.air-check-selection')).toBeNull();
     expect(app.container.querySelector<HTMLButtonElement>('#studio-save')?.disabled).toBe(true);
     const request = pendingRequest;
     if (!request) throw new Error('missing preview request');
@@ -245,6 +247,8 @@ it('composes the real panel Run → loading → verified Save gate and canceled 
         scheduleIndex: 0, loopNumber: 0, isCurrent: true };
     first.resolve({ kind: 'verified', request, checkedAt: 100, items: [item], programs: [program], coverageEnd: 60_000 });
     await first.promise; await Promise.resolve(); await Promise.resolve();
+    expect(app.container.querySelector('.air-check-selection')).not.toBeNull();
+    expect(app.container.querySelector('#air-check-cancel')).toBeNull();
     expect(app.container.querySelector<HTMLButtonElement>('#studio-save')?.disabled).toBe(false);
     edit(app.container, 'studio-name', 'Changed');
     expect(app.container.querySelector<HTMLButtonElement>('#studio-save')?.disabled).toBe(true);

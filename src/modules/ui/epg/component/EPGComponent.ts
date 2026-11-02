@@ -144,6 +144,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this.createDOMStructure();
         if (this.toolbarElement && this.containerElement) {
             this.toolbar.initialize(this.toolbarElement, this.containerElement, {
+                onFocus: () => this.claimControlFocus('toolbar'),
                 onAction: (action) => this.handleToolbarAction(action),
                 onPickChannel: (index) => {
                     this.clearControlFocus();
@@ -497,15 +498,16 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     }
 
     setLibraryTabs(libraries: Array<{ id: string; name: string }>, selectedId: string | null): void {
-        if (!this.toolbarElement || !this.containerElement) return;
+        if (!this.toolbarElement || !this.gridElement) return;
         if (!this._libraryTabs) {
             if (libraries.length <= 1) {
                 return;
             }
             this._libraryTabs = new EPGLibraryTabs({
+                onFocus: (): void => this.claimControlFocus('library'),
                 onSelect: (libraryId: string | null): void => this.emit('libraryFilterChanged', { libraryId }),
             });
-            this._libraryTabs.initialize(this.toolbarElement, this.containerElement);
+            this._libraryTabs.initialize(this.toolbarElement, this.gridElement);
         }
         this._libraryTabs.update(libraries, selectedId);
         if (!this._libraryTabs.isVisible()) {
@@ -766,7 +768,8 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             this.setMenuFocused(true);
             return true;
         }
-        if (!this._isLibraryTabsFocused && direction === 'up' && this.state.focusedCell?.channelIndex === 0) {
+        if (!this._isLibraryTabsFocused && direction === 'up'
+            && (this.state.channels.length === 0 || this.state.focusedCell?.channelIndex === 0)) {
             if (this._libraryTabs?.isVisible()) {
                 this._isLibraryTabsFocused = true;
                 this._libraryTabs.setFocusedToSelected();
@@ -789,16 +792,16 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             this.menuOverlay.querySelectorAll('button')[this.menuIndex]?.click();
             return true;
         }
-        if (this.state.channels.length === 0) {
-            this.emit('setupRequested', undefined);
-            return true;
-        }
         if (this.menuFocused) {
             this.openMenu();
             return true;
         }
         if (this.toolbar.isFocused() || this.toolbar.isSearchOpen()) {
             return this.containerElement ? this.toolbar.select(this.containerElement) : false;
+        }
+        if (this.state.channels.length === 0 && !this._isLibraryTabsFocused) {
+            this.emit('setupRequested', undefined);
+            return true;
         }
         return this.focusNavigator.handleSelect();
     }
@@ -820,7 +823,23 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     }
 
     private setMenuFocused(focused: boolean): void {
+        if (focused) {
+            this.claimControlFocus('menu');
+            return;
+        }
         this.menuFocused = focused;
+        this.syncControlFocus();
+    }
+
+    private claimControlFocus(owner: 'menu' | 'library' | 'toolbar'): void {
+        this.menuFocused = owner === 'menu';
+        this._isLibraryTabsFocused = owner === 'library';
+        if (owner !== 'menu') this.closeMenu();
+        if (owner !== 'library') this._libraryTabs?.closePicker();
+        if (owner !== 'toolbar') {
+            this.toolbar.back();
+            this.toolbar.blur();
+        }
         this.syncControlFocus();
     }
 
@@ -859,6 +878,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
 
     private openMenu(): void {
         if (!this.containerElement || this.menuOverlay) return;
+        this.claimControlFocus('menu');
         const overlay = document.createElement('nav');
         overlay.className = 'epg-menu-overlay';
         overlay.setAttribute('aria-label', 'Lineup menu');
@@ -889,7 +909,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
 
     openLineupMenu(): void {
         if (!this.isVisible()) return;
-        this.setMenuFocused(true);
         this.openMenu();
     }
 

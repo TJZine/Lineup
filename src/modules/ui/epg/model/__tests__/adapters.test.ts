@@ -124,7 +124,7 @@ const makePlexMediaItem = (
 
 describe('EPG model adapters', () => {
     it('clones channel and scheduled-program nested data instead of leaking references', () => {
-        const channel = makeChannel();
+        const channel = makeChannel({ scheduleAnchorMode: 'fixed', startTimeAnchor: 1234 });
         const program = makeScheduledProgram({
             item: makeResolvedContentItem({
                 title: 'Morning News',
@@ -146,12 +146,6 @@ describe('EPG model adapters', () => {
         expect(epgProgram).not.toBe(program);
         expect(epgProgram.item).toEqual(program.item);
         expect(epgProgram.item).not.toBe(program.item);
-    });
-
-    it('carries explicit fixed scheduling into the Guide projection', () => {
-        const channel = makeChannel({ scheduleAnchorMode: 'fixed', startTimeAnchor: 1234 });
-        expect(toEpgChannel(channel).scheduleAnchorMode).toBe('fixed');
-        expect(toEpgChannel(channel).startTimeAnchor).toBe(1234);
     });
 
     it('omits polluted scheduler channel color fields at the EPG adapter boundary', () => {

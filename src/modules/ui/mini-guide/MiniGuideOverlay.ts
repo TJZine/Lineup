@@ -269,8 +269,10 @@ export class MiniGuideOverlay implements IMiniGuideOverlay {
             brandingIcon.className = MINI_GUIDE_CLASSES.BRANDING_ICON_SLOT;
 
             const name = document.createElement('div');
-            name.id = `mini-guide-name-${i}`;
             name.className = MINI_GUIDE_CLASSES.CHANNEL_NAME;
+            const nameText = document.createElement('span');
+            nameText.id = `mini-guide-name-${i}`;
+            name.appendChild(nameText);
 
             const now = document.createElement('div');
             now.id = `mini-guide-now-${i}`;

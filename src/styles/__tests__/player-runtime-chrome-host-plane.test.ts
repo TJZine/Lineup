@@ -16,6 +16,7 @@ describe('player runtime chrome host plane', () => {
         expect(declarationValue(block, 'pointer-events')).toBe('none');
         expect(block).not.toContain('z-index');
         expect(block).not.toContain('display');
+        expect(block).not.toMatch(/\b(?:color|background|font|padding|margin)\s*:/);
     });
 
     it('keeps the host stylesheet in the composed shell bundle', () => {

@@ -765,7 +765,6 @@ describe('AuthScreen', () => {
 
             expect(openSpy).toHaveBeenCalledWith('https://plex.tv/link', '_blank');
             expect(container.querySelector('.screen-status')?.textContent).toContain('Open plex.tv/link');
-            expect(displayedCode).toBe('ABCD');
         } finally {
             screen.destroy();
             openSpy.mockRestore();

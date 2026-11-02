@@ -57,6 +57,14 @@
   transform: translateY(0);
 }
 
+/* Fixed drawers and their scrim must use the viewport, not the transport tray. */
+.player-osd.visible[data-presentation='more-info'] .player-osd-panel,
+.player-osd.visible[data-presentation='audio'] .player-osd-panel,
+.player-osd.visible[data-presentation='subtitles'] .player-osd-panel {
+  transform: none;
+  transition: none;
+}
+
 .player-osd-sleep-picker {
   display: none;
   position: absolute;

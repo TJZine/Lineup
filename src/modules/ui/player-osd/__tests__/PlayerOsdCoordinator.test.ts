@@ -221,14 +221,18 @@ describe('PlayerOsdCoordinator', () => {
     });
 
     it('explicit pause shows and stays visible', () => {
-        const { coordinator, overlay } = setup();
+        const { coordinator, overlay, navigation } = setup();
 
         coordinator.onPlayerStateChange(makeState('paused'));
         coordinator.poke('pause');
 
+        expect(coordinator.getPresentationState()).toBe('compact');
+        expect(navigation.registerFocusable).toHaveBeenCalled();
         expect(overlay.show).toHaveBeenCalled();
         jest.advanceTimersByTime(AUTO_HIDE_MS * 2);
         expect(overlay.hide).not.toHaveBeenCalled();
+        expect(coordinator.handleBack()).toBe(true);
+        expect(coordinator.getPresentationState()).toBe('hidden');
     });
 
     it('play after poke auto-hides', () => {
@@ -683,25 +687,38 @@ describe('PlayerOsdCoordinator', () => {
     });
 
     it('does not publish a late detail fetch after profile scope changes', async () => {
-        let finishFetch: (value: null) => void = () => undefined;
-        const fetchProgramDetails = jest.fn(() => new Promise<null>((resolve) => {
+        let finishFetch: (value: PlexMediaItem | null) => void = () => undefined;
+        const fetchProgramDetails = jest.fn(() => new Promise<PlexMediaItem | null>((resolve) => {
             finishFetch = resolve;
         }));
+        const program = makeProgram();
         let userId = 'user-1';
         const { coordinator, overlay } = setup({
             fetchProgramDetails,
+            getCurrentProgram: () => program,
             getScopeIdentity: () => ({ userId, serverId: 'server-1' }),
         });
         coordinator.poke('status');
         coordinator.expand();
         expect(fetchProgramDetails).toHaveBeenCalledTimes(1);
+        const rendersBeforeScopeChange = (overlay.setViewModel as jest.Mock).mock.calls.length;
         userId = 'user-2';
-        finishFetch(null);
+        finishFetch({
+            ratingKey: program.item.ratingKey, key: `/library/metadata/${program.item.ratingKey}`,
+            type: 'movie', title: program.item.title, sortTitle: program.item.title,
+            summary: 'Previous profile details', year: 2024, durationMs: program.item.durationMs,
+            addedAt: new Date(0), updatedAt: new Date(0), thumb: null, art: null, media: [],
+        });
         await Promise.resolve();
+        expect(overlay.setViewModel).toHaveBeenCalledTimes(rendersBeforeScopeChange);
         coordinator.refreshIfVisible();
+        expect(fetchProgramDetails).toHaveBeenCalledTimes(2);
         const calls = (overlay.setViewModel as jest.Mock).mock.calls;
         const last = calls[calls.length - 1]?.[0] as { detailStatus?: string };
-        expect(last.detailStatus).not.toBe('ready');
+        expect(last.detailStatus).toBe('loading');
+        coordinator.hide();
+        finishFetch(null);
+        await Promise.resolve();
     });
 
     it('treats a replacement stream as a new detail publication generation', async () => {
@@ -838,16 +855,6 @@ describe('PlayerOsdCoordinator', () => {
         expect(overlay.show).not.toHaveBeenCalled();
         expect(navigation.registerFocusable).not.toHaveBeenCalled();
         expect(navigation.setFocus).not.toHaveBeenCalled();
-    });
-
-    it('explicit routed Pause reveals the cached native state', () => {
-        const { coordinator, navigation } = setup();
-        coordinator.onPlayerStateChange(makeState('paused'));
-        coordinator.poke('pause');
-        expect(coordinator.getPresentationState()).toBe('compact');
-        expect(navigation.registerFocusable).toHaveBeenCalled();
-        expect(coordinator.handleBack()).toBe(true);
-        expect(coordinator.getPresentationState()).toBe('hidden');
     });
 
     it('distinguishes expanded Back from explicit Close', () => {

@@ -235,6 +235,7 @@ describe('VideoPlayerEvents', () => {
 
         setNativeMediaFacts(video, { ended: true, currentSrc: descriptor.url });
         video.dispatchEvent(new Event('ended'));
+        expect(callbacks.updateStatus).not.toHaveBeenCalledWith('ended');
         expect(emitter.emit).not.toHaveBeenCalledWith('ended', undefined);
 
         state.currentDescriptor = descriptor;
@@ -281,19 +282,6 @@ describe('VideoPlayerEvents', () => {
         state.currentDescriptor = descriptor;
         video.src = descriptor.url;
         setNativeMediaFacts(video, { ended: true, currentSrc: '' });
-
-        video.dispatchEvent(new Event('ended'));
-
-        expect(callbacks.updateStatus).not.toHaveBeenCalledWith('ended');
-        expect(emitter.emit).not.toHaveBeenCalledWith('ended', undefined);
-    });
-
-    it('ignores a late ended event after the stream has been unloaded', () => {
-        const { video, emitter, callbacks } = createFixture();
-        setNativeMediaFacts(video, {
-            ended: true,
-            currentSrc: 'https://example/stream.m3u8',
-        });
 
         video.dispatchEvent(new Event('ended'));
 

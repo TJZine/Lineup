@@ -50,6 +50,53 @@ describe('ChannelStudioSession', () => {
         await session.tuneNow(); expect(tune).toHaveBeenCalledWith('saved');
     });
 
+    it.each(['reopen', 'edit'] as const)('ignores a late tune failure after %s retires the saved draft', async (action) => {
+        const session = new ChannelStudioSession(ports);
+        session.open({ kind: 'inspect', channelId: 'saved', expectedBase: base });
+        await session.verify(); await session.save();
+        let fail!: (error: Error) => void;
+        tune.mockImplementationOnce(() => new Promise<void>((_resolve, reject) => { fail = reject; }));
+        const pending = session.tuneNow();
+        expect(session.tuning).toBe(true);
+        if (action === 'reopen') session.open({ kind: 'create' });
+        else {
+            session.draft?.change({ name: 'Unsaved edit' });
+            session.markDraftChanged();
+        }
+        expect(session.tuning).toBe(false);
+        expect(session.notice).toBeNull();
+        fail(new Error('Old tune failed'));
+        await pending;
+        expect(session.tuning).toBe(false);
+        expect(session.notice).toBeNull();
+        expect(session.draft?.kind).toBe(action === 'reopen' ? 'create' : 'edit');
+    });
+
+    it('does not let a retired tune settle the new session tune or replace its notice', async () => {
+        const session = new ChannelStudioSession(ports);
+        session.open({ kind: 'inspect', channelId: 'saved', expectedBase: base });
+        await session.verify(); await session.save();
+        let failFirst!: (error: Error) => void;
+        let failSecond!: (error: Error) => void;
+        tune.mockImplementationOnce(() => new Promise<void>((_resolve, reject) => { failFirst = reject; }))
+            .mockImplementationOnce(() => new Promise<void>((_resolve, reject) => { failSecond = reject; }));
+        const first = session.tuneNow();
+        session.open({ kind: 'inspect', channelId: 'saved', expectedBase: base });
+        await session.verify(); await session.save();
+        const second = session.tuneNow();
+        expect(tune).toHaveBeenCalledTimes(2);
+        expect(session.tuning).toBe(true);
+        const notice = session.notice;
+        failFirst(new Error('Old tune failed'));
+        await first;
+        expect(session.tuning).toBe(true);
+        expect(session.notice).toBe(notice);
+        failSecond(new Error('Current tune failed'));
+        await second;
+        expect(session.tuning).toBe(false);
+        expect(session.notice).toEqual({ kind: 'saved-warning', text: 'Channel saved. Tune failed. Try again or open Guide.' });
+    });
+
     it('keeps the draft on conflict and offers an explicit latest-base replacement', async () => {
         const session = new ChannelStudioSession(ports);
         session.open({ kind: 'inspect', channelId: 'saved', expectedBase: base });

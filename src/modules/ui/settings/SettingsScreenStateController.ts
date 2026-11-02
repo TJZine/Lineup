@@ -244,6 +244,7 @@ export class SettingsScreenStateController {
                             const result = this._settingsStore.writeGuideHours(EPG_GUIDE_HOURS_OPTIONS[value] ?? 2);
                             if (!result.ok) return this._failedMutationResult(EPG_GUIDE_HOURS_OPTIONS.indexOf(result.effectiveValue));
                             this._onGuideSettingChange?.({ key: 'guideHours', hours: result.value });
+                            if (!guideHoursRead.ok) this._onStateInvalidated?.();
                             return { ok: true };
                         },
                     },
@@ -251,10 +252,10 @@ export class SettingsScreenStateController {
                         id: 'settings-guide-hours-retry', label: 'Retry saving Guide Hours',
                         description: `Current effective range: ${guideHours} hours. The migration has not been saved.`,
                         action: (): void => {
-                            const result = this._settingsStore.writeGuideHours(guideHours);
-                            if (!result.ok) throw new Error('Guide Hours save failed');
-                            const cleanup = this._settingsStore.completeGuideHoursMigrationAfterConsumerCutover();
-                            if (!cleanup.ok) throw new Error('Guide Hours migration cleanup failed');
+                            // Retry the current migration, never the displayed fallback or
+                            // an older selection captured when this recovery row was built.
+                            const result = this._settingsStore.readGuideHoursAndMigrate();
+                            if (!result.ok) throw new Error('Guide Hours migration failed');
                             this._onGuideSettingChange?.({ key: 'guideHours', hours: result.value });
                             this._onStateInvalidated?.();
                         },

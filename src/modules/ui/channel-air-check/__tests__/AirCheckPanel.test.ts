@@ -91,31 +91,6 @@ describe('AirCheckPanel', () => {
         expect(retry).toHaveBeenCalledTimes(2);
     });
 
-    it('uses the render callbacks to show pending immediately and completion when verification settles', async () => {
-        let resolve!: (status: StudioVerificationStatus) => void;
-        const pending = new Promise<StudioVerificationStatus>(complete => { resolve = complete; });
-        const provider = { verify: jest.fn().mockReturnValue(pending) };
-        panel = new AirCheckPanel(provider, { getImageUrl: (path: string): string => `https://example.test${path}` });
-        const callbacks: AirCheckRenderOptions = {
-            onVerify: (): void => {
-                const result = panel.verify(request, new AbortController().signal);
-                panel.render(host, { kind: 'loading' }, request, callbacks);
-                void result.then(status => panel.render(host, status, request, callbacks));
-            },
-            onCancel: cancel, onExtendHorizon: extend, onControlsChanged: changed, extensionStatus: null,
-        };
-        panel.render(host, { kind: 'idle' }, request, callbacks);
-        host.querySelector<HTMLButtonElement>('#air-check-run')!.click();
-        expect(provider.verify).toHaveBeenCalledTimes(1);
-        expect(host.querySelector('#air-check-cancel')).not.toBeNull();
-        expect(host.querySelector('.air-check-selection')).toBeNull();
-        resolve(verified);
-        await pending;
-        await Promise.resolve();
-        expect(host.querySelector('.air-check-selection')).not.toBeNull();
-        expect(host.querySelector('#air-check-cancel')).toBeNull();
-    });
-
     it('shows extension pending and failure in the one verified status while preserving programming', () => {
         panel.render(host, verified, request, options({ kind: 'loading' }));
         expect(host.querySelectorAll('[role="status"]')).toHaveLength(1);

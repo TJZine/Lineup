@@ -117,15 +117,6 @@ describe('EpgPreferencesStore', () => {
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID)).toBe('profile-1');
     });
 
-    it('uses a typed two-hour default without persisting a value when no density exists', () => {
-        expect(store.readGuideHoursAndMigrate()).toEqual({
-            ok: true,
-            value: 2,
-            source: 'default',
-        });
-        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_HOURS)).toBeNull();
-    });
-
     it('normalizes unsupported current and legacy hours using the current default policy', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_HOURS, '5');
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY, 'future-wide');
@@ -232,6 +223,7 @@ describe('EpgPreferencesStore', () => {
     it('uses the typed default without persisting retired layout or density choices', () => {
         expect(store.readGuideHoursAndMigrate()).toEqual({ ok: true, value: 2, source: 'default' });
 
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_HOURS)).toBeNull();
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY)).toBeNull();
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE)).toBeNull();
     });

@@ -241,19 +241,6 @@ describe('runtime token style contracts', () => {
         expect(values.EPG).toBeLessThan(values['video EPG PiP']!);
     });
 
-    it('keeps runtime chrome as a structure-only host plane', () => {
-        const css = readComposedCss('src/styles/shell.player-runtime-chrome.css');
-        const block = topLevelBlockForProperty(css, '.runtime-chrome-host', 'pointer-events');
-
-        expect(declarationValue(block, 'position')).toBe('absolute');
-        for (const edge of ['top', 'right', 'bottom', 'left']) {
-            expect(declarationValue(block, edge)).toBe('0');
-        }
-        expect(declarationValue(block, 'pointer-events')).toBe('none');
-        expect(block).not.toContain('z-index');
-        expect(block).not.toMatch(/\b(?:color|background|font|padding|margin)\s*:/);
-    });
-
     it('anchors Settings to the viewport instead of retained guide scroll', () => {
         const css = readComposedCss('src/modules/ui/settings/styles.core.css');
         const screen = topLevelBlockForProperty(css, '.settings-screen', 'position');

@@ -146,6 +146,34 @@ describe('MiniGuideOverlay', () => {
         expect(select).toHaveBeenCalledTimes(1);
     });
 
+    it('keeps Watching markers attached across channel-name and watching updates', () => {
+        const vm = makeViewModel();
+        vm.channels[0]!.isWatching = true;
+        overlay.setViewModel(vm);
+
+        const firstMarker = document.getElementById('mini-guide-watching-0');
+        const secondMarker = document.getElementById('mini-guide-watching-1');
+        expect(firstMarker).not.toBeNull();
+        expect(secondMarker).not.toBeNull();
+        expect(firstMarker?.hidden).toBe(false);
+        expect(secondMarker?.hidden).toBe(true);
+
+        vm.channels[0]!.channelName = 'Renamed Channel';
+        vm.channels[0]!.isWatching = false;
+        vm.channels[1]!.isWatching = true;
+        overlay.setViewModel(vm);
+        overlay.setViewModel(vm);
+
+        const updatedFirstMarker = document.getElementById('mini-guide-watching-0');
+        const updatedSecondMarker = document.getElementById('mini-guide-watching-1');
+        expect(updatedFirstMarker).not.toBeNull();
+        expect(updatedSecondMarker).not.toBeNull();
+        expect(updatedFirstMarker?.hidden).toBe(true);
+        expect(updatedSecondMarker?.hidden).toBe(false);
+        expect(updatedSecondMarker?.textContent).toContain('Watching');
+        expect(document.getElementById('mini-guide-name-0')?.textContent).toBe('Renamed Channel');
+    });
+
     it('renders text and progress values', () => {
         const vm = makeViewModel();
         overlay.setViewModel(vm);
