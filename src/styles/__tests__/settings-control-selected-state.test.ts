@@ -9,7 +9,7 @@ describe('settings selected control styling', () => {
         const css = read('src/modules/ui/settings/styles.core.css');
         const selectedBlock = blockFor(
             css,
-            '.settings-screen .setup-toggle.selected:not(.focused):not(:focus):not(:focus-visible)'
+            '.settings-screen .setup-toggle.selected:not(.focused):not(:focus)'
         );
 
         expect(declarationValue(selectedBlock, 'background')).toBe('rgba(255, 255, 255, 0.08)');

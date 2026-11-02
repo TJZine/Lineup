@@ -1,5 +1,4 @@
 import { makePreparedPlaybackStream } from '../../../__tests__/fixtures/preparedPlaybackStream';
-import { NOW_PLAYING_INFO_MODAL_ID } from '../../../modules/ui/now-playing-info';
 import type { ScheduledProgram, SchedulerState } from '../../../modules/scheduler/scheduler';
 import { AppErrorCode } from '../../../types/app-errors';
 import type { OrchestratorPlaybackStateAccessors } from '../runtime/OrchestratorPlaybackStateAccessors';
@@ -37,7 +36,6 @@ describe('createPriorityOneRuntimeAssembly', () => {
             sessionId: 'transcode-session-1',
         };
         let pendingChannelId: string | null = 'channel-1';
-        let shouldAutoShowInfo = false;
         const playbackState = {
             getCurrentProgramForPlayback: jest.fn(() => currentProgram),
             setCurrentProgramForPlayback: jest.fn((value: ScheduledProgram | null): void => {
@@ -55,18 +53,13 @@ describe('createPriorityOneRuntimeAssembly', () => {
             setPendingNowPlayingChannelId: jest.fn((value: string | null): void => {
                 pendingChannelId = value;
             }),
-            getShouldAutoShowInfoBannerOnNextPlay: jest.fn(() => shouldAutoShowInfo),
-            setShouldAutoShowInfoBannerOnNextPlay: jest.fn((value: boolean): void => {
-                shouldAutoShowInfo = value;
-            }),
         } satisfies jest.Mocked<OrchestratorPlaybackStateAccessors>;
         const scheduler = createTestEventSurface();
         const player = createTestEventSurface();
         const navigation = createTestEventSurface();
         const resolver = createTestEventSurface();
-        const refreshPlaybackOptions = jest.fn();
         const recoverSubtitleTrack = jest.fn();
-        const onProgramStart = jest.fn();
+        const onProgramChanged = jest.fn();
         const refreshLiveEpg = jest.fn();
         const autoShowDebug = jest.fn();
         let resolveActivation!: () => void;
@@ -89,7 +82,6 @@ describe('createPriorityOneRuntimeAssembly', () => {
         const reportRecoverableRuntimeError = jest.fn((): void => {
             resolvePlaybackErrorReport();
         });
-        const openModal = jest.fn();
         const playbackRecoveryError = new Error('playback recovery failed');
         const schedulerState: SchedulerState = {
             channelId: 'channel-1',
@@ -125,14 +117,12 @@ describe('createPriorityOneRuntimeAssembly', () => {
             runtimeSurfaces: {
                 channelBadgeOverlay: null,
                 playerOsd: null,
-                nowPlayingInfo: { isVisible: jest.fn().mockReturnValue(false) },
                 epg: null,
                 channelManager: null,
                 navigation: {
                     ...navigation,
                     getCurrentScreen: jest.fn().mockReturnValue('player'),
                     isModalOpen: jest.fn().mockReturnValue(false),
-                    openModal,
                     closeModal: jest.fn(),
                 },
                 plexLibrary: null,
@@ -143,6 +133,7 @@ describe('createPriorityOneRuntimeAssembly', () => {
             },
             playback: {
                 playbackState,
+                reconcileSleepExpiration: jest.fn().mockReturnValue(false),
                 playbackRecovery: {
                     resolveStreamForProgram: jest.fn().mockResolvedValue(
                         makePreparedPlaybackStream('https://example.invalid/stream.m3u8')
@@ -159,8 +150,12 @@ describe('createPriorityOneRuntimeAssembly', () => {
             },
             runtimeControllers: {
                 channelTransition: null,
-                playerOsd: null,
-                nowPlayingInfo: { onProgramStart },
+                playerOsd: {
+                    onProgramChanged,
+                    onPlayerStateChange: jest.fn(),
+                    onTimeUpdate: jest.fn(),
+                    onBufferUpdate: jest.fn(),
+                },
                 epg: {
                     refreshEpgScheduleForLiveChannel: refreshLiveEpg,
                     wireEpgEvents: jest.fn().mockReturnValue([]),
@@ -172,7 +167,6 @@ describe('createPriorityOneRuntimeAssembly', () => {
                         },
                     ]),
                 },
-                playbackOptions: { refreshIfOpen: refreshPlaybackOptions },
                 scheduleDayRollover: null,
                 subtitleTrackRecovery: { handleTrackChange: recoverSubtitleTrack },
                 nowPlayingDebug: {
@@ -192,6 +186,7 @@ describe('createPriorityOneRuntimeAssembly', () => {
         } as unknown as PriorityOneRuntimeAssemblyInput;
 
         const assembly = createPriorityOneRuntimeAssembly(input);
+        assembly.playbackRuntimeController.beginIntentionalTune();
         expect(assembly.eventBinder.bind()).toBe(true);
 
         assembly.playbackRuntimeController.stopActiveTranscodeSession();
@@ -200,7 +195,6 @@ describe('createPriorityOneRuntimeAssembly', () => {
         const event = { type: 'subtitle' as const, trackId: 'subtitle-1' };
         player.emit('trackChange', event);
 
-        expect(refreshPlaybackOptions).toHaveBeenCalledTimes(1);
         expect(recoverSubtitleTrack).toHaveBeenCalledWith(event);
 
         player.emit('error', {
@@ -221,15 +215,11 @@ describe('createPriorityOneRuntimeAssembly', () => {
         await activationComplete;
 
         expect(playbackState.setCurrentProgramForPlayback).toHaveBeenCalledWith(program);
-        expect(playbackState.setShouldAutoShowInfoBannerOnNextPlay).toHaveBeenCalledWith(true);
         expect(playbackState.setPendingNowPlayingChannelId).toHaveBeenCalledWith(null);
-        expect(onProgramStart).toHaveBeenCalledWith(program);
+        expect(onProgramChanged).toHaveBeenCalledTimes(1);
         expect(refreshLiveEpg).toHaveBeenCalledTimes(1);
         expect(autoShowDebug).toHaveBeenCalledTimes(1);
         expect(fetchDebug).toHaveBeenCalledTimes(1);
-
-        assembly.overlayRuntimePolicyController.toggleNowPlayingInfoOverlay();
-        expect(openModal).toHaveBeenCalledWith(NOW_PLAYING_INFO_MODAL_ID);
 
         const staleProgram = {
             ...makeProgram(),
@@ -238,9 +228,8 @@ describe('createPriorityOneRuntimeAssembly', () => {
             scheduleIndex: 1,
         };
         playbackState.setPendingNowPlayingChannelId('channel-2');
-        playbackState.setShouldAutoShowInfoBannerOnNextPlay.mockClear();
         await assembly.playbackStartController.handleProgramStart(staleProgram);
-        expect(playbackState.setShouldAutoShowInfoBannerOnNextPlay).toHaveBeenLastCalledWith(false);
+        expect(playbackState.setPendingNowPlayingChannelId).toHaveBeenLastCalledWith(null);
 
         assembly.eventBinder.dispose();
         expect(player.off).toHaveBeenCalledWith('trackChange', expect.any(Function));

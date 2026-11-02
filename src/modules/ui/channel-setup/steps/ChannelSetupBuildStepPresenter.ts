@@ -1,644 +1,248 @@
-import type {
-    ChannelBuildProgress,
-    ChannelSetupGuideRefreshSummary,
-} from '../../../../core/channel-setup/types';
+import type { ChannelBuildProgress, ChannelBuildSummary } from '../../../../core/channel-setup/types';
 import { isAbortLikeError, summarizeErrorForLog } from '../../../../utils/errors';
-import {
-    isChannelSwitchAborted,
-    isChannelSwitchFailed,
-    isChannelSwitchSuccessful,
-} from '../../../../types/channelSwitch';
-import type { ChannelSwitchOutcome } from '../../../../types/channelSwitch';
-import type { PlaybackStartOutcome } from '../../../../types/playbackStart';
 import { renderCappedWarnings } from '../../common/render/renderCappedWarnings';
-import { formatChannelSetupUserCopy } from '../ChannelSetupUserCopy';
 import type { ChannelSetupFocusCoordinator } from '../focus/ChannelSetupFocusCoordinator';
 import type { ChannelSetupScreenPorts } from '../ChannelSetupScreenPorts';
-import type {
-    ChannelSetupSessionSnapshot,
-    EstimateKey,
-} from '../ChannelSetupSessionContracts';
 import type { ChannelSetupSessionController } from '../ChannelSetupSessionController';
+import type { KeyEvent, INavigationManager } from '../../../navigation';
 import { BuildProgressStepController } from './BuildProgressStepController';
 import { BuildReviewStepController } from './BuildReviewStepController';
 import type { StepRenderContext } from '../stepContracts';
-import type { BuildReviewStateSnapshot } from './types';
-import { ChannelBuilderGuideTransitionDiagnostics } from '../ChannelBuilderGuideTransitionDiagnostics';
 
-interface DoneAttempt {
-    controller: AbortController;
-    token: number;
-    button: HTMLButtonElement;
-    provisionalPlayerVisible: boolean;
-    diagnostics: ChannelBuilderGuideTransitionDiagnostics;
-}
-
-function pluralize(count: number, singular: string, plural: string): string {
-    return count === 1 ? singular : plural;
+interface Deps {
+    session: ChannelSetupSessionController;
+    focus: ChannelSetupFocusCoordinator;
+    screenPorts: ChannelSetupScreenPorts;
+    getPreferredFocusId: () => string | null;
+    setPreferredFocusId: (focusId: string | null) => void;
+    getVisibilityToken: () => number;
+    renderStep: () => void;
 }
 
 export class ChannelSetupBuildStepPresenter {
-    private readonly _buildReviewStep = new BuildReviewStepController();
-    private readonly _buildProgressStep = new BuildProgressStepController();
-    private readonly _maxPreviewWarnings = 5;
-    private _lastInitialChannelNumber: number | null = null;
-    private _activeDoneAttempt: DoneAttempt | null = null;
-    private _diagnostics: ChannelBuilderGuideTransitionDiagnostics | null = null;
+    private readonly _review = new BuildReviewStepController();
+    private readonly _progress = new BuildProgressStepController();
+    private _stale = false;
+    private _saved = false;
+    private _guideOpened = false;
+    private _canCancel = true;
+    private _activeDeps: Deps | null = null;
 
-    cancelDoneTransition(): void {
-        const attempt = this._activeDoneAttempt;
-        if (!attempt) return;
-        this._activeDoneAttempt = null;
-        attempt.controller.abort();
-        attempt.diagnostics.close('canceled');
-    }
-
-    dispose(): void {
-        this.cancelDoneTransition();
-        this._diagnostics?.close('canceled');
-        this._diagnostics = null;
-    }
-
-    render(
-        ctx: StepRenderContext,
-        deps: {
-            session: ChannelSetupSessionController;
-            focus: ChannelSetupFocusCoordinator;
-            screenPorts: ChannelSetupScreenPorts;
-            getPreferredFocusId: () => string | null;
-            setPreferredFocusId: (focusId: string | null) => void;
-            getVisibilityToken: () => number;
-            renderStep: () => void;
-            revealPlayerProvisionally: () => void;
-            restoreSetupAfterProvisionalReveal: () => void;
+    handleKeyPress(event: KeyEvent, nav: INavigationManager): void {
+        this._review.handleKeyPress(event, nav);
+        if (event.handled || event.button !== 'back' || !this._activeDeps) return;
+        const deps = this._activeDeps;
+        event.handled = true;
+        if (this._saved) this._openGuide(deps);
+        else if (deps.session.getSnapshot().isBuilding) {
+            if (this._canCancel && deps.session.cancelBuild()) {
+                const cancel = document.getElementById('setup-back');
+                if (cancel instanceof HTMLButtonElement) {
+                    cancel.disabled = true;
+                    cancel.textContent = 'Canceling…';
+                }
+            }
         }
-    ): void {
-        const session = deps.session.getSnapshot();
-        if (session.isBuilding) {
-            this._renderBuildProgress(ctx, deps);
-        } else {
-            this._renderBuildReview(ctx, deps);
-        }
+        else { deps.session.clearReviewAndReturnToStep2(); this.reset(); deps.renderStep(); }
     }
 
-    buildPreviewRow(
-        session: ChannelSetupSessionSnapshot,
-        label: string,
-        value: number | string,
-        deltaKey?: EstimateKey
-    ): HTMLElement {
-        const row = document.createElement('div');
-        row.className = 'setup-preview-row';
-        const labelEl = document.createElement('span');
-        labelEl.className = 'setup-preview-label';
-        labelEl.textContent = label;
-        const valueEl = document.createElement('span');
-        valueEl.className = 'setup-preview-value';
-        const main = document.createElement('span');
-        main.textContent = String(value);
-        valueEl.appendChild(main);
-
-        const now = Date.now();
-        const delta = deltaKey ? session.previewDeltas[deltaKey] : undefined;
-        if (typeof value === 'number' && typeof delta === 'number' && now <= session.previewDeltaExpiresAtMs) {
-            const deltaEl = document.createElement('span');
-            deltaEl.className = `setup-preview-delta ${delta > 0 ? 'positive' : 'negative'}`;
-            deltaEl.textContent = `(${delta > 0 ? '+' : ''}${delta})`;
-            valueEl.appendChild(deltaEl);
-        }
-
-        row.appendChild(labelEl);
-        row.appendChild(valueEl);
-        return row;
+    reset(): void {
+        this._review.reset();
+        this._stale = false;
+        this._saved = false;
+        this._guideOpened = false;
+        this._canCancel = true;
+        this._activeDeps = null;
     }
 
-    renderCappedPreviewWarnings(warnings: string[], container: HTMLElement): void {
-        renderCappedWarnings({
-            warnings,
-            container,
-            maxItems: this._maxPreviewWarnings,
-            itemClassName: 'setup-preview-warning',
-        });
+    dispose(): void { this.reset(); }
+
+    render(ctx: StepRenderContext, deps: Deps): void {
+        this._activeDeps = deps;
+        if (deps.session.getSnapshot().isBuilding) this._renderProgress(ctx, deps);
+        else this._renderReview(ctx, deps);
     }
 
-    private _renderBuildReview(
-        ctx: StepRenderContext,
-        deps: {
-            session: ChannelSetupSessionController;
-            focus: ChannelSetupFocusCoordinator;
-            getPreferredFocusId: () => string | null;
-            setPreferredFocusId: (focusId: string | null) => void;
-            getVisibilityToken: () => number;
-            renderStep: () => void;
-            revealPlayerProvisionally: () => void;
-            restoreSetupAfterProvisionalReveal: () => void;
-        }
-    ): void {
-        const getReviewState = (): BuildReviewStateSnapshot => {
-            const session = deps.session.getSnapshot();
-            return {
-                buildMode: session.buildMode,
-                review: session.review,
-                reviewError: session.reviewError,
-                isReviewLoading: session.isReviewLoading,
-                replaceConfirm: session.replaceConfirm,
-                isBuilding: session.isBuilding,
-                recordApplied: session.recordApplied,
-            };
-        };
-
-        this._buildReviewStep.render(ctx, {
-            state: getReviewState(),
+    private _renderReview(ctx: StepRenderContext, deps: Deps): void {
+        const state = deps.session.getSnapshot();
+        this._review.render(ctx, {
+            state: {
+                buildMode: state.buildMode,
+                review: state.review,
+                reviewError: state.reviewError,
+                isReviewLoading: state.isReviewLoading,
+                replaceConfirm: state.replaceConfirm,
+                wholeLineupReplacementConfirm: state.wholeLineupReplacementConfirm,
+                isStale: this._stale,
+                isBuilding: state.isBuilding,
+                recordApplied: state.recordApplied,
+            },
+            renderStep: deps.renderStep,
+            setPreferredFocusId: deps.setPreferredFocusId,
             onBackToStrategy: () => {
                 deps.session.clearReviewAndReturnToStep2();
+                this.reset();
                 deps.renderStep();
             },
+            onRefreshReview: () => {
+                this._stale = false;
+                this._review.reset();
+                deps.setPreferredFocusId('setup-refresh-review');
+                void deps.session.refreshReview(() => deps.renderStep());
+            },
             onConfirmBuild: () => {
+                if (this._saved) {
+                    this._openGuide(deps);
+                    return;
+                }
                 deps.session.beginConfirmedBuild();
                 deps.renderStep();
             },
-            onToggleReplaceConfirm: (focusId) => {
-                deps.setPreferredFocusId(focusId);
+            onToggleReplaceConfirm: (id) => {
                 deps.session.toggleReplaceConfirm();
+                deps.setPreferredFocusId(id);
                 deps.renderStep();
             },
-            renderCappedWarnings: (warnings, container) => this.renderCappedPreviewWarnings(warnings, container),
-            registerLinearFocusables: (buttons) => {
-                const preferredApplied = deps.focus.registerLinear(buttons, deps.getPreferredFocusId());
-                if (preferredApplied) {
-                    deps.setPreferredFocusId(null);
-                }
+            onToggleWholeLineupReplacementConfirm: (id) => {
+                deps.session.toggleWholeLineupReplacementConfirm();
+                deps.setPreferredFocusId(id);
+                deps.renderStep();
+            },
+            renderCappedWarnings: (warnings, container) => renderCappedWarnings({
+                warnings, container, maxItems: 5, itemClassName: 'setup-preview-warning',
+            }),
+            registerLinearFocusables: (elements) => {
+                const applied = deps.focus.registerLinear(elements, deps.getPreferredFocusId());
+                if (applied) deps.setPreferredFocusId(null);
             },
         });
-
-        this._kickOffReviewLoadPostRender(deps);
-    }
-
-    private _kickOffReviewLoadPostRender(
-        deps: {
-            session: ChannelSetupSessionController;
-            getVisibilityToken: () => number;
-            renderStep: () => void;
-        }
-    ): void {
-        const session = deps.session.getSnapshot();
-        if (
-            session.step !== 3 ||
-            !session.recordApplied ||
-            session.isBuilding ||
-            session.review ||
-            session.isReviewLoading ||
-            session.reviewError
-        ) {
-            return;
-        }
-
-        const token = deps.getVisibilityToken();
-        void Promise.resolve()
-            .then(() => {
+        if (!state.review && !state.reviewError && !state.isReviewLoading && state.recordApplied) {
+            const token = deps.getVisibilityToken();
+            queueMicrotask(() => {
+                if (token !== deps.getVisibilityToken()) return;
                 const current = deps.session.getSnapshot();
-                if (
-                    token !== deps.getVisibilityToken() ||
-                    current.step !== 3 ||
-                    current.isBuilding ||
-                    current.review ||
-                    current.isReviewLoading ||
-                    current.reviewError
-                ) {
-                    return;
-                }
-                return deps.session.ensureReviewLoaded(() => {
-                    const latest = deps.session.getSnapshot();
-                    if (
-                        token !== deps.getVisibilityToken() ||
-                        latest.step !== 3 ||
-                        latest.isBuilding
-                    ) {
-                        return;
-                    }
-                    deps.renderStep();
+                if (current.step !== 3 || current.isBuilding || current.review || current.isReviewLoading) return;
+                void deps.session.ensureReviewLoaded(() => deps.renderStep()).catch((error: unknown) => {
+                    if (!isAbortLikeError(error)) console.warn('Load review failed:', summarizeErrorForLog(error));
                 });
-            })
-            .catch((error: unknown) => {
-                if (isAbortLikeError(error)) return;
-                console.warn('Load review failed:', summarizeErrorForLog(error));
             });
+        }
     }
 
-    private _renderBuildProgress(
-        ctx: StepRenderContext,
-        deps: {
-            session: ChannelSetupSessionController;
-            focus: ChannelSetupFocusCoordinator;
-            screenPorts: ChannelSetupScreenPorts;
-            getPreferredFocusId: () => string | null;
-            setPreferredFocusId: (focusId: string | null) => void;
-            getVisibilityToken: () => number;
-            renderStep: () => void;
-            revealPlayerProvisionally: () => void;
-            restoreSetupAfterProvisionalReveal: () => void;
-        }
-    ): void {
-        const session = deps.session.getSnapshot();
-        this._buildProgressStep.render(ctx, {
-            state: { isBuilding: session.isBuilding },
-            registerLinearFocusables: (buttons) => {
-                const preferredApplied = deps.focus.registerLinear(buttons, deps.getPreferredFocusId());
-                if (preferredApplied) {
-                    deps.setPreferredFocusId(null);
-                }
+    private _renderProgress(ctx: StepRenderContext, deps: Deps): void {
+        this._canCancel = true;
+        this._progress.render(ctx, {
+            state: { isBuilding: true },
+            registerLinearFocusables: (elements) => {
+                const applied = deps.focus.registerLinear(elements, deps.getPreferredFocusId());
+                if (applied) deps.setPreferredFocusId(null);
             },
             onCancelOrBack: (button) => {
+                if (this._saved) {
+                    this._openGuide(deps);
+                    return;
+                }
+                if (!this._canCancel) return;
                 if (deps.session.cancelBuild()) {
                     button.disabled = true;
-                    button.textContent = 'Canceling...';
-                    return;
+                    button.textContent = 'Canceling…';
+                } else {
+                    deps.session.setStep(3);
+                    deps.renderStep();
                 }
-                deps.session.setStep(2);
-                deps.renderStep();
             },
-            onDone: (doneButton) => {
-                const initialChannelNumber = this._lastInitialChannelNumber;
-                if (initialChannelNumber === null) {
-                    ctx.errorEl.textContent = 'Channels were created, but no starting channel is available.';
-                    return;
-                }
-
-                void this._startDoneTransition(ctx, initialChannelNumber, doneButton, deps);
+            onDone: () => this._openGuide(deps),
+            onAddCustom: () => {
+                if (!this._saved) return;
+                deps.screenPorts.openCustomChannelStudio();
             },
             startBuild: async (ui) => {
-                await this._startBuild(ctx, deps, ui);
-            },
-        });
-    }
-
-    private async _startDoneTransition(
-        ctx: StepRenderContext,
-        initialChannelNumber: number,
-        doneButton: HTMLButtonElement,
-        deps: {
-            screenPorts: ChannelSetupScreenPorts;
-            getVisibilityToken: () => number;
-            revealPlayerProvisionally: () => void;
-            restoreSetupAfterProvisionalReveal: () => void;
-        }
-    ): Promise<void> {
-        this._cancelActiveDoneAttempt(deps, true, 'superseded');
-        const diagnostics = this._diagnostics ??= new ChannelBuilderGuideTransitionDiagnostics(
-            (event, data) => deps.screenPorts.appendBuilderGuideDiagnostic(event, data)
-        );
-        diagnostics.begin();
-        const attempt: DoneAttempt = {
-            controller: new AbortController(),
-            token: deps.getVisibilityToken(),
-            button: doneButton,
-            provisionalPlayerVisible: false,
-            diagnostics,
-        };
-        this._activeDoneAttempt = attempt;
-        doneButton.disabled = true;
-        const playbackStartCapture: { promise: Promise<PlaybackStartOutcome> | null } = { promise: null };
-
-        try {
-            const outcome = await deps.screenPorts.switchToChannelByNumberWithOutcome(initialChannelNumber, {
-                signal: attempt.controller.signal,
-                beforeProgramStart: () => {
-                    if (!this._isCurrentDoneAttempt(attempt, deps)) {
-                        attempt.controller.abort();
-                        return;
-                    }
-                    attempt.diagnostics.record('setup-provisional-hide', { provisional: true });
-                    deps.revealPlayerProvisionally();
-                    attempt.provisionalPlayerVisible = true;
-                    attempt.diagnostics.record('player-show', { provisional: true });
-                    attempt.diagnostics.record('scheduler-program-start-request');
-                    playbackStartCapture.promise = deps.screenPorts.waitForNextPlaybackStart(attempt.controller.signal);
-                },
-            });
-            if (!this._isCurrentDoneAttempt(attempt, deps)) return;
-            attempt.diagnostics.record('channel-switch-settlement', { outcome: outcome.kind });
-
-            if (isChannelSwitchSuccessful(outcome)) {
-                const playbackStart = playbackStartCapture.promise;
-                if (!playbackStart) {
-                    this._restoreFailedDoneAttempt(attempt, deps);
-                    ctx.errorEl.textContent = 'Channels were created, but playback could not start.';
-                    attempt.diagnostics.record('playback-start-settlement', { outcome: 'missing' });
-                    attempt.diagnostics.close('failure');
+                const token = deps.getVisibilityToken();
+                const outcome = await deps.session.beginBuild({
+                    onProgress: (progress: ChannelBuildProgress) => {
+                        if (token !== deps.getVisibilityToken()) return;
+                        ui.taskLabel.textContent = progress.label;
+                        ui.detailLabel.textContent = `${progress.detail} · ${progress.current}${progress.total === null ? '' : `/${progress.total}`}`;
+                        if (progress.total !== null && progress.total > 0) {
+                            ui.barFill.style.width = `${Math.min(100, 100 * progress.current / progress.total)}%`;
+                        } else {
+                            ui.barFill.classList.add('indeterminate');
+                        }
+                        if (progress.task === 'apply_channels' || progress.task === 'refresh_epg' || progress.task === 'done') {
+                            this._canCancel = false;
+                            ui.cancelButton.disabled = true;
+                            ui.cancelButton.textContent = 'Saving…';
+                        }
+                    },
+                    onStateChange: () => { /* The progress view owns visible outcome. */ },
+                });
+                if (token !== deps.getVisibilityToken()) return;
+                if (outcome.kind === 'success' || outcome.kind === 'committed-with-guide-interrupted') {
+                    this._saved = true;
+                    this._showSavedOutcome(ctx, ui, outcome.result, outcome.bookkeepingError);
+                    deps.focus.unregisterAll();
+                    deps.focus.registerLinear([ui.doneButton, ui.addCustomButton, ui.cancelButton], 'setup-done');
+                    deps.screenPorts.getNavigation()?.setFocus('setup-done');
                     return;
                 }
-                const playbackOutcome = await playbackStart;
-                if (!this._isCurrentDoneAttempt(attempt, deps)) return;
-                attempt.diagnostics.record('playback-start-settlement', { outcome: playbackOutcome.kind });
-                if (playbackOutcome.kind === 'failed') {
-                    this._restoreFailedDoneAttempt(attempt, deps);
-                    ctx.errorEl.textContent = 'Channels were created, but playback could not start.';
-                    attempt.diagnostics.close('failure');
-                    return;
-                }
-                if (playbackOutcome.kind === 'superseded') {
-                    this._restoreFailedDoneAttempt(attempt, deps);
-                    attempt.diagnostics.close('superseded');
-                    return;
-                }
-                this._activeDoneAttempt = null;
-                deps.screenPorts.getNavigation()?.replaceScreen('player');
-                attempt.diagnostics.record('guide-open');
-                deps.screenPorts.openEPG();
-                attempt.diagnostics.recordGuideShown();
-                return;
-            }
-
-            attempt.controller.abort();
-            this._restoreFailedDoneAttempt(attempt, deps);
-            this._handleDoneChannelSwitchOutcome(ctx, outcome, initialChannelNumber);
-            attempt.diagnostics.close(isChannelSwitchAborted(outcome) ? 'canceled' : 'failure');
-        } catch (error: unknown) {
-            if (!this._isCurrentDoneAttempt(attempt, deps)) return;
-            const aborted = isAbortLikeError(error, attempt.controller.signal);
-            attempt.controller.abort();
-            this._restoreFailedDoneAttempt(attempt, deps);
-            if (aborted) {
-                this._handleDoneChannelSwitchOutcome(ctx, { kind: 'aborted' }, initialChannelNumber);
-                attempt.diagnostics.close('canceled');
-                return;
-            }
-            ctx.errorEl.textContent = 'Channels were created, but playback could not start.';
-            attempt.diagnostics.close('failure');
-            console.warn(`Switch to channel ${initialChannelNumber} failed:`, summarizeErrorForLog(error));
-        }
-    }
-
-    private _isCurrentDoneAttempt(attempt: DoneAttempt, deps: { getVisibilityToken: () => number }): boolean {
-        return this._activeDoneAttempt === attempt
-            && !attempt.controller.signal.aborted
-            && attempt.token === deps.getVisibilityToken();
-    }
-
-    private _restoreFailedDoneAttempt(
-        attempt: DoneAttempt,
-        deps: { restoreSetupAfterProvisionalReveal: () => void }
-    ): void {
-        this._activeDoneAttempt = null;
-        if (attempt.provisionalPlayerVisible) {
-            deps.restoreSetupAfterProvisionalReveal();
-            attempt.provisionalPlayerVisible = false;
-        }
-        attempt.button.disabled = false;
-    }
-
-    private _cancelActiveDoneAttempt(
-        deps: { restoreSetupAfterProvisionalReveal: () => void },
-        restoreSetup: boolean,
-        outcome: 'canceled' | 'superseded'
-    ): void {
-        const attempt = this._activeDoneAttempt;
-        if (!attempt) return;
-        this._activeDoneAttempt = null;
-        attempt.controller.abort();
-        attempt.diagnostics.close(outcome);
-        if (restoreSetup && attempt.provisionalPlayerVisible) {
-            deps.restoreSetupAfterProvisionalReveal();
-            attempt.button.disabled = false;
-        }
-    }
-
-    private _applyBuildCanceledUI(
-        ctx: StepRenderContext,
-        cancelButton: HTMLButtonElement,
-        doneButton: HTMLButtonElement,
-        barFill: HTMLElement,
-        taskLabel: HTMLElement,
-        detailLabel: HTMLElement,
-        options?: { disableDone?: boolean }
-    ): void {
-        ctx.statusEl.textContent = 'Canceled.';
-        ctx.detailEl.textContent = 'No changes were applied.';
-        taskLabel.textContent = 'Canceled';
-        detailLabel.textContent = '';
-        barFill.style.width = '0%';
-        barFill.classList.remove('indeterminate');
-
-        cancelButton.disabled = false;
-        cancelButton.textContent = 'Back';
-        if (options?.disableDone) {
-            doneButton.disabled = true;
-        }
-        cancelButton.focus();
-    }
-
-    private _applyBuildBlockedUI(
-        ctx: StepRenderContext,
-        cancelButton: HTMLButtonElement,
-        doneButton: HTMLButtonElement,
-        barFill: HTMLElement,
-        taskLabel: HTMLElement,
-        detailLabel: HTMLElement,
-        message: string
-    ): void {
-        const userMessage = formatChannelSetupUserCopy(message, 'build');
-        ctx.statusEl.textContent = 'Setup needs attention.';
-        ctx.detailEl.textContent = 'No changes were applied.';
-        ctx.errorEl.textContent = userMessage;
-        taskLabel.textContent = 'Build paused';
-        detailLabel.textContent = 'Adjust setup, then try building again.';
-        barFill.style.width = '0%';
-        barFill.classList.remove('indeterminate');
-
-        cancelButton.disabled = false;
-        cancelButton.textContent = 'Back';
-        doneButton.disabled = true;
-        cancelButton.focus();
-    }
-
-    private async _startBuild(
-        ctx: StepRenderContext,
-        deps: {
-            session: ChannelSetupSessionController;
-            focus: ChannelSetupFocusCoordinator;
-            screenPorts: ChannelSetupScreenPorts;
-            getPreferredFocusId: () => string | null;
-            setPreferredFocusId: (focusId: string | null) => void;
-            getVisibilityToken: () => number;
-        },
-        ui: {
-            cancelButton: HTMLButtonElement;
-            doneButton: HTMLButtonElement;
-            barFill: HTMLElement;
-            taskLabel: HTMLElement;
-            detailLabel: HTMLElement;
-        }
-    ): Promise<void> {
-        const { cancelButton, doneButton, barFill, taskLabel, detailLabel } = ui;
-        const token = deps.getVisibilityToken();
-        this._lastInitialChannelNumber = null;
-        const outcome = await deps.session.beginBuild({
-            onProgress: (p: ChannelBuildProgress): void => {
-                if (token !== deps.getVisibilityToken()) {
-                    return;
-                }
-                taskLabel.textContent = p.label;
-                detailLabel.textContent = p.detail;
-
-                if (p.total !== null && p.total > 0) {
-                    const percent = Math.min(100, (p.current / p.total) * 100);
-                    barFill.style.width = `${percent}%`;
-                    barFill.classList.remove('indeterminate');
+                this._saved = false;
+                this._canCancel = true;
+                ui.barFill.style.width = '0%';
+                ui.barFill.classList.remove('indeterminate');
+                ui.doneButton.disabled = true;
+                ui.addCustomButton.disabled = true;
+                ui.cancelButton.disabled = false;
+                ui.cancelButton.textContent = 'Back to Review';
+                if (outcome.kind === 'blocked') {
+                    this._stale = outcome.reason === 'stale' || outcome.reason === 'conflict';
+                    ctx.statusEl.textContent = this._stale ? 'Review is out of date' : 'Review needs attention';
+                    ctx.errorEl.textContent = `${outcome.message} Nothing was saved.`;
+                } else if (outcome.kind === 'canceled') {
+                    ctx.statusEl.textContent = 'Canceled';
+                    ctx.detailEl.textContent = 'Nothing was saved. Your Review choices are retained.';
                 } else {
-                    barFill.style.width = '';
-                    barFill.classList.add('indeterminate');
+                    ctx.statusEl.textContent = 'Apply failed';
+                    ctx.errorEl.textContent = `${outcome.kind === 'error' ? outcome.message : 'No server selected.'} Nothing was saved.`;
                 }
-            },
-            onStateChange: () => {
-                // State changes are reflected through subsequent step renders.
+                ui.taskLabel.textContent = 'No changes saved';
+                ui.detailLabel.textContent = 'Back returns to Review with your choices.';
+                deps.screenPorts.getNavigation()?.setFocus('setup-back');
             },
         });
-
-        if (token !== deps.getVisibilityToken()) {
-            return;
-        }
-
-        if (outcome.kind === 'missing-server') {
-            this._lastInitialChannelNumber = null;
-            ctx.errorEl.textContent = 'No server selected.';
-            ctx.statusEl.textContent = 'Error';
-            taskLabel.textContent = 'Select a server';
-            detailLabel.textContent = '';
-            barFill.style.width = '0%';
-            barFill.classList.remove('indeterminate');
-            cancelButton.disabled = false;
-            cancelButton.textContent = 'Back';
-            doneButton.disabled = true;
-            return;
-        }
-
-        if (outcome.kind === 'blocked') {
-            this._lastInitialChannelNumber = null;
-            this._applyBuildBlockedUI(ctx, cancelButton, doneButton, barFill, taskLabel, detailLabel, outcome.message);
-            return;
-        }
-
-        if (outcome.kind === 'canceled') {
-            this._lastInitialChannelNumber = null;
-            this._applyBuildCanceledUI(ctx, cancelButton, doneButton, barFill, taskLabel, detailLabel, {
-                disableDone: true,
-            });
-            return;
-        }
-
-        if (outcome.kind === 'error') {
-            this._lastInitialChannelNumber = null;
-            ctx.errorEl.textContent = outcome.message;
-            ctx.statusEl.textContent = 'Error';
-            taskLabel.textContent = 'Error';
-            detailLabel.textContent = '';
-            barFill.style.width = '0%';
-            barFill.classList.remove('indeterminate');
-            cancelButton.disabled = false;
-            cancelButton.textContent = 'Back';
-            return;
-        }
-
-        this._lastInitialChannelNumber = outcome.result.initialChannelNumber ?? null;
-        const guideRefresh = outcome.result.guideRefresh;
-        ctx.statusEl.textContent = this._buildSuccessStatus(outcome.result.created, outcome.bookkeepingError, guideRefresh);
-        taskLabel.textContent = 'Complete';
-        detailLabel.textContent = `Created ${outcome.result.created} ${pluralize(outcome.result.created, 'channel', 'channels')}. ${outcome.result.skipped} ${pluralize(outcome.result.skipped, 'candidate', 'candidates')} not created.`;
-        barFill.style.width = '100%';
-        barFill.classList.remove('indeterminate');
-        ctx.errorEl.textContent = this._buildSuccessWarning(outcome.result.created, outcome.bookkeepingError, guideRefresh);
-
-        cancelButton.disabled = false;
-        doneButton.disabled = outcome.result.created === 0 || this._lastInitialChannelNumber === null;
-        cancelButton.textContent = 'Back';
-
-        if (outcome.result.created === 0) {
-            ctx.detailEl.textContent = 'No channels created.';
-        }
-        deps.focus.unregisterAll();
-        const preferredApplied = deps.focus.registerLinear([doneButton, cancelButton], deps.getPreferredFocusId());
-        if (preferredApplied) {
-            deps.setPreferredFocusId(null);
-        }
-
-        const nav = deps.screenPorts.getNavigation();
-        if (nav && !doneButton.disabled) {
-            nav.setFocus(doneButton.id);
-        } else {
-            nav?.setFocus(cancelButton.id);
-        }
     }
 
-    private _handleDoneChannelSwitchOutcome(
+    private _showSavedOutcome(
         ctx: StepRenderContext,
-        outcome: ChannelSwitchOutcome,
-        initialChannelNumber: number
+        ui: { cancelButton: HTMLButtonElement; doneButton: HTMLButtonElement; addCustomButton: HTMLButtonElement; barFill: HTMLElement; taskLabel: HTMLElement; detailLabel: HTMLElement },
+        summary: ChannelBuildSummary,
+        bookkeepingError?: string
     ): void {
-        if (isChannelSwitchFailed(outcome)) {
-            ctx.errorEl.textContent = `Channels were created, but channel ${initialChannelNumber} could not start.`;
-            return;
+        ctx.statusEl.textContent = summary.noChange ? 'Lineup unchanged' : 'Channels saved';
+        ctx.detailEl.textContent = summary.noChange ? 'No structural changes were needed.'
+            : `${summary.created} added · ${summary.skipped} candidates excluded. Open Guide to see the lineup.`;
+        const warnings = [...(summary.warnings ?? [])];
+        if (summary.pointerWarning) warnings.push('Channels were saved, but the selected-channel pointer could not be saved.');
+        if (bookkeepingError) warnings.push(`Channels were saved, but setup completion needs retry: ${bookkeepingError}`);
+        if (summary.guideRefresh?.kind === 'failed' || summary.guideRefresh?.kind === 'interrupted') {
+            warnings.push('Channels were saved; Guide refresh needs retry.');
+        } else if (summary.guideRefresh?.kind === 'completed' && summary.guideRefresh.result.readiness !== 'ready') {
+            warnings.push(`Channels were saved; Guide readiness is ${summary.guideRefresh.result.readiness}.`);
         }
-        if (isChannelSwitchAborted(outcome)) {
-            ctx.errorEl.textContent = 'Channels were created, but playback start was canceled.';
-        }
+        ctx.errorEl.textContent = warnings.join(' ');
+        ui.taskLabel.textContent = 'Saved';
+        ui.detailLabel.textContent = ctx.detailEl.textContent;
+        ui.barFill.style.width = '100%';
+        ui.barFill.classList.remove('indeterminate');
+        ui.cancelButton.disabled = false;
+        ui.cancelButton.textContent = 'Back';
+        ui.doneButton.disabled = false;
+        ui.doneButton.textContent = 'Open Guide';
+        ui.addCustomButton.disabled = false;
     }
 
-    private _buildSuccessStatus(
-        created: number,
-        bookkeepingError: string | undefined,
-        guideRefresh: ChannelSetupGuideRefreshSummary | undefined
-    ): string {
-        const createdPrefix = `${pluralize(created, 'Channel', 'Channels')} created;`;
-        if (guideRefresh?.kind === 'interrupted') {
-            return `${createdPrefix} guide refresh interrupted.`;
-        }
-        if (bookkeepingError) {
-            return `${createdPrefix} setup save needed.`;
-        }
-        if (guideRefresh?.kind === 'failed') {
-            return `${createdPrefix} guide refresh failed.`;
-        }
-        const refreshResult = guideRefresh?.result;
-        if (refreshResult?.readiness === 'failed') {
-            return `${createdPrefix} guide refresh failed.`;
-        }
-        if (refreshResult?.readiness === 'skipped') {
-            return `${createdPrefix} guide refresh unavailable.`;
-        }
-        if (refreshResult?.readiness === 'partial') {
-            return `${createdPrefix} guide needs attention.`;
-        }
-        return `${pluralize(created, 'Channel', 'Channels')} ready.`;
-    }
-
-    private _buildSuccessWarning(
-        created: number,
-        bookkeepingError: string | undefined,
-        guideRefresh: ChannelSetupGuideRefreshSummary | undefined
-    ): string {
-        const warnings: string[] = [];
-        const createdSubject = created === 1 ? 'Channel was created' : 'Channels were created';
-        const savedSubject = created === 1 ? 'Channel was saved' : 'Channels were saved';
-        if (bookkeepingError) {
-            warnings.push(`${createdSubject}, but setup completion could not be saved: ${bookkeepingError}`);
-        }
-        if (guideRefresh?.kind === 'interrupted') {
-            warnings.push(`${savedSubject}, but guide refresh was interrupted. Open the guide again after schedules finish loading.`);
-            return warnings.join(' ');
-        }
-        if (guideRefresh?.kind === 'failed') {
-            warnings.push('Guide data could not be refreshed. Open the guide again after schedules finish loading.');
-            return warnings.join(' ');
-        }
-
-        const refreshResult = guideRefresh?.result;
-        if (refreshResult?.readiness === 'failed') {
-            warnings.push('Guide data could not be refreshed. Open the guide again after schedules finish loading.');
-        } else if (refreshResult?.readiness === 'skipped') {
-            warnings.push('Guide data was not refreshed. Open the guide again after schedules finish loading.');
-        } else if (refreshResult?.readiness === 'partial') {
-            warnings.push(`${refreshResult.failedChannelCount} channel schedules could not be refreshed immediately.`);
-        }
-        return warnings.join(' ');
+    private _openGuide(deps: Deps): void {
+        if (this._guideOpened) return;
+        this._guideOpened = true;
+        deps.screenPorts.getNavigation()?.replaceScreen('guide');
     }
 }

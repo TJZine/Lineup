@@ -89,6 +89,7 @@ export class ChannelNumberOverlay {
 
     hide(): void {
         if (!this.containerElement) return;
+        this.clearHideTimer();
         this.containerElement.classList.remove(CHANNEL_NUMBER_CLASSES.VISIBLE, CHANNEL_NUMBER_CLASSES.ERROR);
         this.isVisibleFlag = false;
     }

@@ -10,6 +10,7 @@ import type {
 import type {
     IChannelScheduler,
     ScheduleConfig,
+    ScheduledProgramIdentity,
 } from '../../modules/scheduler/scheduler';
 import type { AppendIssueDiagnostic } from '../../modules/debug/IssueDiagnosticsStore';
 import { isAbortLikeError, summarizeErrorForLog } from '../../utils/errors';
@@ -20,14 +21,8 @@ import { CHANNEL_SWITCH_OUTCOME } from '../../types/channelSwitch';
 import type { ChannelSwitchOutcome } from '../../types/channelSwitch';
 import type { ChannelSwitchPresentationOptions } from '../../types/channelSwitch';
 import type {
-    OperationContextUpstream,
     RetainedOperationLease,
 } from '../../utils/RetainedOperationContext';
-import {
-    ChannelInitialTuneAuthority,
-    type ChannelInitialTuneLineage,
-    type ChannelInitialTunePermit,
-} from './ChannelInitialTuneAuthority';
 import { ChannelTuningOperationContext } from './ChannelTuningOperationContext';
 import { ChannelTuningDiagnostics } from './ChannelTuningDiagnostics';
 import {
@@ -53,6 +48,9 @@ export interface ChannelTuningCoordinatorDeps {
 
     resetPlaybackGuardsForNewChannel: () => void;
     stopActiveTranscodeSession: () => void;
+    capturePlaybackAdmission?: (() => number | null) | undefined;
+    isPlaybackAdmissionCurrent?: ((generation: number) => boolean) | undefined;
+    canActivateRetainedSession?: (() => boolean) | undefined;
     armChannelTransitionForSwitch: (channelPrefix: string) => void;
     appendIssueDiagnostic: AppendIssueDiagnostic;
 
@@ -71,6 +69,8 @@ interface QueuedSwitchRequest {
 
 export interface ChannelSwitchOptions extends ChannelSwitchPresentationOptions {
     guideSelectionSnapshot?: GuideSelectionSnapshot;
+    fromGuideSelection?: boolean;
+    selectedProgram?: ScheduledProgramIdentity;
 }
 
 function createAbortLikeError(message: string): Error {
@@ -87,7 +87,6 @@ export class ChannelTuningCoordinator {
     private _pendingSwitch: QueuedSwitchRequest | null = null;
     private _activeDrainPromise: Promise<void> | null = null;
     private readonly _operationContext = new ChannelTuningOperationContext();
-    private readonly _initialTuneAuthority = new ChannelInitialTuneAuthority();
     private readonly _diagnostics: ChannelTuningDiagnostics;
 
     constructor(private readonly deps: ChannelTuningCoordinatorDeps) {
@@ -98,9 +97,19 @@ export class ChannelTuningCoordinator {
         return this._operationContext.isSuspended;
     }
 
+    canActivateCurrentSession(channelId: string): boolean {
+        const currentChannel = this.deps.getChannelManager()?.getCurrentChannel();
+        const schedulerState = this.deps.getScheduler()?.getState();
+        return !this.isSuspended()
+            && currentChannel?.id === channelId
+            && schedulerState?.isActive === true
+            && schedulerState.channelId === channelId
+            && schedulerState.currentProgram !== null
+            && this.deps.canActivateRetainedSession?.() === true;
+    }
+
     async suspendAndDrainForScopeTransition(): Promise<void> {
         this._operationContext.suspend();
-        this._initialTuneAuthority.revokeActive();
         this._takePendingSwitch()?.reject(createAbortLikeError('Channel tuning was suspended.'));
         const channelManager = this.deps.getChannelManager();
         const resolutionDrain = channelManager?.supersedeActiveResolutions() ?? Promise.resolve();
@@ -111,52 +120,6 @@ export class ChannelTuningCoordinator {
     resumeAfterScopeTransition(): void {
         this.deps.getChannelManager()?.resumeActiveResolutions();
         this._operationContext.resume();
-    }
-
-    beginInitialTuneLineage(
-        validators: readonly OperationContextUpstream[]
-    ): ChannelInitialTuneLineage {
-        if (!this._operationContext.isSuspended) throw createAbortLikeError('Channel tuning is not suspended.');
-        return this._initialTuneAuthority.beginLineage(validators);
-    }
-
-    mintInitialTunePermit(lineage: ChannelInitialTuneLineage): ChannelInitialTunePermit {
-        return this._initialTuneAuthority.mintPermit(lineage);
-    }
-
-    completeInitialTuneLineage(lineage: ChannelInitialTuneLineage): void {
-        this._initialTuneAuthority.completeLineage(lineage);
-    }
-
-    async switchToInitialChannel(
-        channelId: string,
-        permit: ChannelInitialTunePermit
-    ): Promise<ChannelSwitchOutcome> {
-        if (!this._operationContext.isSuspended) throw createAbortLikeError('Channel tuning is not suspended.');
-        const operation = this._initialTuneAuthority.consumePermit(permit);
-        try {
-            const channelManager = this.deps.getChannelManager();
-            const scheduler = this.deps.getScheduler();
-            const videoPlayer = this.deps.getVideoPlayer();
-            if (!channelManager || !scheduler || !videoPlayer) {
-                return CHANNEL_SWITCH_OUTCOME.failed('missing_dependencies');
-            }
-            const authorization = channelManager.createInitialTuneResolutionAuthorization(
-                channelId,
-                operation
-            );
-            return await this._runSingleSwitch(
-                channelId,
-                channelManager,
-                scheduler,
-                videoPlayer,
-                undefined,
-                operation,
-                authorization
-            );
-        } finally {
-            operation.release();
-        }
     }
 
     async switchToChannel(
@@ -327,13 +290,18 @@ export class ChannelTuningCoordinator {
         scheduler: IChannelScheduler,
         videoPlayer: IVideoPlayer,
         options: ChannelSwitchOptions | undefined,
-        operation: RetainedOperationLease,
-        initialResolutionAuthorization?: ReturnType<
-            IChannelManager['createInitialTuneResolutionAuthorization']
-        >
+        operation: RetainedOperationLease
     ): Promise<ChannelSwitchOutcome> {
         const signal = operation.signal;
         if (signal.aborted) {
+            return CHANNEL_SWITCH_OUTCOME.aborted;
+        }
+
+        const admission = this.deps.capturePlaybackAdmission?.() ?? null;
+        const admissionCurrent = (): boolean =>
+            !this.deps.capturePlaybackAdmission ||
+            (admission !== null && (this.deps.isPlaybackAdmissionCurrent?.(admission) ?? true));
+        if (this.deps.capturePlaybackAdmission && !admissionCurrent()) {
             return CHANNEL_SWITCH_OUTCOME.aborted;
         }
 
@@ -392,15 +360,11 @@ export class ChannelTuningCoordinator {
             if (!scheduleItems) {
                 let content: ResolvedChannelContent;
                 try {
-                    content = initialResolutionAuthorization
-                        ? await channelManager.resolveChannelContentForInitialTune(
-                            channelId,
-                            initialResolutionAuthorization
-                        )
-                        : await channelManager.resolveChannelContent(channelId, {
-                            signal: options?.signal ?? null,
-                        });
+                    content = await channelManager.resolveChannelContent(channelId, {
+                        signal: options?.signal ?? null,
+                    });
                     operation.assertCurrent();
+                    if (!admissionCurrent()) return CHANNEL_SWITCH_OUTCOME.aborted;
                     scheduleItems = content.items;
                     scheduleReferenceTimeMs = Date.now();
                     operation.assertCurrent();
@@ -440,6 +404,7 @@ export class ChannelTuningCoordinator {
             }
 
             operation.assertCurrent();
+            if (!admissionCurrent()) return CHANNEL_SWITCH_OUTCOME.aborted;
             this.deps.stopActiveTranscodeSession();
             operation.assertCurrent();
             const channelPrefix = buildChannelTransitionPrefix(channel);
@@ -474,6 +439,7 @@ export class ChannelTuningCoordinator {
                 );
             }
             operation.assertCurrent();
+            if (!admissionCurrent()) return CHANNEL_SWITCH_OUTCOME.aborted;
             videoPlayer.stop();
             operation.assertCurrent();
 
@@ -487,8 +453,13 @@ export class ChannelTuningCoordinator {
             operation.assertCurrent();
             options?.beforeProgramStart?.();
             operation.assertCurrent();
+            if (!admissionCurrent()) return CHANNEL_SWITCH_OUTCOME.aborted;
             scheduler.loadChannel(scheduleConfig);
             operation.assertCurrent();
+            if (!admissionCurrent()) {
+                scheduler.unloadChannel();
+                return CHANNEL_SWITCH_OUTCOME.aborted;
+            }
             this.deps.setActiveScheduleDayKey(this.deps.getLocalDayKey(scheduleReferenceTimeMs));
             operation.assertCurrent();
             this._diagnostics.append('channelTuning.schedulerLoaded', {
@@ -556,13 +527,19 @@ export class ChannelTuningCoordinator {
             }
 
             operation.assertCurrent();
+            if (!admissionCurrent()) {
+                scheduler.unloadChannel();
+                return CHANNEL_SWITCH_OUTCOME.aborted;
+            }
             channelManager.setCurrentChannel(channelId);
             operation.assertCurrent();
+            if (!admissionCurrent()) return CHANNEL_SWITCH_OUTCOME.aborted;
 
             const lifecycleSaveError = await captureAsyncError(() =>
                 this.deps.saveLifecycleState()
             );
             operation.assertCurrent();
+            if (!admissionCurrent()) return CHANNEL_SWITCH_OUTCOME.aborted;
             if (lifecycleSaveError) {
                 this._diagnostics.reportUnknown(
                     'channelTuning.lifecycleSaveFailed',

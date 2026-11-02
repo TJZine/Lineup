@@ -1,7 +1,7 @@
-import { installMockLocalStorage, mockLocalStorage } from '../../../../__tests__/mocks/localStorage';
+import { installMockLocalStorage, mockLocalStorage, resetMockLocalStorage } from '../../../../__tests__/mocks/localStorage';
 import { fnv1a32Uint } from '../../../../utils/hash';
 import { ChannelPersistenceStore } from '../persistence/ChannelPersistenceStore';
-import { ChannelRepository } from '../persistence/ChannelRepository';
+import { ChannelRepository, type LoadedChannelState } from '../persistence/ChannelRepository';
 import { CURRENT_CHANNEL_KEY, MAX_CHANNEL_NUMBER, STORAGE_KEY } from '../constants';
 import type { StoredChannelData } from '../contracts/types';
 
@@ -37,15 +37,15 @@ function createStoredChannel(overrides: Record<string, unknown> = {}): StoredCha
 
 function loadNormalized(
     repository: ChannelRepository
-): NonNullable<ReturnType<ChannelRepository['loadNormalized']>> {
+): Extract<LoadedChannelState, { kind: 'readable' }> {
     const normalized = repository.loadNormalized();
-    expect(normalized).not.toBeNull();
-    return normalized as NonNullable<ReturnType<ChannelRepository['loadNormalized']>>;
+    expect(normalized.kind).toBe('readable');
+    return normalized as Extract<LoadedChannelState, { kind: 'readable' }>;
 }
 
 describe('ChannelRepository', () => {
     beforeEach(() => {
-        mockLocalStorage.clear();
+        resetMockLocalStorage();
         jest.restoreAllMocks();
     });
 
@@ -53,7 +53,7 @@ describe('ChannelRepository', () => {
         const repo = new ChannelRepository();
         const readCurrentSpy = jest.spyOn(ChannelPersistenceStore.prototype, 'readCurrentChannelId');
 
-        expect(repo.loadNormalized()).toBeNull();
+        expect(repo.loadNormalized()).toEqual({ kind: 'absent' });
         expect(readCurrentSpy).not.toHaveBeenCalled();
     });
 
@@ -63,7 +63,7 @@ describe('ChannelRepository', () => {
         mockLocalStorage.setItem(STORAGE_KEY, '{bad-json');
         mockLocalStorage.setItem(CURRENT_CHANNEL_KEY, 'channel-1');
 
-        expect(repo.loadNormalized()).toBeNull();
+        expect(repo.loadNormalized()).toEqual({ kind: 'unreadable', raw: '{bad-json' });
         expect(readCurrentSpy).not.toHaveBeenCalled();
     });
 
@@ -83,47 +83,12 @@ describe('ChannelRepository', () => {
 
         const normalized = loadNormalized(repo);
         expect(normalized).toEqual({
+            kind: 'readable',
             data: payload,
             didMutate: false,
         });
         expect(loadSpy).toHaveBeenCalledTimes(1);
         expect(readCurrentSpy).toHaveBeenCalledTimes(1);
-    });
-
-    it('drops non-object channel records during normalized load', () => {
-        const repo = new ChannelRepository();
-        const payload = {
-            channels: [null, 'bad', 123, createStoredChannel()],
-            channelOrder: ['channel-1'],
-            currentChannelId: 'channel-1',
-            savedAt: Date.now(),
-        };
-
-        mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-        const normalized = loadNormalized(repo);
-
-        expect(normalized.data.channels).toHaveLength(1);
-        expect(normalized.didMutate).toBe(true);
-    });
-
-    it('drops channels with invalid ids during normalized load', () => {
-        const repo = new ChannelRepository();
-        const payload = {
-            channels: [
-                createStoredChannel({ id: '' }),
-                createStoredChannel({ id: 'channel-2' }),
-            ],
-            channelOrder: ['channel-1', 'channel-2'],
-            currentChannelId: 'channel-2',
-            savedAt: Date.now(),
-        };
-
-        mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-        const normalized = loadNormalized(repo);
-
-        expect(normalized.data.channels).toHaveLength(1);
-        expect(normalized.data.channels[0]?.id).toBe('channel-2');
-        expect(normalized.didMutate).toBe(true);
     });
 
     it('fills missing shuffle and phase seeds deterministically', () => {
@@ -201,59 +166,6 @@ describe('ChannelRepository', () => {
         expect(normalized.didMutate).toBe(true);
     });
 
-    it('keeps one canonical channel per id with the last decoded record in the first id position', () => {
-        const repo = new ChannelRepository();
-        const payload = {
-            channels: [
-                createStoredChannel({ id: 'duplicate', number: 2, name: 'Earlier value' }),
-                createStoredChannel({ id: 'other', number: 1, name: 'Other channel' }),
-                createStoredChannel({ id: 'duplicate', number: 3, name: 'Winning value' }),
-            ],
-            channelOrder: ['duplicate', 'other'],
-            currentChannelId: 'duplicate',
-            savedAt: Date.now(),
-        };
-
-        mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-        const normalized = loadNormalized(repo);
-
-        expect(
-            normalized.data.channels.map((channel) => ({
-                id: channel.id,
-                name: channel.name,
-                number: channel.number,
-            }))
-        ).toEqual([
-            { id: 'duplicate', name: 'Winning value', number: 3 },
-            { id: 'other', name: 'Other channel', number: 1 },
-        ]);
-        expect(normalized.didMutate).toBe(true);
-    });
-
-    it('does not replace a valid channel with a later invalid record using the same id', () => {
-        const repo = new ChannelRepository();
-        const payload = {
-            channels: [
-                createStoredChannel({ id: 'duplicate', name: 'Valid value' }),
-                createStoredChannel({
-                    id: 'duplicate',
-                    name: 'Invalid value',
-                    contentSource: { type: 'library', libraryId: '' },
-                }),
-            ],
-            channelOrder: ['duplicate'],
-            currentChannelId: 'duplicate',
-            savedAt: Date.now(),
-        };
-
-        mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-        const normalized = loadNormalized(repo);
-
-        expect(normalized.data.channels).toHaveLength(1);
-        expect(normalized.data.channels[0]?.name).toBe('Valid value');
-        expect(normalized.didMutate).toBe(true);
-    });
-
     it('normalizes invalid and duplicate persisted channel numbers', () => {
         const repo = new ChannelRepository();
         const payload = {
@@ -312,7 +224,7 @@ describe('ChannelRepository', () => {
         expect(normalized.didMutate).toBe(true);
     });
 
-    it('logs when number exhaustion drops persisted channels during normalized load', () => {
+    it('blocks number exhaustion without dropping or rewriting saved channels', () => {
         const logger = { warn: jest.fn() };
         const repo = new ChannelRepository(STORAGE_KEY, CURRENT_CHANNEL_KEY, logger);
         const channels = Array.from({ length: MAX_CHANNEL_NUMBER }, (_value, index) =>
@@ -334,37 +246,13 @@ describe('ChannelRepository', () => {
             savedAt: Date.now(),
         };
 
-        mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-        const normalized = loadNormalized(repo);
-
-        expect(normalized.data.channels).toHaveLength(MAX_CHANNEL_NUMBER);
-        expect(normalized.data.channels.some((channel) => channel.id === 'overflow')).toBe(false);
-        expect(normalized.data.channelOrder).not.toContain('overflow');
-        expect(normalized.didMutate).toBe(true);
+        const raw = JSON.stringify(payload);
+        mockLocalStorage.setItem(STORAGE_KEY, raw);
+        expect(repo.loadNormalized()).toEqual({ kind: 'unreadable', raw });
+        expect(mockLocalStorage.getItem(STORAGE_KEY)).toBe(raw);
         expect(logger.warn).toHaveBeenCalledWith(
-            'Dropping persisted channel during normalized load due to number exhaustion',
-            { channelId: 'overflow' }
+            'Blocking persisted lineup because channel numbers cannot be normalized without loss'
         );
-    });
-
-    it('prunes invalid content sources during normalized load', () => {
-        const repo = new ChannelRepository();
-        const payload = {
-            channels: [
-                createStoredChannel({ id: 'bad-source', contentSource: { type: 'library', libraryId: '' } }),
-                createStoredChannel({ id: 'good-source' }),
-            ],
-            channelOrder: ['bad-source', 'good-source'],
-            currentChannelId: 'bad-source',
-            savedAt: Date.now(),
-        };
-
-        mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-        const normalized = loadNormalized(repo);
-
-        expect(normalized.data.channels).toHaveLength(1);
-        expect(normalized.data.channels[0]?.id).toBe('good-source');
-        expect(normalized.didMutate).toBe(true);
     });
 
     it('filters channelOrder entries that no longer exist', () => {
@@ -476,42 +364,6 @@ describe('ChannelRepository', () => {
         expect(normalized.didMutate).toBe(false);
     });
 
-    it('deduplicates before number repair so discarded records cannot cause false exhaustion', () => {
-        const repo = new ChannelRepository();
-        const numberedChannels = Array.from({ length: MAX_CHANNEL_NUMBER - 1 }, (_value, index) =>
-            createStoredChannel({
-                id: `channel-${index + 1}`,
-                number: index + 1,
-            })
-        );
-        const payload = {
-            channels: [
-                ...numberedChannels,
-                createStoredChannel({ id: 'duplicate', number: MAX_CHANNEL_NUMBER }),
-                createStoredChannel({ id: 'duplicate', number: undefined, name: 'Winning value' }),
-            ],
-            channelOrder: [
-                ...numberedChannels.map((channel) => channel.id),
-                'duplicate',
-            ],
-            currentChannelId: 'duplicate',
-            savedAt: Date.now(),
-        };
-
-        mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-        const normalized = loadNormalized(repo);
-        const duplicate = normalized.data.channels.find((channel) => channel.id === 'duplicate');
-
-        expect(normalized.data.channels).toHaveLength(MAX_CHANNEL_NUMBER);
-        expect(duplicate).toEqual(expect.objectContaining({
-            name: 'Winning value',
-            number: MAX_CHANNEL_NUMBER,
-        }));
-        expect(normalized.data.channelOrder).toHaveLength(MAX_CHANNEL_NUMBER);
-        expect(normalized.data.channelOrder.at(-1)).toBe('duplicate');
-        expect(normalized.didMutate).toBe(true);
-    });
-
     it('coerces invalid savedAt without marking mutation', () => {
         const repo = new ChannelRepository();
         jest.spyOn(Date, 'now').mockReturnValue(1_234_567);
@@ -524,7 +376,7 @@ describe('ChannelRepository', () => {
 
         // JSON cannot represent Infinity (it would stringify to null). This test mocks the store
         // boundary directly to ensure ChannelRepository keeps the Number.isFinite guard.
-        jest.spyOn(ChannelPersistenceStore.prototype, 'readStoredChannelData').mockReturnValue(payload);
+        jest.spyOn(ChannelPersistenceStore.prototype, 'readStoredChannelData').mockReturnValue({ kind: 'readable', data: payload, raw: JSON.stringify(payload) });
         const normalized = loadNormalized(repo);
 
         expect(normalized.data.savedAt).toBe(1_234_567);
@@ -632,7 +484,18 @@ describe('ChannelRepository', () => {
             throw new DOMException('Blocked', 'SecurityError');
         });
 
-        expect(repo.loadNormalized()).toBeNull();
+        expect(repo.loadNormalized()).toEqual({ kind: 'read-failed' });
         expect(getItemSpy).toHaveBeenCalled();
     });
+
+    it('preserves duplicate-id payloads as unreadable instead of dropping authored records', () => {
+        const repo = new ChannelRepository();
+        const payload = { channels: [createStoredChannel(), createStoredChannel({ number: 2 })],
+            channelOrder: ['channel-1'], currentChannelId: null, savedAt: 1 };
+        const raw = JSON.stringify(payload);
+        mockLocalStorage.setItem(STORAGE_KEY, raw);
+        expect(repo.loadNormalized()).toEqual({ kind: 'unreadable', raw });
+        expect(mockLocalStorage.getItem(STORAGE_KEY)).toBe(raw);
+    });
+
 });

@@ -17,16 +17,15 @@ describe('EpgPreferencesStore', () => {
         store = new EpgPreferencesStore();
     });
 
-    it('reads/writes layout mode and now watching banner defaults', () => {
-        expect(store.readLayoutModeAndClean()).toBe('classic');
+    it('ignores a retired Overlay choice while preserving now watching preference', () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE, 'overlay');
         expect(store.readNowWatchingEnabledAndClean(true)).toBe(true);
 
-        expect(store.writeLayoutMode('overlay')).toEqual({ ok: true });
         expect(store.writeNowWatchingEnabled(false)).toEqual({ ok: true });
 
-        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE)).toBe('overlay');
+        expect(store.readGuideHoursAndMigrate()).toEqual({ ok: true, value: 2, source: 'default' });
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE)).toBeNull();
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED)).toBe('0');
-        expect(store.readLayoutModeAndClean()).toBe('overlay');
         expect(store.readNowWatchingEnabledAndClean(true)).toBe(false);
     });
 
@@ -54,12 +53,12 @@ describe('EpgPreferencesStore', () => {
     it('scopes library filter by selected server and active user without affecting global display preferences', () => {
         store.setLibraryFilterScope({ serverId: 'server-a', userId: 'user-a' });
         expect(store.writeSelectedLibraryId('lib-a')).toEqual({ ok: true });
-        expect(store.writeGuideDensity('wide')).toEqual({ ok: true });
+        expect(store.writeGuideHours(3)).toEqual({ ok: true });
 
         store.setLibraryFilterScope({ serverId: 'server-b', userId: 'user-a' });
         expect(store.readSelectedLibraryIdAndClean()).toBeNull();
         expect(store.writeSelectedLibraryId('lib-b')).toEqual({ ok: true });
-        expect(store.readGuideDensityAndClean()).toBe('wide');
+        expect(store.readGuideHoursAndMigrate()).toEqual({ ok: true, value: 3, source: 'stored' });
 
         store.setLibraryFilterScope({ serverId: 'server-a', userId: 'user-b' });
         expect(store.readSelectedLibraryIdAndClean()).toBeNull();
@@ -71,21 +70,160 @@ describe('EpgPreferencesStore', () => {
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER)).toBeNull();
     });
 
-    it('normalizes invalid density/background keys by removing and falling back', () => {
+    it('normalizes invalid legacy density only after durable replacement and cleans background', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY, 'weird');
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, '99');
 
-        expect(store.readGuideDensityAndClean()).toBe('detailed');
+        expect(store.readGuideHoursAndMigrate()).toEqual({ ok: true, value: 2, source: 'default' });
         expect(store.readInfoBackgroundModeAndClean(0)).toBe(0);
 
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY)).toBeNull();
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE)).toBeNull();
     });
 
-    it('returns caller fallbacks for missing layout and density values without persisting them', () => {
-        expect(store.readGuideDensityAndClean('wide')).toBe('wide');
-        expect(store.readLayoutModeAndClean('overlay')).toBe('overlay');
+    it.each([
+        ['detailed', 2],
+        ['wide', 3],
+    ] as const)('migrates legacy %s density to %i hours then removes it', (legacy, hours) => {
+        const scopedLibraryKey = `${LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER}:server-1:user-1`;
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY, legacy);
+        localStorage.setItem(scopedLibraryKey, 'library-1');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.CHANNELS_REAL, 'lineup-bytes');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID, 'profile-1');
+        const setSpy = jest.spyOn(Storage.prototype, 'setItem');
 
+        expect(store.readGuideHoursAndMigrate()).toEqual({
+            ok: true,
+            value: hours,
+            source: 'legacy',
+        });
+        expect(store.readGuideHoursAndMigrate()).toEqual({
+            ok: true,
+            value: hours,
+            source: 'stored',
+        });
+        expect(setSpy).toHaveBeenCalledTimes(1);
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_HOURS)).toBe(String(hours));
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY)).toBeNull();
+
+        expect(store.completeGuideHoursMigrationAfterConsumerCutover()).toEqual({
+            ok: true,
+            value: hours,
+            legacyRemoved: false,
+        });
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY)).toBeNull();
+        expect(localStorage.getItem(scopedLibraryKey)).toBe('library-1');
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.CHANNELS_REAL)).toBe('lineup-bytes');
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID)).toBe('profile-1');
+    });
+
+    it('normalizes unsupported current and legacy hours using the current default policy', () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_HOURS, '5');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY, 'future-wide');
+
+        expect(store.readGuideHoursAndMigrate()).toEqual({
+            ok: true,
+            value: 2,
+            source: 'default',
+        });
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_HOURS)).toBe('2');
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY)).toBeNull();
+
+        expect(store.completeGuideHoursMigrationAfterConsumerCutover()).toEqual({
+            ok: true,
+            value: 2,
+            legacyRemoved: false,
+        });
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_HOURS)).toBe('2');
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY)).toBeNull();
+    });
+
+    it('keeps a valid wide selection when replacement write fails and retries on restart', () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY, 'wide');
+        const setSpy = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+            throw new DOMException('quota', 'QuotaExceededError');
+        });
+
+        expect(store.readGuideHoursAndMigrate()).toEqual({
+            ok: false,
+            reason: 'quota-exceeded',
+            stage: 'replacement-write',
+            effectiveValue: 3,
+        });
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY)).toBe('wide');
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_HOURS)).toBeNull();
+
+        setSpy.mockRestore();
+        const restartedStore = new EpgPreferencesStore();
+        expect(restartedStore.readGuideHoursAndMigrate()).toEqual({
+            ok: true,
+            value: 3,
+            source: 'legacy',
+        });
+        expect(restartedStore.completeGuideHoursMigrationAfterConsumerCutover()).toEqual({
+            ok: true,
+            value: 3,
+            legacyRemoved: false,
+        });
+    });
+
+    it('reports and retries legacy cleanup failure only after the replacement value is durable', () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY, 'wide');
+        const removeSpy = jest.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+            throw new DOMException('blocked', 'SecurityError');
+        });
+
+        expect(store.readGuideHoursAndMigrate()).toEqual({
+            ok: false,
+            reason: 'unavailable',
+            stage: 'legacy-cleanup',
+            effectiveValue: 3,
+        });
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_HOURS)).toBe('3');
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY)).toBe('wide');
+
+        removeSpy.mockRestore();
+        expect(store.completeGuideHoursMigrationAfterConsumerCutover()).toEqual({
+            ok: true,
+            value: 3,
+            legacyRemoved: true,
+        });
+    });
+
+    it('distinguishes a blocked migration read and leaves both keys untouched', () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY, 'wide');
+        const getSpy = jest.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+            throw new DOMException('blocked', 'SecurityError');
+        });
+        const setSpy = jest.spyOn(Storage.prototype, 'setItem');
+        const removeSpy = jest.spyOn(Storage.prototype, 'removeItem');
+
+        expect(store.readGuideHoursAndMigrate()).toEqual({
+            ok: false,
+            reason: 'unavailable',
+            stage: 'read',
+            effectiveValue: 2,
+        });
+        expect(setSpy).not.toHaveBeenCalled();
+        expect(removeSpy).not.toHaveBeenCalled();
+        getSpy.mockRestore();
+    });
+
+    it('bounds new Guide hours and keeps source-label preference false by default', () => {
+        expect(store.readSourceLabelsEnabledAndClean()).toBe(false);
+        expect(store.writeSourceLabelsEnabled(true)).toEqual({ ok: true });
+        expect(store.readSourceLabelsEnabledAndClean()).toBe(true);
+
+        expect(store.writeGuideHours(4)).toEqual({ ok: true });
+        expect(store.readGuideHoursAndMigrate()).toEqual({ ok: true, value: 4, source: 'stored' });
+        expect(store.writeGuideHours(5 as 2 | 3 | 4)).toEqual({ ok: false, reason: 'invalid-value' });
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_HOURS)).toBe('4');
+    });
+
+    it('uses the typed default without persisting retired layout or density choices', () => {
+        expect(store.readGuideHoursAndMigrate()).toEqual({ ok: true, value: 2, source: 'default' });
+
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_HOURS)).toBeNull();
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY)).toBeNull();
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE)).toBeNull();
     });
@@ -147,7 +285,7 @@ describe('EpgPreferencesStore', () => {
             throw new DOMException('blocked', 'SecurityError');
         });
         try {
-            expect(store.writeGuideDensity('wide')).toEqual({
+            expect(store.writeGuideHours(3)).toEqual({
                 ok: false,
                 reason: 'unavailable',
             });

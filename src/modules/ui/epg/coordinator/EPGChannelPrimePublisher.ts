@@ -15,7 +15,7 @@ export interface EPGChannelPrimePublication {
     shouldClearPersistedSelection: boolean;
     clearPersistedSelection(operation: EpgRetainedOperationContext): void;
     tabs: { libraries: Array<{ id: string; name: string }>; selectedId: string | null };
-    layoutMode: Parameters<IEPGComponent['setLayoutMode']>[0];
+    sourceLabelsEnabled: boolean;
     nowWatchingEnabled: boolean;
     visibleHours: number;
     channels: EpgChannel[];
@@ -54,7 +54,7 @@ export function createEpgChannelPrimePublication(options: {
             libraries: normalized.tabsEnabled ? normalized.libraries : [],
             selectedId: normalized.tabsEnabled ? normalized.selectedId : null,
         },
-        layoutMode: options.preferencesStore.readLayoutModeAndClean('classic'),
+        sourceLabelsEnabled: options.preferencesStore.readSourceLabelsEnabledAndClean(false),
         nowWatchingEnabled: options.preferencesStore.readNowWatchingEnabledAndClean(true),
         visibleHours: options.getVisibleHours(all, normalized.selectedId, normalized.shouldFilter),
         channels: toEpgChannels(selectVisibleChannelsForLibraryFilter(
@@ -83,7 +83,7 @@ export class EPGChannelPrimePublisher {
         operation.assertCurrent();
         epg.setLibraryTabs(publication.tabs.libraries, publication.tabs.selectedId);
         operation.assertCurrent();
-        epg.setLayoutMode(publication.layoutMode);
+        epg.setSourceLabelsEnabled(publication.sourceLabelsEnabled);
         operation.assertCurrent();
         epg.setNowWatchingBannerEnabled(publication.nowWatchingEnabled);
         operation.assertCurrent();

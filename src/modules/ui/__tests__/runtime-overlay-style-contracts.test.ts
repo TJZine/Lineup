@@ -1,5 +1,5 @@
 /**
- * @jest-environment node
+ * @jest-environment jsdom
  */
 
 import fs from 'node:fs';
@@ -43,19 +43,68 @@ const OVERLAY_ALPHA_PROPERTIES = [
     '--runtime-overlay-end-alpha-legacy',
 ] as const;
 
+const OVERLAY_TRANSPARENCY_MODES = ['more', 'standard', 'reduced'] as const;
+const PLAYER_OVERLAY_ALPHA_PROPERTIES = [
+    '--player-overlay-surface-alpha-more',
+    '--player-overlay-surface-alpha-more-legacy',
+    '--player-overlay-surface-alpha-standard',
+    '--player-overlay-surface-alpha-standard-legacy',
+    '--player-overlay-surface-alpha-reduced',
+    '--player-overlay-surface-alpha-reduced-legacy',
+] as const;
+
+const OVERLAY_MODE_PROPERTIES = OVERLAY_TRANSPARENCY_MODES.flatMap((mode) => [
+    `--runtime-overlay-start-alpha-${mode}`,
+    `--runtime-overlay-start-alpha-${mode}-legacy`,
+    `--runtime-overlay-end-alpha-${mode}`,
+    `--runtime-overlay-end-alpha-${mode}-legacy`,
+]);
+
 const CENTRAL_OVERLAY_PROPERTIES = [
     '--runtime-overlay-tint-rgb',
     '--runtime-overlay-tint-rgb-legacy',
     ...OVERLAY_ALPHA_PROPERTIES,
+    ...OVERLAY_MODE_PROPERTIES,
 ] as const;
 
-const EXPECTED_OVERLAY_ALPHA = {
-    'theme-slate-pine': ['34%', '0.34', '46%', '0.46'],
-    'theme-swiss': ['34%', '0.34', '46%', '0.46'],
-    'theme-directv': ['42%', '0.42', '56%', '0.56'],
-    'theme-glass': ['38%', '0.38', '52%', '0.52'],
-    'theme-ember-steel': ['38%', '0.38', '52%', '0.52'],
-} as const satisfies Record<ThemeClass, readonly [string, string, string, string]>;
+const EXPECTED_OVERLAY_THEME = {
+    'theme-ember-steel': {
+        tint: ['10 9 7', '10, 9, 7'],
+        start: { more: ['30%', '0.30'], standard: ['38%', '0.38'], reduced: ['46%', '0.46'] },
+        end: { more: ['41%', '0.41'], standard: ['52%', '0.52'], reduced: ['63%', '0.63'] },
+    },
+    'theme-slate-pine': {
+        tint: ['22 24 22', '22, 24, 22'],
+        start: { more: ['27%', '0.27'], standard: ['34%', '0.34'], reduced: ['41%', '0.41'] },
+        end: { more: ['37%', '0.37'], standard: ['46%', '0.46'], reduced: ['55%', '0.55'] },
+    },
+    'theme-swiss': {
+        tint: ['0 0 0', '0, 0, 0'],
+        start: { more: ['27%', '0.27'], standard: ['34%', '0.34'], reduced: ['41%', '0.41'] },
+        end: { more: ['37%', '0.37'], standard: ['46%', '0.46'], reduced: ['55%', '0.55'] },
+    },
+    'theme-directv': {
+        tint: ['0 24 48', '0, 24, 48'],
+        start: { more: ['33%', '0.33'], standard: ['42%', '0.42'], reduced: ['51%', '0.51'] },
+        end: { more: ['45%', '0.45'], standard: ['56%', '0.56'], reduced: ['67%', '0.67'] },
+    },
+} as const satisfies Record<ThemeClass, {
+    tint: readonly [string, string];
+    start: Record<typeof OVERLAY_TRANSPARENCY_MODES[number], readonly [string, string]>;
+    end: Record<typeof OVERLAY_TRANSPARENCY_MODES[number], readonly [string, string]>;
+}>;
+
+const EXPECTED_PLAYER_OVERLAY_ALPHA = {
+    more: ['62%', '0.62'],
+    standard: ['78%', '0.78'],
+    reduced: ['94%', '0.94'],
+} as const satisfies Record<typeof OVERLAY_TRANSPARENCY_MODES[number], readonly [string, string]>;
+
+const PLAYER_TRANSPARENCY_ATTRIBUTE = {
+    more: 'more-transparent',
+    standard: 'standard',
+    reduced: 'reduced',
+} as const satisfies Record<typeof OVERLAY_TRANSPARENCY_MODES[number], string>;
 
 const declarationValues = (css: string, property: string): string[] => {
     const escapedProperty = property.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -73,6 +122,12 @@ const cssFilesUnder = (directory: string): string[] =>
     });
 
 describe('runtime overlay style contracts', () => {
+    afterEach(() => {
+        document.head.replaceChildren();
+        document.documentElement.className = '';
+        document.documentElement.removeAttribute('data-player-overlay-transparency');
+    });
+
     it.each(OVERLAY_CONTRACTS)(
         'keeps %s on theme-aware compact overlay scrims',
         ({ file }) => {
@@ -118,26 +173,110 @@ describe('runtime overlay style contracts', () => {
         const css = read('src/styles/themes.css');
 
         const rootBlock = blockFor(css, ':root');
-        expect(declarationValues(rootBlock, '--runtime-overlay-tint-rgb'))
-            .toEqual(['var(--scrim-tint-rgb, 6 8 10)']);
-        expect(declarationValues(rootBlock, '--runtime-overlay-tint-rgb-legacy'))
-            .toEqual(['var(--scrim-tint-rgb-legacy, 6, 8, 10)']);
+        expect(declarationValues(rootBlock, '--runtime-overlay-tint-rgb')).toEqual(['10 9 7']);
+        expect(declarationValues(rootBlock, '--runtime-overlay-tint-rgb-legacy')).toEqual(['10, 9, 7']);
         expect(OVERLAY_ALPHA_PROPERTIES.map((property) => declarationValues(rootBlock, property)))
             .toEqual([['30%'], ['0.30'], ['40%'], ['0.40']]);
+        const tokensCss = read('src/styles/tokens.css');
+        const tokensRoot = blockFor(tokensCss, ':root');
+        expect(PLAYER_OVERLAY_ALPHA_PROPERTIES.map((property) => declarationValues(tokensRoot, property)))
+            .toEqual([['62%'], ['0.62'], ['78%'], ['0.78'], ['94%'], ['0.94']]);
+
+        expect(OVERLAY_TRANSPARENCY_MODES.map((mode) => [
+            declarationValues(rootBlock, `--runtime-overlay-start-alpha-${mode}`)[0],
+            declarationValues(rootBlock, `--runtime-overlay-start-alpha-${mode}-legacy`)[0],
+            declarationValues(rootBlock, `--runtime-overlay-end-alpha-${mode}`)[0],
+            declarationValues(rootBlock, `--runtime-overlay-end-alpha-${mode}-legacy`)[0],
+        ])).toEqual([
+            ['24%', '0.24', '32%', '0.32'],
+            ['30%', '0.30', '40%', '0.40'],
+            ['36%', '0.36', '48%', '0.48'],
+        ]);
 
         for (const themeSelector of THEME_SELECTORS) {
             const themeBlock = blockFor(css, `.${themeSelector}`);
-            const expected = EXPECTED_OVERLAY_ALPHA[themeSelector];
-            OVERLAY_ALPHA_PROPERTIES.forEach((property, index) => {
-                expect(declarationValues(themeBlock, property)).toEqual([expected[index]]);
-            });
+            const expected = EXPECTED_OVERLAY_THEME[themeSelector];
+            expect(declarationValues(themeBlock, '--runtime-overlay-tint-rgb')).toEqual([expected.tint[0]]);
+            expect(declarationValues(themeBlock, '--runtime-overlay-tint-rgb-legacy')).toEqual([expected.tint[1]]);
+            expect(OVERLAY_ALPHA_PROPERTIES.map((property) => declarationValues(themeBlock, property)))
+                .toEqual([
+                    [expected.start.standard[0]],
+                    [expected.start.standard[1]],
+                    [expected.end.standard[0]],
+                    [expected.end.standard[1]],
+                ]);
+            for (const mode of OVERLAY_TRANSPARENCY_MODES) {
+                expect(declarationValues(themeBlock, `--runtime-overlay-start-alpha-${mode}`))
+                    .toEqual([expected.start[mode][0]]);
+                expect(declarationValues(themeBlock, `--runtime-overlay-start-alpha-${mode}-legacy`))
+                    .toEqual([expected.start[mode][1]]);
+                expect(declarationValues(themeBlock, `--runtime-overlay-end-alpha-${mode}`))
+                    .toEqual([expected.end[mode][0]]);
+                expect(declarationValues(themeBlock, `--runtime-overlay-end-alpha-${mode}-legacy`))
+                    .toEqual([expected.end[mode][1]]);
+            }
         }
 
         for (const property of OVERLAY_ALPHA_PROPERTIES) {
+            expect(declarationValues(css, property)).toHaveLength(THEME_SELECTORS.length + 1 + 3);
+        }
+        for (const property of OVERLAY_MODE_PROPERTIES) {
             expect(declarationValues(css, property)).toHaveLength(THEME_SELECTORS.length + 1);
         }
-        expect(declarationValues(css, '--runtime-overlay-tint-rgb')).toHaveLength(1);
-        expect(declarationValues(css, '--runtime-overlay-tint-rgb-legacy')).toHaveLength(1);
+        for (const property of PLAYER_OVERLAY_ALPHA_PROPERTIES) {
+            expect(declarationValues(tokensCss, property)).toHaveLength(1);
+            expect(declarationValues(css, property)).toHaveLength(0);
+        }
+        expect(declarationValues(css, '--runtime-overlay-tint-rgb')).toHaveLength(THEME_SELECTORS.length + 1);
+        expect(declarationValues(css, '--runtime-overlay-tint-rgb-legacy')).toHaveLength(THEME_SELECTORS.length + 1);
+    });
+
+    it('computes Player transparency modes on the same element as its theme class', () => {
+        const tokensCss = read('src/styles/tokens.css');
+        const themesCss = read('src/styles/themes.css');
+        const indexSource = read('src/index.ts');
+        expect(indexSource.indexOf("import './styles/tokens.css';"))
+            .toBeLessThan(indexSource.indexOf("import './styles/themes.css';"));
+
+        const styleElements = [tokensCss, themesCss].map((css) => {
+            const style = document.createElement('style');
+            style.textContent = css;
+            return style;
+        });
+        document.head.replaceChildren(...styleElements);
+
+        for (const themeSelector of THEME_SELECTORS) {
+            const expectedTheme = EXPECTED_OVERLAY_THEME[themeSelector];
+            const root = document.documentElement;
+            root.className = themeSelector;
+
+            for (const mode of OVERLAY_TRANSPARENCY_MODES) {
+                root.setAttribute('data-player-overlay-transparency', PLAYER_TRANSPARENCY_ATTRIBUTE[mode]);
+                const computed = window.getComputedStyle(root);
+                const customProperty = (name: string): string => computed.getPropertyValue(name).trim();
+
+                expect(customProperty('--player-overlay-surface-alpha'))
+                    .toBe(`var(--player-overlay-surface-alpha-${mode})`);
+                expect(customProperty('--player-overlay-surface-alpha-legacy'))
+                    .toBe(`var(--player-overlay-surface-alpha-${mode}-legacy)`);
+                expect(customProperty(`--player-overlay-surface-alpha-${mode}`))
+                    .toBe(EXPECTED_PLAYER_OVERLAY_ALPHA[mode][0]);
+                expect(customProperty(`--player-overlay-surface-alpha-${mode}-legacy`))
+                    .toBe(EXPECTED_PLAYER_OVERLAY_ALPHA[mode][1]);
+                expect(customProperty('--runtime-overlay-start-alpha'))
+                    .toBe(`var(--runtime-overlay-start-alpha-${mode})`);
+                expect(customProperty('--runtime-overlay-start-alpha-legacy'))
+                    .toBe(`var(--runtime-overlay-start-alpha-${mode}-legacy)`);
+                expect(customProperty('--runtime-overlay-end-alpha'))
+                    .toBe(`var(--runtime-overlay-end-alpha-${mode})`);
+                expect(customProperty('--runtime-overlay-end-alpha-legacy'))
+                    .toBe(`var(--runtime-overlay-end-alpha-${mode}-legacy)`);
+                expect(customProperty(`--runtime-overlay-start-alpha-${mode}-legacy`))
+                    .toBe(expectedTheme.start[mode][1]);
+                expect(customProperty(`--runtime-overlay-end-alpha-${mode}-legacy`))
+                    .toBe(expectedTheme.end[mode][1]);
+            }
+        }
     });
 
     it.each(OVERLAY_CONTRACTS)(
@@ -153,100 +292,28 @@ describe('runtime overlay style contracts', () => {
         }
     );
 
-    it('keeps playback options theme tuning local to the panel surface', () => {
-        const coreCss = read('src/modules/ui/playback-options/styles.core.css');
-        const themeCss = read('src/modules/ui/playback-options/styles.theme.css');
+    it('keeps track drawer forced-colors focus within the Player surface', () => {
+        const css = read('src/modules/ui/player-osd/styles.surface.css');
+        const option = blockWithin(css, FORCED_COLORS_RULE, '.player-osd-track-option.focused');
+        expect(option).toContain('background: Highlight;');
+        expect(option).toContain('color: HighlightText;');
+        expect(option).toContain('outline: 2px solid Highlight;');
+    });
 
-        expect(coreCss).toContain('--playback-rail-tint-rgb: var(--scrim-tint-rgb, 8 11 18);');
-        expect(coreCss).toContain('--playback-rail-tint-rgb-legacy: var(--scrim-tint-rgb-legacy, 8, 11, 18);');
-        expect(coreCss).toContain('--playback-rail-start-alpha-legacy: 0.44;');
-        expect(coreCss).toContain('--playback-rail-end-alpha-legacy: 0.62;');
-        expect(coreCss).toContain(
-            'rgba(var(--playback-rail-tint-rgb-legacy), var(--playback-rail-start-alpha-legacy)) 0%'
-        );
-        expect(coreCss).toContain(
-            'rgba(var(--playback-rail-tint-rgb-legacy), var(--playback-rail-end-alpha-legacy)) 100%'
-        );
-        expect(coreCss).toContain(
-            'rgb(var(--playback-rail-tint-rgb) / var(--playback-rail-start-alpha)) 0%'
-        );
-        expect(coreCss).toContain(
-            'rgb(var(--playback-rail-tint-rgb) / var(--playback-rail-end-alpha)) 100%'
-        );
-
-        for (const themeSelector of THEME_SELECTORS) {
-            expect(themeCss).toContain(`.${themeSelector} .playback-options-panel`);
+    it('covers the viewport with physical Player edges on the webOS 6 CSS floor', () => {
+        const css = read('src/modules/ui/player-osd/styles.surface.css');
+        const root = blockFor(css, '.player-osd');
+        const scrim = blockFor(css, ".player-osd[data-presentation='audio'] .player-osd-panel::before");
+        for (const edge of ['top', 'right', 'bottom', 'left']) {
+            expect(declarationValue(root, edge)).toBe('0');
+            expect(declarationValue(scrim, edge)).toBe('0');
         }
     });
 
-    it('keeps playback options forced-colors coverage scoped to focused and selected items', () => {
-        const css = read('src/modules/ui/playback-options/styles.core.css');
-        const panelBlock = blockWithin(css, FORCED_COLORS_RULE, '.playback-options-panel');
-        const selectedBlock = blockWithin(css, FORCED_COLORS_RULE, '.playback-options-item.selected');
-        const selectedLabelBlock = blockWithin(
-            css,
-            FORCED_COLORS_RULE,
-            '.playback-options-item.selected .playback-options-item-label'
-        );
-        const focusedBlock = blockWithin(css, FORCED_COLORS_RULE, '.playback-options-item.focused');
-        const focusVisibleBlock = blockWithin(css, FORCED_COLORS_RULE, '.playback-options-item:focus-visible');
-        const selectedFocusVisibleBlock = blockWithin(
-            css,
-            FORCED_COLORS_RULE,
-            '.playback-options-item.selected:focus-visible'
-        );
-
-        expect(css).toContain(FORCED_COLORS_RULE);
-        expect(panelBlock).toContain('background: Canvas;');
-        expect(panelBlock).toContain('color: CanvasText;');
-        expect(selectedBlock).toContain('.playback-options-item.selected');
-        expect(selectedBlock).toContain('background: Highlight;');
-        expect(selectedBlock).toContain('border-color: Highlight;');
-        expect(selectedLabelBlock).toContain('color: HighlightText;');
-        expect(focusedBlock).toContain('border-color: Highlight;');
-        expect(focusVisibleBlock).toContain('outline: 2px solid Highlight;');
-        expect(selectedFocusVisibleBlock).toContain('outline-color: HighlightText;');
-    });
-
-    it('keeps exit confirm theme tuning local to the overlay surface', () => {
-        const css = read('src/modules/ui/exit-confirm/styles.css');
-
-        expect(css).toContain('--exit-confirm-overlay-mid-alpha: 34%;');
-        expect(css).toContain('--exit-confirm-panel-mid-alpha: 78%;');
-        expect(css).toContain(
-            'rgb(var(--scrim-tint-rgb) / var(--exit-confirm-overlay-bottom-alpha)) 100%'
-        );
-        expect(css).toContain(
-            'rgb(var(--scrim-tint-rgb) / var(--exit-confirm-panel-bottom-alpha)) 100%'
-        );
-
-        for (const themeSelector of THEME_SELECTORS) {
-            expect(css).toContain(`.${themeSelector} .exit-confirm-panel`);
-        }
-    });
-
-    it('keeps the settings and playback polish cleanup scoped to the approved CSS contracts', () => {
+    it('keeps Settings category weight on its shared token', () => {
         const settingsCss = read('src/modules/ui/settings/styles.core.css');
-        const playbackCss = read('src/modules/ui/playback-options/styles.core.css');
-        const exitConfirmCss = read('src/modules/ui/exit-confirm/styles.css');
-
-        expect(declarationValue(blockFor(settingsCss, '.settings-category-button'), 'font-weight')).toBe(
-            'var(--font-weight-semibold)'
-        );
-        expect(settingsCss).not.toContain('font-weight: 560;');
-
-        expect(declarationValue(blockFor(exitConfirmCss, '.exit-confirm-panel'), 'border-radius')).toBe(
-            'var(--radius-xl) var(--radius-xl) 0 0'
-        );
-        expect(exitConfirmCss).not.toContain('border-radius: 18px 18px 0 0;');
-
-        const delayedItemsMatch = playbackCss.match(
-            /\.playback-options-item:nth-child\(n\s*\+\s*6\)\s*\{([^}]*)\}/
-        );
-
-        expect(delayedItemsMatch?.[0]).toBeDefined();
-        expect(delayedItemsMatch?.[1]).toMatch(/animation-delay:\s*180ms;/);
-        expect(delayedItemsMatch?.[1]).not.toMatch(/animation-delay:\s*(210|240|270|300|330|360)ms;/);
+        expect(declarationValue(blockFor(settingsCss, '.settings-category-button'), 'font-weight'))
+            .toBe('var(--font-weight-semibold)');
     });
 
     it('keeps mini guide forced-colors coverage scoped to focused-row readability', () => {

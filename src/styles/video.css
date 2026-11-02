@@ -9,8 +9,9 @@
 .video-container.epg-pip-active {
   --video-epg-pip-layer: 999;
   z-index: var(--video-epg-pip-layer);
-  --classic-guide-pip-left: 24px;
-  --classic-guide-pip-top: 72px;
+  pointer-events: none;
+  --classic-guide-pip-left: 0px;
+  --classic-guide-pip-top: 80px;
 }
 
 .video-container.epg-pip-active #lineup-video-player {
@@ -24,4 +25,20 @@
   object-fit: cover;
   border-radius: 8px;
   outline: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.video-container.epg-pip-active[data-guide-picture-status="paused"]::after,
+.video-container.epg-pip-active[data-guide-picture-status="buffering"]::after,
+.video-container.epg-pip-active[data-guide-picture-status="seeking"]::after {
+  content: attr(data-guide-picture-status);
+  position: absolute;
+  top: calc(var(--classic-guide-pip-top) + 276px);
+  left: calc(var(--classic-guide-pip-left) + 24px);
+  padding: 8px 12px;
+  color: var(--color-text-primary);
+  background: var(--panel-surface);
+  border-radius: var(--panel-radius);
+  font-size: 18px;
+  text-transform: capitalize;
+  pointer-events: none;
 }

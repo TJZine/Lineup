@@ -1,6 +1,7 @@
 import type { ModuleRuntimeStatus } from '../../../../core/module-status';
 export type { EpgScheduleRefreshReadiness, EpgScheduleRefreshResult } from '../../../../shared/epgRefresh';
 import type { ResolvedContentItem } from '../../../scheduler/channel-manager';
+import type { ScheduledProgramIdentity } from '../../../scheduler/scheduler';
 import type { EpgRetainedOperationContext } from '../runtime/EPGRetainedOperationContext';
 
 export type EpgUiStatus = ModuleRuntimeStatus | undefined;
@@ -38,4 +39,7 @@ export interface EpgGuideSelectionSnapshot {
 
 export interface EpgChannelSwitchOptions {
     guideSelectionSnapshot?: EpgGuideSelectionSnapshot;
+    fromGuideSelection?: boolean;
+    selectedProgram?: ScheduledProgramIdentity;
+    signal?: AbortSignal;
 }

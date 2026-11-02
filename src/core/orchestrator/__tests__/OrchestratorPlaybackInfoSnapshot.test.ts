@@ -104,8 +104,6 @@ const createAccessors = (
         setCurrentStreamDecision: jest.fn(),
         getPendingNowPlayingChannelId: () => null,
         setPendingNowPlayingChannelId: jest.fn(),
-        getShouldAutoShowInfoBannerOnNextPlay: () => false,
-        setShouldAutoShowInfoBannerOnNextPlay: jest.fn(),
     };
 
     return {

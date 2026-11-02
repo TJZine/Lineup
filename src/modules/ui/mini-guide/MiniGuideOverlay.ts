@@ -15,6 +15,16 @@ type MiniGuideRowElements = {
     now: HTMLElement | null;
     next: HTMLElement | null;
     progressFill: HTMLElement | null;
+    nowTime: HTMLElement | null;
+    nextTime: HTMLElement | null;
+    watching: HTMLElement | null;
+};
+
+type MiniGuideActions = {
+    select: (index: number) => void;
+    fullGuide: () => void;
+    close: () => void;
+    tick?: () => void;
 };
 
 export class MiniGuideOverlay implements IMiniGuideOverlay {
@@ -22,6 +32,10 @@ export class MiniGuideOverlay implements IMiniGuideOverlay {
     private isVisibleFlag = false;
     private rows: MiniGuideRowElements[] = [];
     private processedBrandingStrategyByRow: Array<MiniGuideBrandingStrategy> = [];
+    private actions: MiniGuideActions | null = null;
+    private emptyElement: HTMLElement | null = null;
+    private clockElement: HTMLElement | null = null;
+    private clockTimer: ReturnType<typeof setInterval> | null = null;
 
     initialize(config: MiniGuideConfig): void {
         const container = document.getElementById(config.containerId);
@@ -36,9 +50,12 @@ export class MiniGuideOverlay implements IMiniGuideOverlay {
         this.isVisibleFlag = false;
         this.cacheElements();
         this.processedBrandingStrategyByRow = Array(ROW_COUNT).fill(null);
+        this.emptyElement = this.containerElement.querySelector(`.${MINI_GUIDE_CLASSES.EMPTY}`);
+        this.clockElement = this.containerElement.querySelector('.mini-guide-clock');
     }
 
     destroy(): void {
+        this.hide();
         if (this.containerElement) {
             this.containerElement.replaceChildren();
             this.containerElement.classList.remove(MINI_GUIDE_CLASSES.VISIBLE);
@@ -47,16 +64,30 @@ export class MiniGuideOverlay implements IMiniGuideOverlay {
         this.isVisibleFlag = false;
         this.rows = [];
         this.processedBrandingStrategyByRow = [];
+        this.actions = null;
+        this.emptyElement = null;
+        this.clockElement = null;
     }
 
     show(): void {
         if (!this.containerElement) return;
+        this.updateClock();
+        if (this.clockTimer === null) {
+            this.clockTimer = globalThis.setInterval(() => {
+                this.updateClock();
+                this.actions?.tick?.();
+            }, 30_000);
+        }
         this.containerElement.classList.add(MINI_GUIDE_CLASSES.VISIBLE);
         this.isVisibleFlag = true;
     }
 
     hide(): void {
         if (!this.containerElement) return;
+        if (this.clockTimer !== null) {
+            globalThis.clearInterval(this.clockTimer);
+            this.clockTimer = null;
+        }
         this.containerElement.classList.remove(MINI_GUIDE_CLASSES.VISIBLE);
         this.isVisibleFlag = false;
     }
@@ -65,20 +96,31 @@ export class MiniGuideOverlay implements IMiniGuideOverlay {
         return this.isVisibleFlag;
     }
 
+    setActions(actions: MiniGuideActions): void {
+        this.actions = actions;
+    }
+
     setViewModel(vm: MiniGuideViewModel): void {
         if (!this.containerElement) return;
+        if (this.emptyElement) {
+            this.emptyElement.textContent = vm.emptyMessage ?? '';
+            this.emptyElement.hidden = vm.channels.length > 0;
+        }
 
         for (let i = 0; i < ROW_COUNT; i += 1) {
             const rowVm = vm.channels[i];
             const rowElements = this.rows[i];
-            if (!rowVm || !rowElements) {
+            if (!rowElements) {
                 continue;
             }
+            if (rowElements.row) rowElements.row.hidden = !rowVm;
+            if (!rowVm) continue;
             const hasStatus = rowVm.status !== undefined && rowVm.status !== null;
             const isLoading = hasStatus
                 ? rowVm.status === 'loading'
                 : rowVm.nowTitle === 'Loading...';
             if (rowElements.row) {
+                rowElements.row.classList.toggle('watching', !!rowVm.isWatching);
                 if (isLoading) {
                     rowElements.row.classList.add(MINI_GUIDE_CLASSES.CHANNEL_ROW_LOADING);
                 } else {
@@ -110,19 +152,22 @@ export class MiniGuideOverlay implements IMiniGuideOverlay {
                 rowElements.name.textContent = rowVm.channelName;
             }
             if (rowElements.now) {
-                rowElements.now.textContent = '';
-                if (rowVm.nowStartTime) {
-                    const start = document.createElement('span');
-                    start.className = 'mini-guide-start-time';
-                    start.textContent = rowVm.nowStartTime;
-                    rowElements.now.appendChild(start);
-                }
-                rowElements.now.appendChild(document.createTextNode(rowVm.nowTitle));
+                rowElements.now.textContent = rowVm.nowTitle;
+            }
+            if (rowElements.watching) rowElements.watching.hidden = !rowVm.isWatching;
+            if (rowElements.nowTime) {
+                const wallTime = rowVm.nowStartTime
+                    ? `${rowVm.nowStartTime}${rowVm.nowEndTime ? `–${rowVm.nowEndTime}` : ''}`
+                    : '';
+                const programTime = rowVm.nowElapsedTime && rowVm.nowRemainingTime
+                    ? `${rowVm.nowElapsedTime} elapsed · ${rowVm.nowRemainingTime} left`
+                    : '';
+                rowElements.nowTime.textContent = [wallTime, programTime].filter(Boolean).join(' · ');
             }
             if (rowElements.next) {
-                rowElements.next.textContent = rowVm.nextTitle ?? '';
-                rowElements.next.style.display = rowVm.nextTitle ? 'block' : 'none';
+                rowElements.next.textContent = rowVm.nextTitle ?? '—';
             }
+            if (rowElements.nextTime) rowElements.nextTime.textContent = rowVm.nextStartTime ?? '';
             if (rowElements.progressFill) {
                 const percent = Math.max(0, Math.min(1, rowVm.nowProgress)) * 100;
                 rowElements.progressFill.style.width = `${percent.toFixed(2)}%`;
@@ -155,6 +200,9 @@ export class MiniGuideOverlay implements IMiniGuideOverlay {
                 now: root.querySelector(`#mini-guide-now-${i}`),
                 next: root.querySelector(`#mini-guide-next-${i}`),
                 progressFill: root.querySelector(`#mini-guide-progress-${i}`),
+                nowTime: root.querySelector(`#mini-guide-now-time-${i}`),
+                nextTime: root.querySelector(`#mini-guide-next-time-${i}`),
+                watching: root.querySelector(`#mini-guide-watching-${i}`),
             });
         }
     }
@@ -165,10 +213,52 @@ export class MiniGuideOverlay implements IMiniGuideOverlay {
             { panel: {} }
         );
 
+        const header = document.createElement('div');
+        header.className = 'mini-guide-header';
+        const title = document.createElement('div');
+        title.className = 'mini-guide-title';
+        title.textContent = 'Mini Guide';
+        const clock = document.createElement('span');
+        clock.className = 'mini-guide-clock';
+        const fullGuide = document.createElement('button');
+        fullGuide.type = 'button';
+        fullGuide.className = 'mini-guide-full-guide';
+        fullGuide.textContent = 'Full Guide →';
+        fullGuide.addEventListener('click', () => {
+            if (this.isVisibleFlag) this.actions?.fullGuide();
+        });
+        const close = document.createElement('button');
+        close.type = 'button';
+        close.className = 'mini-guide-close';
+        close.textContent = 'Close ×';
+        close.addEventListener('click', () => {
+            if (this.isVisibleFlag) this.actions?.close();
+        });
+        header.append(title, clock, fullGuide, close);
+        panelEl.appendChild(header);
+
+        const labels = document.createElement('div');
+        labels.className = 'mini-guide-labels';
+        for (const label of ['Channel', 'On now', 'Up next']) {
+            const column = document.createElement('span');
+            column.textContent = label;
+            labels.appendChild(column);
+        }
+        panelEl.appendChild(labels);
+
+        const empty = document.createElement('div');
+        empty.className = MINI_GUIDE_CLASSES.EMPTY;
+        empty.setAttribute('role', 'status');
+        empty.hidden = true;
+        panelEl.appendChild(empty);
+
         for (let i = 0; i < ROW_COUNT; i += 1) {
             const row = document.createElement('div');
             row.id = `mini-guide-row-${i}`;
             row.className = MINI_GUIDE_CLASSES.CHANNEL_ROW;
+            row.addEventListener('click', () => {
+                if (this.isVisibleFlag && !row.hidden) this.actions?.select(i);
+            });
 
             const number = document.createElement('div');
             number.id = `mini-guide-num-${i}`;
@@ -179,12 +269,24 @@ export class MiniGuideOverlay implements IMiniGuideOverlay {
             brandingIcon.className = MINI_GUIDE_CLASSES.BRANDING_ICON_SLOT;
 
             const name = document.createElement('div');
-            name.id = `mini-guide-name-${i}`;
             name.className = MINI_GUIDE_CLASSES.CHANNEL_NAME;
+            const nameText = document.createElement('span');
+            nameText.id = `mini-guide-name-${i}`;
+            name.appendChild(nameText);
 
             const now = document.createElement('div');
             now.id = `mini-guide-now-${i}`;
             now.className = MINI_GUIDE_CLASSES.PROGRAM_NOW;
+            const watching = document.createElement('span');
+            watching.id = `mini-guide-watching-${i}`;
+            watching.className = 'mini-guide-watching';
+            watching.textContent = '▸ Watching';
+            watching.hidden = true;
+            name.appendChild(watching);
+
+            const nowTime = document.createElement('div');
+            nowTime.id = `mini-guide-now-time-${i}`;
+            nowTime.className = 'mini-guide-time';
 
             const progressBar = document.createElement('div');
             progressBar.className = MINI_GUIDE_CLASSES.PROGRESS_BAR;
@@ -196,8 +298,21 @@ export class MiniGuideOverlay implements IMiniGuideOverlay {
             const next = document.createElement('div');
             next.id = `mini-guide-next-${i}`;
             next.className = MINI_GUIDE_CLASSES.PROGRAM_NEXT;
+            const nextTime = document.createElement('div');
+            nextTime.id = `mini-guide-next-time-${i}`;
+            nextTime.className = 'mini-guide-time';
 
-            row.append(number, brandingIcon, name, now, progressBar, next);
+            const channelCell = document.createElement('div');
+            channelCell.className = 'mini-guide-channel-cell';
+            channelCell.append(number, brandingIcon, name);
+            const nowCell = document.createElement('div');
+            nowCell.className = 'mini-guide-program-cell';
+            nowCell.append(now, nowTime, progressBar);
+            const nextCell = document.createElement('div');
+            nextCell.className = 'mini-guide-program-cell';
+            nextCell.append(next, nextTime);
+
+            row.append(channelCell, nowCell, nextCell);
             panelEl.appendChild(row);
         }
 
@@ -207,5 +322,12 @@ export class MiniGuideOverlay implements IMiniGuideOverlay {
         panelEl.appendChild(footer);
 
         return panelEl;
+    }
+
+    private updateClock(): void {
+        if (!this.clockElement) return;
+        this.clockElement.textContent = new Date().toLocaleTimeString(undefined, {
+            hour: 'numeric', minute: '2-digit', hour12: true,
+        });
     }
 }

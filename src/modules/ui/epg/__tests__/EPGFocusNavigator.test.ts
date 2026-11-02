@@ -365,5 +365,6 @@ describe('EPGFocusNavigator', () => {
         setLibraryTabsFocused(true);
         expect(navigator.handleSelect()).toBe(true);
         expect(libraryTabs.selectFocused).toHaveBeenCalled();
+        expect(navigator.handleBack()).toBe(false);
     });
 });

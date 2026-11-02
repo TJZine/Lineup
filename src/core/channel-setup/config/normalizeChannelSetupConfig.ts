@@ -1,4 +1,5 @@
 import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../../modules/scheduler/channel-manager/constants';
+import { isValidChannelSeed } from '../../../modules/scheduler/channel-manager/authoring/ChannelSeedPolicy';
 import type {
     ChannelSetupConfig,
     ChannelExpansionConfig,
@@ -44,7 +45,7 @@ const normalizeChannelExpansion = (expansion: ChannelExpansionConfig | undefined
 
 const normalizeSeriesOrdering = (value: SeriesOrderingConfig | undefined): SeriesOrderingConfig => {
     const basePlaybackMode =
-        value?.basePlaybackMode === 'sequential' || value?.basePlaybackMode === 'block'
+        value?.basePlaybackMode === 'sequential' || value?.basePlaybackMode === 'block' || value?.basePlaybackMode === 'random'
             ? value.basePlaybackMode
             : 'shuffle';
     const baseBlockSize = Number.isFinite(value?.baseBlockSize)
@@ -53,6 +54,10 @@ const normalizeSeriesOrdering = (value: SeriesOrderingConfig | undefined): Serie
     return {
         basePlaybackMode,
         baseBlockSize,
+        ...(isValidChannelSeed(value?.lineupSeed) ? { lineupSeed: value.lineupSeed } : {}),
+        ...(typeof value?.startTimeAnchor === 'number' && Number.isFinite(value.startTimeAnchor)
+            ? { startTimeAnchor: value.startTimeAnchor } : {}),
+        ...(value?.includeSpecials === false ? { includeSpecials: false } : {}),
     };
 };
 

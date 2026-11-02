@@ -1,8 +1,9 @@
 import type { PlexLibrarySection } from '../../../modules/plex/library';
+import type { ChannelSetupInventory } from '../planning/ChannelSetupInventory';
 import type { ChannelSetupPlanDiagnosticsResult } from '../planning/ChannelSetupPlanDiagnostics';
 import type {
     ChannelBuildProgress,
-    ChannelBuildSummary,
+    ChannelSetupApplyResult,
     ChannelSetupCompletionResult,
     ChannelSetupConfig,
     ChannelSetupContext,
@@ -34,17 +35,28 @@ export interface ChannelSetupWorkflowPort {
     invalidateFacetSnapshot(): void;
     invalidateSessionData(): void;
     getLibrariesForSetup(signal?: AbortSignal | null): Promise<PlexLibrarySection[]>;
+    scanSetupInventory(config: ChannelSetupConfig, options?: {
+        signal?: AbortSignal;
+        onProgress?: (inventory: ChannelSetupInventory) => void;
+    }): Promise<ChannelSetupInventory>;
+    retrySetupInventory(libraryId: string): void;
     getChannelSetupRecord(serverId: string): ChannelSetupRecord | null;
     getSetupContextForSelectedServer(): ChannelSetupContext;
     getSetupPreview(config: ChannelSetupConfig, options?: { signal?: AbortSignal }): Promise<ChannelSetupPreview>;
-    getSetupReview(config: ChannelSetupConfig, options?: { signal?: AbortSignal }): Promise<ChannelSetupReview>;
+    getSetupReview(config: ChannelSetupConfig, options?: {
+        signal?: AbortSignal;
+        acceptedReadyLibraryIds?: readonly string[];
+        confirmedDeselectedLibraryIds?: readonly string[];
+    }): Promise<ChannelSetupReview>;
+    applySetupReview(reviewId: string, config: ChannelSetupConfig,
+        consent: { removalConfirmedForReviewId: string | null;
+            wholeLineupReplacementConfirmedForReviewId: string | null },
+        options?: { signal?: AbortSignal; onProgress?: (p: ChannelBuildProgress) => void }): Promise<ChannelSetupApplyResult>;
+    cancelPreparedReview(): void;
     getSetupPlanDiagnostics(
         config: ChannelSetupConfig,
         options?: { signal?: AbortSignal }
     ): Promise<ChannelSetupPlanDiagnosticsResult>;
-    createChannelsFromSetup(
-        config: ChannelSetupConfig,
-        options?: { signal?: AbortSignal; onProgress?: (p: ChannelBuildProgress) => void }
-    ): Promise<ChannelBuildSummary>;
-    markSetupComplete(serverId: string, setupConfig: ChannelSetupConfig): ChannelSetupCompletionResult;
+    markSetupComplete(serverId: string, setupConfig: ChannelSetupConfig,
+        expectedScopeKey: string): ChannelSetupCompletionResult;
 }

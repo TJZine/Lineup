@@ -5,7 +5,7 @@ import type { BuildProgressDeps } from './types';
 export class BuildProgressStepController {
     render(ctx: StepRenderContext, deps: BuildProgressDeps): void {
         ctx.stepEl.textContent = 'Step 3 of 3';
-        ctx.statusEl.textContent = 'Building channels...';
+        ctx.statusEl.textContent = 'Applying reviewed lineup…';
         ctx.detailEl.textContent = '';
         ctx.errorEl.textContent = '';
 
@@ -53,25 +53,35 @@ export class BuildProgressStepController {
         });
         actions.appendChild(doneButton);
 
+        const addCustomButton = document.createElement('button');
+        addCustomButton.id = 'setup-add-custom';
+        addCustomButton.className = 'screen-button secondary';
+        addCustomButton.textContent = 'Add a custom channel';
+        addCustomButton.disabled = true;
+        addCustomButton.addEventListener('click', () => deps.onAddCustom(addCustomButton));
+        actions.appendChild(addCustomButton);
+
         ctx.contentEl.appendChild(actions);
         // Note: Focus registration filters out disabled buttons (Done starts disabled until build completes).
-        deps.registerLinearFocusables([backButton, doneButton]);
+        deps.registerLinearFocusables([backButton, doneButton, addCustomButton]);
 
         void deps.startBuild({
             cancelButton: backButton,
             doneButton,
+            addCustomButton,
             barFill,
             taskLabel,
             detailLabel,
         }).catch((error: unknown) => {
             if (isAbortLikeError(error)) return;
             ctx.statusEl.textContent = 'Error';
-            ctx.errorEl.textContent = 'Build failed. Please go back and try again.';
-            taskLabel.textContent = 'Build failed';
+            ctx.errorEl.textContent = 'Apply failed. Nothing was saved. Return to Review to retry.';
+            taskLabel.textContent = 'Apply failed';
             detailLabel.textContent = 'Press Back to adjust settings and retry.';
             backButton.disabled = false;
             backButton.textContent = 'Back';
             doneButton.disabled = true;
+            addCustomButton.disabled = true;
         });
     }
 }

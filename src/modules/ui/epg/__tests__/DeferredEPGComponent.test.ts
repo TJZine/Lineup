@@ -11,13 +11,12 @@ import type {
     EpgHeldScheduleSnapshot,
     EpgScheduleLoadMetadata,
 } from '../types';
-import type { EpgLayoutMode } from '../../../settings/EpgPreferencesStore';
 
 type RuntimeCall =
     | ['initialize', EPGConfig]
     | ['loadChannels', ChannelConfig[]]
     | ['loadScheduleForChannel', string, ScheduleWindow]
-    | ['setLayoutMode', EpgLayoutMode]
+    | ['setSourceLabelsEnabled', boolean]
     | ['setVisibleHours', number]
     | ['setNowWatchingBannerEnabled', boolean]
     | ['setLibraryTabs', Array<{ id: string; name: string }>, string | null]
@@ -133,7 +132,7 @@ const createFakeRuntime = (overrides: FakeRuntimeOverrides = {}): new () => IEPG
             return this.visible;
         }
         loadChannels(): void {}
-        setLayoutMode(): void {}
+        setSourceLabelsEnabled(): void {}
         setVisibleHours(): void {}
         setNowWatchingBannerEnabled(): void {}
         setLibraryTabs(): void {}
@@ -176,6 +175,7 @@ const createFakeRuntime = (overrides: FakeRuntimeOverrides = {}): new () => IEPG
         handleBack(): boolean {
             return false;
         }
+        openLineupMenu(): void {}
         setGridAnchorTime(): void {}
         destroy(): void {}
         on(): { dispose(): void } {
@@ -190,6 +190,22 @@ const createLoader = (overrides: FakeRuntimeOverrides = {}): jest.Mock => jest.f
 }));
 
 describe('DeferredEPGComponent', () => {
+    it('opens a pending Lineup menu after the Guide becomes visible', async () => {
+        const calls: string[] = [];
+        let visible = false;
+        const loader = createLoader({
+            show(): void { visible = true; calls.push('show'); },
+            isVisible(): boolean { return visible; },
+            openLineupMenu(): void { calls.push('menu'); },
+        });
+        const component = new DeferredEPGComponent(loader as never);
+        component.initialize(makeConfig());
+        component.openLineupMenu();
+        component.show();
+        await component.ensureReady();
+        expect(calls).toEqual(['show', 'menu']);
+    });
+
     it('does not load the runtime during initialize()', async () => {
         const calls: RuntimeCall[] = [];
         const loader = createLoader({
@@ -208,8 +224,8 @@ describe('DeferredEPGComponent', () => {
             loadChannels(channels: ChannelConfig[]): void {
                 calls.push(['loadChannels', channels]);
             },
-            setLayoutMode(mode: EpgLayoutMode): void {
-                calls.push(['setLayoutMode', mode]);
+            setSourceLabelsEnabled(enabled: boolean): void {
+                calls.push(['setSourceLabelsEnabled', enabled]);
             },
             setVisibleHours(hours: number): void {
                 calls.push(['setVisibleHours', hours]);
@@ -367,7 +383,7 @@ describe('DeferredEPGComponent', () => {
         expect(component.isVisible()).toBe(false);
     });
 
-    it('replays queued config, channels, schedules, layout mode, banner mode, and tabs after load', async () => {
+    it('replays queued config, channels, schedules, source labels, banner mode, and tabs after load', async () => {
         const callLog: string[] = [];
         const debugRuntime = {
             isEnabled: jest.fn().mockReturnValue(false),
@@ -391,8 +407,8 @@ describe('DeferredEPGComponent', () => {
             loadChannels(channels: ChannelConfig[]): void {
                 callLog.push(`loadChannels:${channels.map((channel) => channel.id).join(',')}`);
             },
-            setLayoutMode(mode: EpgLayoutMode): void {
-                callLog.push(`setLayoutMode:${mode}`);
+            setSourceLabelsEnabled(enabled: boolean): void {
+                callLog.push(`setSourceLabelsEnabled:${enabled}`);
             },
             setVisibleHours(hours: number): void {
                 callLog.push(`setVisibleHours:${hours}`);
@@ -419,7 +435,7 @@ describe('DeferredEPGComponent', () => {
         component.initialize(config);
         component.loadChannels(channels);
         component.loadScheduleForChannel('ch-1', makeSchedule('prog-1'));
-        component.setLayoutMode('classic');
+        component.setSourceLabelsEnabled(true);
         component.setVisibleHours(4);
         component.setNowWatchingBannerEnabled(false);
         component.setLibraryTabs(libraries, 'lib-1');
@@ -431,7 +447,7 @@ describe('DeferredEPGComponent', () => {
             'debugRuntime:true',
             'loadChannels:ch-1,ch-2',
             'loadScheduleForChannel:ch-1',
-            'setLayoutMode:classic',
+            'setSourceLabelsEnabled:true',
             'setVisibleHours:4',
             'setNowWatchingBannerEnabled:false',
             'setLibraryTabs:1:lib-1',

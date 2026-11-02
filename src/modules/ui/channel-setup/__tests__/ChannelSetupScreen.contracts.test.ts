@@ -5,6 +5,8 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { ChannelSetupScreen } from '../ChannelSetupScreen';
+import type { ChannelSetupCandidateRow } from '../../../../core/channel-setup/build/ChannelSetupPreparedCandidate';
+import type { ChannelSetupConfig } from '../../../../core/channel-setup/types';
 import type { INavigationManager } from '../../../navigation/contracts/interfaces';
 import type { ChannelSetupScreenPorts } from '../ChannelSetupScreenPorts';
 import { flushPromises, flushPromisesAndTimers } from '../../../../__tests__/helpers';
@@ -13,7 +15,6 @@ import {
     CONTENT_STRATEGY_KEYS,
     MIXED_SCOPE_STRATEGY_KEYS,
     STEP2_CONTROL_IDS,
-    STRATEGY_CATEGORIES,
     SETUP_STRATEGY_KEYS,
 } from '../strategyConstants';
 import {
@@ -21,8 +22,44 @@ import {
     createNavigationMock,
     createSplitScreenPorts,
     createScreenDeps,
+    DEFAULT_BUILD_RESULT,
+    DEFAULT_REVIEW,
     makeLibrary,
 } from './channel-setup-test-helpers';
+
+const reviewedRow = (action: ChannelSetupCandidateRow['action']): ChannelSetupCandidateRow => ({
+    action,
+    channelId: action === 'removed' ? 'old-films' : 'new-films',
+    number: 7,
+    name: action === 'removed' ? 'Old Films' : 'New Films',
+    sourceLibraryId: 'movies',
+    sourceLibraryIds: ['movies'],
+    sourceKind: 'library',
+    playbackMode: 'shuffle',
+    shuffleSeed: 17,
+    startTimeAnchor: 1000,
+    scheduleAnchorMode: 'daily',
+    blockSize: null,
+    includeSpecials: true,
+    buildStrategy: null,
+    reason: action === 'removed' ? 'Complete library replaced' : 'Generated from Movies',
+});
+
+const enterConfigure = async (container: HTMLElement): Promise<void> => {
+    clickButton(container, '#setup-scan');
+    await flushPromisesAndTimers(4, 2);
+    const next = container.querySelector('#setup-next');
+    if (!(next instanceof HTMLButtonElement) || next.disabled) {
+        throw new Error('Expected scanned libraries to enable Configure');
+    }
+    next.click();
+    await flushPromisesAndTimers(4, 2);
+};
+
+const enterReview = async (container: HTMLElement): Promise<void> => {
+    clickButton(container, '#setup-next');
+    await flushPromisesAndTimers(4, 2);
+};
 
 describe('ChannelSetupScreen contracts', () => {
     let activeScreen: ChannelSetupScreen | null = null;
@@ -79,21 +116,25 @@ describe('ChannelSetupScreen contracts', () => {
         expect(contracts).toContain('loadError: string | null');
         expect(contracts).toContain('previewError: string | null');
         expect(contracts).toContain('reviewError: string | null');
-        expect(contracts).toContain("{ kind: 'blocked'; message: string }");
+        expect(contracts).toContain("{ kind: 'blocked'; message: string; reason?: ChannelSetupApplyFailure }");
         expect(contracts).toContain("{ kind: 'error'; message: string }");
         expect(contracts).toContain('bookkeepingError?: string');
         expect(screen).not.toContain('AppErrorCode');
         expect(screen).not.toContain('getAppErrorCode');
     });
 
-    it('preserves first-pass DOM IDs across all steps', async () => {
+    it('keeps source, programming, consent, and action controls reachable through staged setup', async () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
-
+        const removal = reviewedRow('removed');
+        const reviewed = { ...DEFAULT_REVIEW, rows: [removal],
+            diff: { ...DEFAULT_REVIEW.diff, summary: { created: 0, removed: 1, unchanged: 0 } } };
+        const getSetupReview = jest.fn().mockResolvedValue(reviewed);
         const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             getSetupContextForSelectedServer: jest.fn(() => 'existing'),
             getSelectedServerId: jest.fn(() => 'server-1'),
+            getSetupReview,
         });
 
         const screen = new ChannelSetupScreen(container, createScreenDeps({
@@ -106,15 +147,17 @@ describe('ChannelSetupScreen contracts', () => {
 
         expect(container.querySelector('#setup-select-all')).not.toBeNull();
         expect(container.querySelector('#setup-clear-all')).not.toBeNull();
-        expect(container.querySelector('#setup-next')).not.toBeNull();
+        expect((container.querySelector('#setup-next') as HTMLButtonElement).disabled).toBe(false);
+        clickButton(container, '#setup-clear-all');
+        expect((container.querySelector('#setup-next') as HTMLButtonElement).disabled).toBe(true);
+        clickButton(container, '#setup-select-all');
+        expect((container.querySelector('#setup-next') as HTMLButtonElement).disabled).toBe(false);
         expect(container.querySelector('#setup-back')).not.toBeNull();
         expect(container.querySelector('#setup-lib-movies')).not.toBeNull();
+        await enterConfigure(container);
 
-        clickButton(container, '#setup-next');
-        await flushPromises();
-        for (const category of STRATEGY_CATEGORIES) {
-            expect(container.querySelector(`#setup-category-${category}`)).not.toBeNull();
-        }
+        expect(container.querySelector('.setup-configure-footer-summary')).not.toBeNull();
+        expect(container.querySelector('.setup-configure-footer-actions #setup-next')).not.toBeNull();
         expect(container.querySelector('#setup-preview-panel')).toBeNull();
         expect(container.querySelector('.setup-preview-strip')).toBeNull();
 
@@ -151,7 +194,12 @@ describe('ChannelSetupScreen contracts', () => {
         expect(container.querySelector(`#${STEP2_CONTROL_IDS.alternateLineupCopies}`)).not.toBeNull();
 
         clickButton(container, '#setup-category-series-ordering');
-        expect(container.querySelector(`#${STEP2_CONTROL_IDS.seriesBaseMode}`)).not.toBeNull();
+        for (const mode of ['shuffle', 'sequential', 'block', 'random']) {
+            expect(container.querySelector(`#setup-playback-${mode}`)).not.toBeNull();
+        }
+        expect(container.querySelector('#setup-lineup-seed')).not.toBeNull();
+        expect(container.querySelector('#setup-start-anchor')).not.toBeNull();
+        expect(container.querySelector('#setup-include-specials')).not.toBeNull();
         expect(container.querySelector(`#${STEP2_CONTROL_IDS.seriesBaseBlockSize}`)).not.toBeNull();
         expect(container.querySelector(`#${STEP2_CONTROL_IDS.seriesVariantType}`)).not.toBeNull();
         expect(container.querySelector(`#${STEP2_CONTROL_IDS.seriesVariantBlockSize}`)).not.toBeNull();
@@ -161,35 +209,99 @@ describe('ChannelSetupScreen contracts', () => {
         expect(container.querySelector(`#${STEP2_CONTROL_IDS.minItems}`)).not.toBeNull();
         expect(container.querySelector(`#${STEP2_CONTROL_IDS.expandLineup}`)).not.toBeNull();
 
-        clickButton(container, '#setup-next');
-        await flushPromisesAndTimers(2, 2);
+        await enterReview(container);
+        expect(getSetupReview).toHaveBeenCalledTimes(1);
+        expect(container.querySelector('#setup-review-search')).not.toBeNull();
+        expect(container.querySelector('#setup-review-row-old-films-removed')).not.toBeNull();
         expect(container.querySelector('#setup-back')).not.toBeNull();
-        expect(container.querySelector('#setup-confirm')).not.toBeNull();
-        await flushPromisesAndTimers(2, 2);
+        expect((container.querySelector('#setup-confirm') as HTMLButtonElement).disabled).toBe(true);
         expect(container.querySelector('#setup-replace-confirm')).not.toBeNull();
+        clickButton(container, '#setup-replace-confirm');
+        expect((container.querySelector('#setup-confirm') as HTMLButtonElement).disabled).toBe(false);
     });
 
-    it('preserves fast-path build screen IDs for first-time setup', async () => {
+    it('requires first-time Review and Apply before exposing saved-result Guide and Studio actions', async () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
-
+        const nav = createNavigationMock();
+        const created = reviewedRow('created');
+        const reviewed = { ...DEFAULT_REVIEW, rows: [created],
+            diff: { ...DEFAULT_REVIEW.diff, summary: { created: 1, removed: 0, unchanged: 0 } } };
+        const applySetupReview = jest.fn().mockResolvedValue({ kind: 'committed', summary: DEFAULT_BUILD_RESULT });
+        const markSetupComplete = jest.fn((_serverId: string, setupConfig: ChannelSetupConfig, _scopeKey: string) => ({ ok: true as const,
+            record: { ...setupConfig, createdAt: 0, updatedAt: 0 } }));
+        const openCustomChannelStudio = jest.fn();
         const { workflowPort, screenPorts } = createSplitScreenPorts({
+            getNavigation: jest.fn(() => nav as unknown as INavigationManager),
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             getSetupContextForSelectedServer: jest.fn(() => 'first-time'),
             getSelectedServerId: jest.fn(() => 'server-1'),
+            getSetupReview: jest.fn().mockResolvedValue(reviewed),
+            applySetupReview,
+            markSetupComplete,
+            openCustomChannelStudio,
         });
 
         const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         activeScreen = screen;
         screen.show();
         await flushPromises();
-        clickButton(container, '#setup-next');
-        await flushPromises();
-        clickButton(container, '#setup-next');
-        await flushPromises();
-
+        await enterConfigure(container);
+        clickButton(container, '#setup-category-series-ordering');
+        clickButton(container, '#setup-playback-random');
+        await enterReview(container);
+        expect(container.textContent).toContain('Review your lineup');
         expect(container.querySelector('#setup-back')).not.toBeNull();
+        expect(container.querySelector('#setup-confirm')).not.toBeNull();
+        expect(container.querySelector('#setup-done')).toBeNull();
+        expect(applySetupReview).not.toHaveBeenCalled();
+        expect(markSetupComplete).not.toHaveBeenCalled();
+
+        clickButton(container, '#setup-confirm');
+        await flushPromisesAndTimers(4, 2);
+        expect(applySetupReview).toHaveBeenCalledWith('prepared-review-1', expect.any(Object),
+            expect.any(Object), expect.any(Object));
+        const appliedConfig = applySetupReview.mock.calls[0]?.[1] as ChannelSetupConfig;
+        expect(appliedConfig.seriesOrdering?.basePlaybackMode).toBe('random');
+        expect(markSetupComplete).toHaveBeenCalledTimes(1);
+        expect(markSetupComplete).toHaveBeenCalledWith('server-1', appliedConfig, DEFAULT_REVIEW.inventory.scopeKey);
+        expect(container.textContent).toContain('Channels saved');
         expect(container.querySelector('#setup-done')).not.toBeNull();
+        expect(container.querySelector('#setup-add-custom')).not.toBeNull();
+        clickButton(container, '#setup-add-custom');
+        expect(openCustomChannelStudio).toHaveBeenCalledTimes(1);
+        expect(nav.replaceScreen).not.toHaveBeenCalled();
+        clickButton(container, '#setup-done');
+        expect(nav.replaceScreen).toHaveBeenCalledTimes(1);
+        expect(nav.replaceScreen).toHaveBeenCalledWith('guide');
+    });
+
+    it('keeps a typed blocked Apply message user-readable and does not save completion', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const applySetupReview = jest.fn().mockResolvedValue({ kind: 'blocked', reason: 'stale',
+            message: 'Review expired. Refresh Review.' });
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            applySetupReview,
+        });
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
+        activeScreen = screen;
+        screen.show();
+        await flushPromises();
+        await enterConfigure(container);
+        await enterReview(container);
+        clickButton(container, '#setup-confirm');
+        await flushPromisesAndTimers(4, 2);
+
+        expect(container.textContent).toContain('Review expired. Refresh Review. Nothing was saved.');
+        expect(container.textContent).not.toContain('[object Object]');
+        expect(workflowPort.markSetupComplete).not.toHaveBeenCalled();
+        expect(container.querySelector('#setup-done')).not.toBeNull();
+        expect((container.querySelector('#setup-done') as HTMLButtonElement).disabled).toBe(true);
+        clickButton(container, '#setup-back');
+        expect(container.textContent).toContain('Review is out of date');
+        expect((container.querySelector('#setup-confirm') as HTMLButtonElement).disabled).toBe(true);
     });
 
     it('unregisters previously registered focusables before each rerender', async () => {
@@ -211,26 +323,34 @@ describe('ChannelSetupScreen contracts', () => {
         expect(nav.unregisterFocusable).toHaveBeenCalled();
     });
 
-    it('preserves Step 2 category->detail transfer behavior', async () => {
+    it('keeps the approved Configure footer and Review row-to-Apply remote focus route', async () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
-
         const nav = createNavigationMock();
+        const created = reviewedRow('created');
+        const reviewed = { ...DEFAULT_REVIEW, rows: [created],
+            diff: { ...DEFAULT_REVIEW.diff, summary: { created: 1, removed: 0, unchanged: 0 } } };
         const { workflowPort, screenPorts } = createSplitScreenPorts({
             getNavigation: jest.fn(() => nav as unknown as INavigationManager),
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSetupReview: jest.fn().mockResolvedValue(reviewed),
         });
 
         const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         activeScreen = screen;
         screen.show();
         await flushPromises();
-        clickButton(container, '#setup-next');
-        await flushPromises();
-
-        nav.setMockFocus('setup-category-content-sources');
+        await enterConfigure(container);
+        expect(nav.focusables.has('setup-next')).toBe(true);
+        expect(nav.focusables.has('setup-strategy-collections')).toBe(true);
+        expect(container.querySelector('.setup-configure-footer-actions #setup-next')).not.toBeNull();
+        await enterReview(container);
+        expect(nav.focusables.has('setup-review-search')).toBe(true);
+        expect(nav.focusables.has('setup-review-row-new-films-created')).toBe(true);
+        nav.setMockFocus('setup-review-row-new-films-created');
         const event = nav.emitKeyPress('right');
         expect(event.handled).toBe(true);
-        expect(nav.setFocus).toHaveBeenLastCalledWith('setup-strategy-collections');
+        expect(nav.setFocus).toHaveBeenLastCalledWith('setup-confirm');
+        expect(nav.focusables.has('setup-confirm')).toBe(true);
     });
 });

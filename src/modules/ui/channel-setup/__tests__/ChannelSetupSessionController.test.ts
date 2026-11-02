@@ -11,7 +11,7 @@ import type { ChannelSetupBuildOutcome } from '../ChannelSetupSessionContracts';
 import type { ChannelSetupScreenWorkflowPort } from '../../../../core/channel-setup/workflow/ChannelSetupScreenWorkflowPort';
 import { CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS } from '../constants';
 import { expectConsoleWarn, flushPromises } from '../../../../__tests__/helpers';
-import { DEFAULT_BUILD_RESULT, DEFAULT_PREVIEW, DEFAULT_REVIEW, makeLibrary } from './channel-setup-test-helpers';
+import { DEFAULT_APPLY_RESULT, DEFAULT_PREVIEW, DEFAULT_REVIEW, makeLibrary } from './channel-setup-test-helpers';
 
 const createDeferred = <T>(): {
     promise: Promise<T>;
@@ -39,8 +39,11 @@ const createWorkflowPort = (overrides: WorkflowPortOverrides = {}): jest.Mocked<
         getSetupContextForSelectedServer: jest.fn(() => 'unknown'),
         invalidateFacetSnapshot: jest.fn(),
         invalidateSessionData: jest.fn(),
-        createChannelsFromSetup: jest.fn((_config, _options) => Promise.resolve(DEFAULT_BUILD_RESULT)),
-        markSetupComplete: jest.fn((_serverId: string, _setupConfig) => ({
+        scanSetupInventory: jest.fn().mockResolvedValue({ scopeKey: '', generation: 0, libraries: [], acceptedReadyLibraryIds: [] }),
+        retrySetupInventory: jest.fn(),
+        applySetupReview: jest.fn((_reviewId, _config, _consent, _options) => Promise.resolve(DEFAULT_APPLY_RESULT)),
+        cancelPreparedReview: jest.fn(),
+        markSetupComplete: jest.fn((_serverId: string, _setupConfig, _expectedScopeKey: string) => ({
             ok: true,
             record: { serverId: _serverId },
         } as ChannelSetupCompletionResult)),
@@ -209,7 +212,7 @@ describe('ChannelSetupSessionController', () => {
         expect(after.strategies.playlists.enabled).toBe(false);
     });
 
-    it('library selection edits invalidate facet snapshots while keeping workflow access inside the runtime owner', async (): Promise<void> => {
+    it('library selection edits retain complete facet evidence for explicit deselected consent', async (): Promise<void> => {
         const libraries: PlexLibraryModel[] = [makeLibrary({ id: 'movies' }), makeLibrary({ id: 'shows' })];
         const workflowPort = createWorkflowPort({
             getLibrariesForSetup: jest.fn().mockResolvedValue(libraries),
@@ -235,7 +238,7 @@ describe('ChannelSetupSessionController', () => {
         expect(controller.getSnapshot().replaceConfirm).toBe(false);
 
         expect(workflowPort.invalidateSessionData).toHaveBeenCalledTimes(1);
-        expect(workflowPort.invalidateFacetSnapshot).toHaveBeenCalledTimes(4);
+        expect(workflowPort.invalidateFacetSnapshot).toHaveBeenCalledTimes(1);
     });
 
     it('updateStrategyState() clears review state without invalidating facet snapshots', (): void => {
@@ -1154,11 +1157,11 @@ describe('ChannelSetupSessionController', () => {
 
     it('beginBuild() returns canceled after cancelBuild() aborts in-flight build', async (): Promise<void> => {
         let capturedSignal: AbortSignal | undefined;
-        let resolveBuild: ((result: typeof DEFAULT_BUILD_RESULT) => void) | null = null;
-        const createChannelsFromSetup = jest.fn().mockImplementation(
-            (_config: ChannelSetupConfig, options?: { signal?: AbortSignal }) => {
+        let resolveBuild: ((result: typeof DEFAULT_APPLY_RESULT) => void) | null = null;
+        const applySetupReview = jest.fn().mockImplementation(
+            (_reviewId: string, _config: ChannelSetupConfig, _consent: unknown, options?: { signal?: AbortSignal }) => {
                 capturedSignal = options?.signal;
-                return new Promise<typeof DEFAULT_BUILD_RESULT>((resolve, reject) => {
+                return new Promise<typeof DEFAULT_APPLY_RESULT>((resolve, reject) => {
                     resolveBuild = resolve;
                     capturedSignal?.addEventListener('abort', () => {
                         reject(new DOMException('Aborted', 'AbortError'));
@@ -1166,13 +1169,14 @@ describe('ChannelSetupSessionController', () => {
                 });
             }
         );
-        const workflowPort = createWorkflowPort({ createChannelsFromSetup });
+        const workflowPort = createWorkflowPort({ applySetupReview });
         const controller = new ChannelSetupSessionController({
             workflowPort,
             getSelectedServerId: (): string | null => 'server-1',
         });
 
         controller.beginSession();
+        await controller.ensureReviewLoaded(jest.fn());
         const buildPromise = controller.beginBuild({
             onProgress: jest.fn(),
             onStateChange: jest.fn(),
@@ -1186,12 +1190,8 @@ describe('ChannelSetupSessionController', () => {
 
     it('beginBuild() returns blocked outcome for required tag-directory failures', async (): Promise<void> => {
         const workflowPort = createWorkflowPort({
-            createChannelsFromSetup: jest.fn().mockResolvedValue({
-                ...DEFAULT_BUILD_RESULT,
-                canceled: false,
-                blockedMessage: 'Required genres tag directory (type=2) is unsupported for Shows; stop and re-plan.',
-                created: 0,
-            }),
+            applySetupReview: jest.fn().mockResolvedValue({ kind: 'blocked', reason: 'source',
+                message: 'Required genres tag directory (type=2) is unsupported for Shows; stop and re-plan.' }),
         });
 
         const controller = new ChannelSetupSessionController({
@@ -1200,6 +1200,7 @@ describe('ChannelSetupSessionController', () => {
         });
 
         controller.beginSession();
+        await controller.ensureReviewLoaded(jest.fn());
         const outcome = await controller.beginBuild({
             onProgress: jest.fn(),
             onStateChange: jest.fn(),
@@ -1208,17 +1209,13 @@ describe('ChannelSetupSessionController', () => {
         expect(outcome).toEqual<ChannelSetupBuildOutcome>({
             kind: 'blocked',
             message: 'Required genres tag directory (type=2) is unsupported for Shows; stop and re-plan.',
+            reason: 'source',
         });
     });
 
     it('beginBuild() returns blocked outcome when blockedMessage is an empty string', async (): Promise<void> => {
         const workflowPort = createWorkflowPort({
-            createChannelsFromSetup: jest.fn().mockResolvedValue({
-                ...DEFAULT_BUILD_RESULT,
-                canceled: false,
-                blockedMessage: '',
-                created: 0,
-            }),
+            applySetupReview: jest.fn().mockResolvedValue({ kind: 'blocked', reason: 'source', message: '' }),
         });
 
         const controller = new ChannelSetupSessionController({
@@ -1227,6 +1224,7 @@ describe('ChannelSetupSessionController', () => {
         });
 
         controller.beginSession();
+        await controller.ensureReviewLoaded(jest.fn());
         const outcome = await controller.beginBuild({
             onProgress: jest.fn(),
             onStateChange: jest.fn(),
@@ -1235,12 +1233,13 @@ describe('ChannelSetupSessionController', () => {
         expect(outcome).toEqual<ChannelSetupBuildOutcome>({
             kind: 'blocked',
             message: '',
+            reason: 'source',
         });
     });
 
     it('beginBuild() returns error outcome for non-abort failures', async (): Promise<void> => {
         const workflowPort = createWorkflowPort({
-            createChannelsFromSetup: jest.fn().mockRejectedValue(new Error('boom')),
+            applySetupReview: jest.fn().mockRejectedValue(new Error('boom')),
         });
         const controller = new ChannelSetupSessionController({
             workflowPort,
@@ -1248,6 +1247,7 @@ describe('ChannelSetupSessionController', () => {
         });
 
         controller.beginSession();
+        await controller.ensureReviewLoaded(jest.fn());
         const outcome = await controller.beginBuild({
             onProgress: jest.fn(),
             onStateChange: jest.fn(),
@@ -1257,13 +1257,13 @@ describe('ChannelSetupSessionController', () => {
     });
 
     it('beginBuild() returns success and marks setup complete only on success', async (): Promise<void> => {
-        const createChannelsFromSetup = jest.fn().mockResolvedValue(DEFAULT_BUILD_RESULT);
-        const markSetupComplete = jest.fn((_serverId: string, _setupConfig: ChannelSetupConfig) => ({
+        const applySetupReview = jest.fn().mockResolvedValue(DEFAULT_APPLY_RESULT);
+        const markSetupComplete = jest.fn((_serverId: string, _setupConfig: ChannelSetupConfig, _expectedScopeKey: string) => ({
             ok: true,
             record: { serverId: _serverId },
         } as ChannelSetupCompletionResult));
         const workflowPort = createWorkflowPort({
-            createChannelsFromSetup,
+            applySetupReview,
             markSetupComplete,
         });
         const controller = new ChannelSetupSessionController({
@@ -1272,6 +1272,7 @@ describe('ChannelSetupSessionController', () => {
         });
 
         controller.beginSession();
+        await controller.ensureReviewLoaded(jest.fn());
         const outcome = await controller.beginBuild({
             onProgress: jest.fn(),
             onStateChange: jest.fn(),
@@ -1282,12 +1283,12 @@ describe('ChannelSetupSessionController', () => {
     });
 
     it('beginBuild() returns success with bookkeeping warning when markSetupComplete fails after successful build', async (): Promise<void> => {
-        const createChannelsFromSetup = jest.fn().mockResolvedValue(DEFAULT_BUILD_RESULT);
-        const markSetupComplete = jest.fn((_serverId: string, _setupConfig: ChannelSetupConfig) => {
+        const applySetupReview = jest.fn().mockResolvedValue(DEFAULT_APPLY_RESULT);
+        const markSetupComplete = jest.fn((_serverId: string, _setupConfig: ChannelSetupConfig, _expectedScopeKey: string) => {
             throw new Error('persist failed');
         });
         const workflowPort = createWorkflowPort({
-            createChannelsFromSetup,
+            applySetupReview,
             markSetupComplete,
         });
         const controller = new ChannelSetupSessionController({
@@ -1296,6 +1297,7 @@ describe('ChannelSetupSessionController', () => {
         });
 
         controller.beginSession();
+        await controller.ensureReviewLoaded(jest.fn());
         const outcome = await controller.beginBuild({
             onProgress: jest.fn(),
             onStateChange: jest.fn(),
@@ -1309,14 +1311,14 @@ describe('ChannelSetupSessionController', () => {
     });
 
     it('beginBuild() returns success with bookkeeping warning when setup completion persistence is not durable', async (): Promise<void> => {
-        const createChannelsFromSetup = jest.fn().mockResolvedValue(DEFAULT_BUILD_RESULT);
-        const markSetupComplete = jest.fn((_serverId: string, _setupConfig: ChannelSetupConfig) => ({
+        const applySetupReview = jest.fn().mockResolvedValue(DEFAULT_APPLY_RESULT);
+        const markSetupComplete = jest.fn((_serverId: string, _setupConfig: ChannelSetupConfig, _expectedScopeKey: string) => ({
             ok: false,
             reason: 'quota-exceeded',
             message: 'Device storage is full.',
         } as const));
         const workflowPort = createWorkflowPort({
-            createChannelsFromSetup,
+            applySetupReview,
             markSetupComplete,
         });
         const controller = new ChannelSetupSessionController({
@@ -1325,6 +1327,7 @@ describe('ChannelSetupSessionController', () => {
         });
 
         controller.beginSession();
+        await controller.ensureReviewLoaded(jest.fn());
         const outcome = await controller.beginBuild({
             onProgress: jest.fn(),
             onStateChange: jest.fn(),
@@ -1338,19 +1341,20 @@ describe('ChannelSetupSessionController', () => {
     });
 
     it('beginBuild() stale completion does not clear newer session build state', async (): Promise<void> => {
-        const first = createDeferred<typeof DEFAULT_BUILD_RESULT>();
-        const second = createDeferred<typeof DEFAULT_BUILD_RESULT>();
-        const createChannelsFromSetup = jest
+        const first = createDeferred<typeof DEFAULT_APPLY_RESULT>();
+        const second = createDeferred<typeof DEFAULT_APPLY_RESULT>();
+        const applySetupReview = jest
             .fn()
             .mockImplementationOnce(() => first.promise)
             .mockImplementationOnce(() => second.promise);
-        const workflowPort = createWorkflowPort({ createChannelsFromSetup });
+        const workflowPort = createWorkflowPort({ applySetupReview });
         const controller = new ChannelSetupSessionController({
             workflowPort,
             getSelectedServerId: (): string | null => 'server-1',
         });
 
         controller.beginSession();
+        await controller.ensureReviewLoaded(jest.fn());
         const firstBuild = controller.beginBuild({
             onProgress: jest.fn(),
             onStateChange: jest.fn(),
@@ -1358,13 +1362,14 @@ describe('ChannelSetupSessionController', () => {
         expect(controller.getSnapshot().isBuilding).toBe(true);
 
         controller.beginSession();
+        await controller.ensureReviewLoaded(jest.fn());
         const secondBuild = controller.beginBuild({
             onProgress: jest.fn(),
             onStateChange: jest.fn(),
         });
         expect(controller.getSnapshot().isBuilding).toBe(true);
 
-        first.resolve(DEFAULT_BUILD_RESULT);
+        first.resolve(DEFAULT_APPLY_RESULT);
         await firstBuild;
         await flushPromises();
         expect(controller.getSnapshot().isBuilding).toBe(true);
@@ -1375,13 +1380,13 @@ describe('ChannelSetupSessionController', () => {
     });
 
     it('expand-lineup style state updates are preserved in build config and setup completion', async (): Promise<void> => {
-        const createChannelsFromSetup = jest.fn().mockResolvedValue(DEFAULT_BUILD_RESULT);
-        const markSetupComplete = jest.fn((_serverId: string, _setupConfig: ChannelSetupConfig) => ({
+        const applySetupReview = jest.fn().mockResolvedValue(DEFAULT_APPLY_RESULT);
+        const markSetupComplete = jest.fn((_serverId: string, _setupConfig: ChannelSetupConfig, _expectedScopeKey: string) => ({
             ok: true,
             record: { serverId: _serverId },
         } as ChannelSetupCompletionResult));
         const workflowPort = createWorkflowPort({
-            createChannelsFromSetup,
+            applySetupReview,
             markSetupComplete,
         });
         const controller = new ChannelSetupSessionController({
@@ -1390,10 +1395,12 @@ describe('ChannelSetupSessionController', () => {
         });
 
         controller.beginSession();
+        await controller.ensureReviewLoaded(jest.fn());
         controller.updateStrategyState((draft) => {
             draft.maxChannels = MAX_CHANNELS;
             draft.minItems = 1;
         });
+        await controller.ensureReviewLoaded(jest.fn());
 
         const config = controller.buildConfig('server-1');
         expect(config.maxChannels).toBe(MAX_CHANNELS);

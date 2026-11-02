@@ -12,7 +12,8 @@ import {
 } from '../../../modules/scheduler/scheduler';
 import type { IChannelTransitionOverlay } from '../../../modules/ui/channel-transition';
 import { ChannelTransitionCoordinator } from '../../../modules/ui/channel-transition';
-import { PLAYBACK_OPTIONS_MODAL_ID, PlaybackOptionsCoordinator, type IPlaybackOptionsModal, type PlaybackOptionsSectionId } from '../../../modules/ui/playback-options';
+import { PlaybackOptionsCoordinator, type PlaybackOptionsSectionId } from '../../../modules/ui/playback-options';
+import type { PlaybackOptionsSection } from '../../../modules/ui/playback-options/types';
 import type { IPlayerOsdOverlay } from '../../../modules/ui/player-osd';
 import { PlayerOsdCoordinator } from '../../../modules/ui/player-osd';
 import type { ToastInput } from '../../../shared/toast';
@@ -82,6 +83,10 @@ export function buildPlaybackRecoveryInput(
             state: input.playback.state,
             buildPlexResourceUrl: input.playback.buildPlexResourceUrl,
             getMimeType: input.playback.getMimeType,
+            captureRecoveryAdmission: input.playback.captureRecoveryAdmission,
+            isRecoveryAdmissionCurrent: input.playback.isRecoveryAdmissionCurrent,
+            canPlayForRecovery: input.playback.canPlayForRecovery,
+            acceptCommittedSession: input.playback.acceptCommittedSession,
         },
         errors: input.errors,
         nowPlaying: input.nowPlaying,
@@ -104,6 +109,9 @@ export function buildChannelTuningInput(
         playback: {
             state: input.playback.state,
             stopActiveTranscodeSession: input.playback.stopActiveTranscodeSession,
+            capturePlaybackAdmission: input.playback.capturePlaybackAdmission,
+            isPlaybackAdmissionCurrent: input.playback.isPlaybackAdmissionCurrent,
+            canActivateRetainedSession: input.playback.canActivateRetainedSession,
         },
         schedule: {
             buildDailyScheduleConfig: input.schedule.buildDailyScheduleConfig,
@@ -124,9 +132,11 @@ export function buildPlayerOsdCoordinatorInput(
             scheduler: input.modules.scheduler,
             channelManager: input.modules.channelManager,
             videoPlayer: input.modules.videoPlayer,
+            plexLibrary: input.modules.plexLibrary,
         },
         overlays: {
             playerOsd: input.overlays.playerOsd,
+            miniGuide: input.overlays.miniGuide,
             sleepTimer: input.overlays.sleepTimer,
         },
         stores: {
@@ -135,9 +145,17 @@ export function buildPlayerOsdCoordinatorInput(
         playback: {
             state: input.playback.state,
             buildPlexResourceUrl: input.playback.buildPlexResourceUrl,
+            setPlaybackIntent: input.playback.setPlaybackIntent,
+            getPlaybackInfoSnapshot: input.playback.getPlaybackInfoSnapshot,
+        },
+        schedule: {
+            getActiveUserId: input.schedule.getActiveUserId,
+            getSelectedServerId: input.schedule.getSelectedServerId,
         },
         actions: {
             onOverlayVisibilityChange: input.actions.onOverlayVisibilityChange,
+            toggleEPG: input.actions.toggleEPG,
+            switchToChannel: input.actions.switchToChannel,
         },
     };
 }
@@ -164,14 +182,17 @@ export function buildPlaybackOptionsCoordinatorInput(
 ): OrchestratorPlaybackOptionsCoordinatorBuilderInput {
     return {
         modules: {
-            navigation: input.modules.navigation,
             videoPlayer: input.modules.videoPlayer,
-        },
-        overlays: {
-            playbackOptionsModal: input.overlays.playbackOptionsModal,
+            scheduler: input.modules.scheduler,
+            channelManager: input.modules.channelManager,
         },
         stores: {
             subtitlePreferencesStore: input.stores.subtitlePreferencesStore,
+        },
+        playback: { state: input.playback.state },
+        schedule: {
+            getActiveUserId: input.schedule.getActiveUserId,
+            getSelectedServerId: input.schedule.getSelectedServerId,
         },
         nowPlaying: input.nowPlaying,
     };
@@ -179,28 +200,53 @@ export function buildPlaybackOptionsCoordinatorInput(
 
 export function buildPlayerOsdCoordinator(
     input: OrchestratorPlayerOsdCoordinatorBuilderInput,
-    preparePlaybackOptionsModal: (
-        preferredSection?: PlaybackOptionsSectionId
-    ) => { focusableIds: string[]; preferredFocusId: string | null }
+    getTrackDrawer: (section: PlaybackOptionsSectionId) => PlaybackOptionsSection,
+    getDebugText: () => string | null
 ): PlayerOsdCoordinator {
     return new PlayerOsdCoordinator({
         getOverlay: (): IPlayerOsdOverlay | null => input.overlays.playerOsd,
-        getCurrentProgram: (): ScheduledProgram | null =>
-            input.modules.scheduler.getCurrentProgram() ?? input.playback.state.getCurrentProgramForPlayback(),
+        getCurrentProgram: (): ScheduledProgram | null => {
+            try {
+                return input.modules.scheduler.getCurrentProgram() ?? input.playback.state.getCurrentProgramForPlayback();
+            } catch {
+                return input.playback.state.getCurrentProgramForPlayback();
+            }
+        },
         getNextProgram: (): ScheduledProgram | null => input.modules.scheduler.getNextProgram() ?? null,
+        getScopeIdentity: () => ({
+            userId: input.schedule.getActiveUserId(),
+            serverId: input.schedule.getSelectedServerId(),
+        }),
+        getCurrentStreamDescriptor: () => input.playback.state.getCurrentStreamDescriptor(),
+        getPlaybackInfoSnapshot: input.playback.getPlaybackInfoSnapshot,
+        getDebugText,
+        fetchProgramDetails: (ratingKey, signal) =>
+            input.modules.plexLibrary.getItem(ratingKey, { signal }),
         getCurrentChannel: (): ChannelConfig | null =>
             input.modules.channelManager.getCurrentChannel() ?? null,
         getVideoPlayer: (): IVideoPlayer | null => input.modules.videoPlayer,
         getAutoHideMs: (): number =>
-            input.config?.playerConfig?.hideControlsAfterMs ?? 3000,
+            input.stores.nowPlayingDisplayStore.readCompactControlsTimeoutSecondsAndClean() * 1000,
         getNavigation: (): import('../../../modules/navigation').INavigationManager | null => input.modules.navigation,
+        isMiniGuideVisible: (): boolean => input.overlays.miniGuide.isVisible(),
+        onGuide: (): void => input.actions.toggleEPG(),
+        onRetry: (): Promise<void> => {
+            const channel = input.modules.channelManager.getCurrentChannel();
+            if (!channel) return Promise.reject(new Error('No channel selected for playback retry'));
+            return input.actions.switchToChannel(channel.id);
+        },
+        onTransport: (): void => {
+            const status = input.modules.videoPlayer.getState().status;
+            input.playback.setPlaybackIntent(status === 'playing' ? 'paused' : 'playing');
+        },
         buildPlexResourceUrl: (pathOrUrl: string): string | null =>
             input.playback.buildPlexResourceUrl(pathOrUrl),
         cycleSleepTimerPreset: (): number => input.overlays.sleepTimer.cyclePreset(),
         getSleepTimerRemainingMs: (): number => input.overlays.sleepTimer.getRemainingMs(),
+        getSleepTimerSelectedMinutes: (): number => input.overlays.sleepTimer.getSelectedPresetMinutes(),
+        setSleepTimerMinutes: (minutes: number): void => input.overlays.sleepTimer.start(minutes),
         nowPlayingDisplayStore: input.stores.nowPlayingDisplayStore,
-        playbackOptionsModalId: PLAYBACK_OPTIONS_MODAL_ID,
-        preparePlaybackOptionsModal,
+        getTrackDrawer,
         onVisibilityChange: (visible: boolean): void => {
             input.actions.onOverlayVisibilityChange(visible);
         },
@@ -224,6 +270,10 @@ export function buildPlaybackRecovery(
     input: OrchestratorPlaybackRecoveryBuilderInput
 ): PlaybackRecoveryManager {
     return new PlaybackRecoveryManager({
+        captureRecoveryAdmission: input.playback.captureRecoveryAdmission,
+        isRecoveryAdmissionCurrent: input.playback.isRecoveryAdmissionCurrent,
+        canPlayForRecovery: input.playback.canPlayForRecovery,
+        acceptCommittedSession: input.playback.acceptCommittedSession,
         getVideoPlayer: (): IVideoPlayer | null => input.modules.videoPlayer,
         getStreamResolver: (): IPlexStreamResolver | null => input.modules.plexStreamResolver,
         getScheduler: (): IChannelScheduler | null => input.modules.scheduler,
@@ -262,17 +312,32 @@ export function buildPlaybackRecovery(
 
 export function buildPlaybackOptionsCoordinator(
     input: OrchestratorPlaybackOptionsCoordinatorBuilderInput,
-    playbackRecovery: PlaybackRecoveryManager
+    playbackRecovery: PlaybackRecoveryManager,
+    onSelectionChange?: () => void
 ): PlaybackOptionsCoordinator {
     return new PlaybackOptionsCoordinator({
-        playbackOptionsModalId: PLAYBACK_OPTIONS_MODAL_ID,
-        getNavigation: (): import('../../../modules/navigation').INavigationManager | null => input.modules.navigation,
-        getPlaybackOptionsModal: (): IPlaybackOptionsModal | null => input.overlays.playbackOptionsModal,
         getVideoPlayer: (): IVideoPlayer | null => input.modules.videoPlayer,
         requestBurnInSubtitle: (trackId: string, reason: string) =>
             playbackRecovery.attemptBurnInSubtitleForCurrentProgram(trackId, reason),
         notifyToast: (toast: ToastInput): void => notifyPlaybackToast(input, toast),
         subtitlePreferencesStore: input.stores.subtitlePreferencesStore,
+        getMediaIdentity: (): string => {
+            const program = input.modules.scheduler.getCurrentProgram();
+            const stream = input.playback.state.getCurrentStreamDescriptor();
+            return [
+                input.schedule.getActiveUserId() ?? '',
+                input.schedule.getSelectedServerId() ?? '',
+                input.modules.channelManager.getCurrentChannel()?.id ?? '',
+                program?.item.ratingKey ?? '',
+                program?.scheduledStartTime ?? '',
+                stream?.url ?? '',
+                stream?.subtitleContext?.sessionId ?? '',
+            ].join('\u0000');
+        },
+        getConfirmedBurnedInTrackId: () =>
+            input.playback.state.getCurrentStreamDescriptor()?.subtitleContext?.confirmedBurnedInSubtitleTrackId ?? null,
+        getMediaDescriptor: () => input.playback.state.getCurrentStreamDescriptor(),
+        ...(onSelectionChange ? { onSelectionChange } : {}),
     });
 }
 
@@ -305,6 +370,9 @@ export function buildChannelTuningCoordinator(
         stopActiveTranscodeSession: (): void => {
             input.playback.stopActiveTranscodeSession();
         },
+        capturePlaybackAdmission: input.playback.capturePlaybackAdmission,
+        isPlaybackAdmissionCurrent: input.playback.isPlaybackAdmissionCurrent,
+        canActivateRetainedSession: input.playback.canActivateRetainedSession,
         armChannelTransitionForSwitch: (prefix: string): void => {
             armChannelTransitionForSwitch(channelTransitionCoordinator, prefix);
         },

@@ -36,7 +36,8 @@ export class OrchestratorSchedulePolicy {
 
         const scheduleConfig: ScheduleConfig = {
             channelId: channel.id,
-            anchorTime: dayStart - phaseOffsetMs,
+            anchorTime: channel.scheduleAnchorMode === 'fixed' && Number.isFinite(channel.startTimeAnchor)
+                ? channel.startTimeAnchor : dayStart - phaseOffsetMs,
             content: items,
             playbackMode,
             shuffleSeed: effectiveSeed,

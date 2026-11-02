@@ -11,7 +11,7 @@ import {
     resetMockLocalStorage,
     restoreOriginalLocalStorage,
 } from '../../../../__tests__/mocks/localStorage';
-import { MAX_CHANNELS, STORAGE_KEY } from '../constants';
+import { STORAGE_KEY } from '../constants';
 import {
     createBaseChannel,
     createMockContentSource,
@@ -106,42 +106,10 @@ describe('ChannelManager replaceAllChannels transactional persistence', () => {
         expect(mockLibrary.getLibraryItems).not.toHaveBeenCalled();
     });
 
-    it('normalizes replacement channels, persists channel data, and then applies current channel', async () => {
-        const saveCurrentSpy = jest.spyOn(ChannelRepository.prototype, 'saveCurrentChannelId');
-
-        await manager.replaceAllChannels([
-            createBaseChannel({ id: 'first', number: 3, shuffleSeed: Number.NaN }),
-            createBaseChannel({ id: 'second', number: 3, phaseSeed: Number.NaN }),
-        ], { currentChannelId: 'second' });
-
-        const channels = manager.getAllChannels();
-        expect(channels.map((channel) => channel.id)).toEqual(['first', 'second']);
-        expect(channels.map((channel) => channel.number)).toEqual([3, 1]);
-        expect(channels.every((channel) => Number.isFinite(channel.shuffleSeed))).toBe(true);
-        expect(channels.every((channel) => Number.isFinite(channel.phaseSeed))).toBe(true);
-        expect(manager.getCurrentChannel()?.id).toBe('second');
-        expect(saveCurrentSpy).toHaveBeenCalledWith('second');
-    });
-
-    it('normalizes duplicate and invalid channel numbers in input order', async () => {
-        const channels = [
-            createBaseChannel({ id: 'c1', number: 1 }),
-            createBaseChannel({ id: 'c2', number: 1 }),
-            createBaseChannel({ id: 'c3', number: 999 }),
-            createBaseChannel({ id: 'c4', number: 2 }),
-        ];
-
-        await manager.replaceAllChannels(channels);
-
-        const result = manager.getAllChannels();
-        expect(result).toHaveLength(4);
-        expect(result[0]!.number).toBe(1);
-        expect(result[1]!.number).toBe(2);
-        expect(result[2]!.number).toBe(3);
-        expect(result[3]!.number).toBe(4);
-    });
-
-    it('strips color from replaceAllChannels persisted channel records', async () => {
+    it('rejects unknown authored replacement fields before changing memory or storage', async () => {
+        await manager.replaceAllChannels([createBaseChannel({ id: 'before' })]);
+        const body = mockLocalStorage.getItem(STORAGE_KEY);
+        const revision = manager.getStructuralBase().revision;
         const polluted = {
             ...createBaseChannel({
                 id: 'replace-color',
@@ -152,29 +120,10 @@ describe('ChannelManager replaceAllChannels transactional persistence', () => {
             color: '#ff0000',
         } as unknown as ReturnType<typeof createBaseChannel>;
 
-        await manager.replaceAllChannels([polluted], { currentChannelId: 'replace-color' });
-
-        const persisted = JSON.parse(mockLocalStorage.getItem(STORAGE_KEY) ?? '{}') as {
-            channels?: Array<Record<string, unknown>>;
-        };
-        expect(manager.getAllChannels()[0]).not.toHaveProperty('color');
-        expect(manager.getChannel('replace-color')).not.toHaveProperty('color');
-        expect(persisted.channels?.[0]?.id).toBe('replace-color');
-        expect(persisted.channels?.[0]?.color).toBeUndefined();
-    });
-
-    it('skips channels over MAX_CHANNELS and warns per skipped channel', async () => {
-        const warn = jest.fn();
-        manager = new ChannelManager({ plexLibrary: mockLibrary, logger: { warn, error: jest.fn() } });
-
-        const channels = Array.from({ length: MAX_CHANNELS + 2 }, (_, index) => ({
-            ...createBaseChannel({ id: `c${index + 1}`, number: index + 1 }),
-        }));
-
-        await manager.replaceAllChannels(channels);
-
-        expect(manager.getAllChannels()).toHaveLength(MAX_CHANNELS);
-        expect(warn).toHaveBeenCalledTimes(2);
+        expect((await manager.tryReplaceAllChannels([polluted])).kind).toBe('invalid');
+        expect(manager.getAllChannels().map((channel) => channel.id)).toEqual(['before']);
+        expect(manager.getStructuralBase().revision).toBe(revision);
+        expect(mockLocalStorage.getItem(STORAGE_KEY)).toBe(body);
     });
 
     it('clears resolver source cache when replacing full lineup', async () => {
@@ -237,25 +186,6 @@ describe('ChannelManager replaceAllChannels transactional persistence', () => {
         );
     });
 
-    it('skips duplicate channel ids without duplicating persisted order', async () => {
-        const warn = jest.fn();
-        manager = new ChannelManager({ plexLibrary: mockLibrary, logger: { warn, error: jest.fn() } });
-
-        await manager.replaceAllChannels([
-            createBaseChannel({ id: 'duplicate', name: 'First', number: 1 }),
-            createBaseChannel({ id: 'duplicate', name: 'Second', number: 2 }),
-            createBaseChannel({ id: 'third', name: 'Third', number: 3 }),
-        ]);
-
-        expect(manager.getAllChannels().map((channel) => channel.name)).toEqual(['First', 'Third']);
-        expect(JSON.parse(mockLocalStorage.getItem(STORAGE_KEY) ?? '{}')).toEqual(expect.objectContaining({
-            channelOrder: ['duplicate', 'third'],
-        }));
-        expect(warn).toHaveBeenCalledWith(
-            'Skipping duplicate channel Second (duplicate) during replaceAllChannels'
-        );
-    });
-
     it('resets persistence warning backoff after channel-data save even when current-channel persistence is best-effort', async () => {
         expectConsoleWarn([
             'Failed to persist current channel',
@@ -263,7 +193,7 @@ describe('ChannelManager replaceAllChannels transactional persistence', () => {
                 name: 'ChannelError',
                 code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
             }),
-        ], { times: 2 });
+        ], { times: 3 });
         jest
             .spyOn(ChannelRepository.prototype, 'saveCurrentChannelId')
             .mockReturnValue({ ok: false, reason: 'quota-exceeded' });
@@ -278,6 +208,6 @@ describe('ChannelManager replaceAllChannels transactional persistence', () => {
             currentChannelId: 'second',
         });
 
-        expect(warningHandler).toHaveBeenCalledTimes(2);
+        expect(warningHandler).toHaveBeenCalledTimes(3);
     });
 });

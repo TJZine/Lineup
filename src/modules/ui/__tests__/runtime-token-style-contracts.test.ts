@@ -15,16 +15,13 @@ const RUNTIME_COLOR_FILES = [
     'src/modules/ui/settings/styles.core.css',
     'src/modules/ui/settings/styles.theme.css',
     'src/modules/ui/settings/styles.dropdown.css',
-    'src/modules/ui/playback-options/styles.core.css',
-    'src/modules/ui/exit-confirm/styles.css',
     'src/modules/ui/channel-badge/styles.css',
     'src/modules/ui/channel-transition/styles.css',
     'src/modules/ui/channel-number-overlay/styles.css',
     'src/modules/ui/player-osd/styles.content.css',
+    'src/modules/ui/player-osd/styles.surface.css',
     'src/modules/ui/player-osd/styles.actions.css',
     'src/modules/ui/player-osd/styles.meta-progress.css',
-    'src/modules/ui/now-playing-info/styles.core.css',
-    'src/modules/ui/now-playing-info/styles.css',
     'src/modules/ui/mini-guide/styles.core.css',
     'src/styles/shell.chrome.css',
 ] as const;
@@ -41,14 +38,6 @@ const ONBOARDING_LOCAL_TOKEN_ROOTS = [
     'src/modules/ui/server-select/',
     'src/styles/shell.onboarding.',
 ] as const;
-
-const exitConfirmFocusBlock = (css: string): string => {
-    const block = css.match(
-        /\.exit-confirm-action\.focused,\s*\.exit-confirm-action:focus-visible:not\(\.focused\)\s*\{[^}]*\}/s
-    )?.[0];
-    if (!block) throw new Error('Exit-confirm focus selector block not found');
-    return block;
-};
 
 const cssFiles = (directory = path.join(process.cwd(), 'src')): string[] =>
     fs.readdirSync(directory, { recursive: true, withFileTypes: true })
@@ -141,7 +130,7 @@ const RUNTIME_LAYERS = [
         name: 'EPG',
         file: 'src/modules/ui/epg/styles.shell.css',
         selector: '.epg-container',
-        variable: '--epg-overlay-layer',
+        variable: '--epg-guide-layer',
     },
     {
         name: 'video EPG PiP',
@@ -252,17 +241,6 @@ describe('runtime token style contracts', () => {
         expect(values.EPG).toBeLessThan(values['video EPG PiP']!);
     });
 
-    it('keeps runtime chrome as a structure-only host plane', () => {
-        const css = readComposedCss('src/styles/shell.player-runtime-chrome.css');
-        const block = topLevelBlockForProperty(css, '.runtime-chrome-host', 'pointer-events');
-
-        expect(declarationValue(block, 'position')).toBe('absolute');
-        expect(declarationValue(block, 'inset')).toBe('0');
-        expect(declarationValue(block, 'pointer-events')).toBe('none');
-        expect(block).not.toContain('z-index');
-        expect(block).not.toMatch(/\b(?:color|background|font|padding|margin)\s*:/);
-    });
-
     it('anchors Settings to the viewport instead of retained guide scroll', () => {
         const css = readComposedCss('src/modules/ui/settings/styles.core.css');
         const screen = topLevelBlockForProperty(css, '.settings-screen', 'position');
@@ -281,46 +259,33 @@ describe('runtime token style contracts', () => {
         }
     });
 
-    it('bounds bright-focus literals to the two focus-owned stylesheets and selectors', () => {
+    it('bounds bright-focus literals to the Player action focus selector', () => {
         const filesWithMatches = RUNTIME_COLOR_FILES.filter(
             (file) => readComposedCss(file).match(BRIGHT_FOCUS_LITERAL_PATTERN)?.length
         );
-        expect(filesWithMatches).toEqual([
-            'src/modules/ui/exit-confirm/styles.css',
-            'src/modules/ui/player-osd/styles.actions.css',
-        ]);
-
-        const exitCss = readComposedCss('src/modules/ui/exit-confirm/styles.css');
+        expect(filesWithMatches).toEqual(['src/modules/ui/player-osd/styles.actions.css']);
         const osdCss = readComposedCss('src/modules/ui/player-osd/styles.actions.css');
-        const exitFocusBlock = exitConfirmFocusBlock(exitCss);
-        expect(exitCss.replace(exitFocusBlock, ''))
-            .not.toMatch(BRIGHT_FOCUS_LITERAL_PATTERN);
         expect(osdCss.replace(/\.player-osd-action\.focused\s*\{[^}]*\}/gs, ''))
             .not.toMatch(BRIGHT_FOCUS_LITERAL_PATTERN);
+        const action = topLevelBlockForProperty(osdCss, '.player-osd-action.focused', 'background');
+        expect(declarationValue(action, 'background')).toBe('rgba(255, 255, 255, 0.92)');
+        expect(declarationValue(action, 'border-color')).toBe('rgba(255, 255, 255, 0.98)');
+        expect(declarationValue(action, 'color')).toBe('var(--color-text-on-focus)');
     });
 
-    it.each([
-        {
-            name: 'player OSD',
-            file: 'src/modules/ui/player-osd/styles.actions.css',
-            selector: '.player-osd-action.focused',
-            background: 'rgba(255, 255, 255, 0.92)',
-            border: 'rgba(255, 255, 255, 0.98)',
-        },
-        {
-            name: 'exit confirm',
-            file: 'src/modules/ui/exit-confirm/styles.css',
-            background: 'rgba(255, 255, 255, 0.92)',
-            border: 'rgba(255, 255, 255, 0.92)',
-        },
-    ])('keeps load-bearing focus treatment for $name', ({ file, selector, background, border }) => {
-        const css = readComposedCss(file);
-        const block = selector
-            ? topLevelBlockForProperty(css, selector, 'background')
-            : exitConfirmFocusBlock(css);
-
-        expect(declarationValue(block, 'background')).toBe(background);
-        expect(declarationValue(block, 'border-color')).toBe(border);
-        expect(declarationValue(block, 'color')).toBe('var(--color-text-on-focus)');
+    it('keeps track drawer focus legible through Player surface tokens', () => {
+        const css = readComposedCss('src/modules/ui/player-osd/styles.surface.css');
+        const option = topLevelBlockForProperty(css, '.player-osd-track-option.focused', 'background');
+        expect(declarationValue(option, 'background')).toBe('var(--color-text-primary)');
+        expect(declarationValue(option, 'color')).toBe('var(--color-text-on-focus)');
     });
+
+    it('keeps Player spacing and long text readable on the webOS 6 CSS floor', () => {
+        const surface = readComposedCss('src/modules/ui/player-osd/styles.surface.css');
+        const actions = readComposedCss('src/modules/ui/player-osd/styles.actions.css');
+        expect(surface).toContain('overflow-wrap: break-word;');
+        expect(surface).toContain('.no-flex-gap .player-osd-track-option > * + *');
+        expect(actions).toContain('.no-flex-gap .player-osd-actions > * + *');
+    });
+
 });

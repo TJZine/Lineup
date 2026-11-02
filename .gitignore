@@ -162,6 +162,15 @@ docs/runs/*
 docs/agentic/evals/baselines/**
 !docs/agentic/evals/baselines/README.md
 
+# Local webOS alignment analysis, captures, and execution evidence
+/docs/analysis/2026-10-31-tv-parity/
+/docs/analysis/2026-10-31-webos-alignment-execution/*
+!/docs/analysis/2026-10-31-webos-alignment-execution/u1/
+/docs/analysis/2026-10-31-webos-alignment-execution/u1/*
+# Required by the theme token contract test.
+!/docs/analysis/2026-10-31-webos-alignment-execution/u1/index.html
+/execution/
+
 # Keep macOS metadata ignored even inside allowlisted doc/skill trees.
 **/.DS_Store
 

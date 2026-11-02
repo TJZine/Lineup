@@ -13,14 +13,11 @@ const rootStylesheets = [
     './styles/video.css',
 ];
 const eagerFeatureStylesheets = [
-    'now-playing-info',
     'player-osd',
     'channel-number-overlay',
     'channel-badge',
     'mini-guide',
     'channel-transition',
-    'playback-options',
-    'exit-confirm',
     'settings',
 ].map((feature) => `./modules/ui/${feature}/styles.css`);
 const stylesheetSeams = [...rootStylesheets, ...eagerFeatureStylesheets, './styles/shell.css'];

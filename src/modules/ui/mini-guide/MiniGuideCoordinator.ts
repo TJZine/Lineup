@@ -10,6 +10,7 @@ import {
 import type { IMiniGuideOverlay } from './interfaces';
 import type { MiniGuideChannelViewModel, MiniGuideViewModel } from './types';
 import { getChannelNameForDisplay } from '../common/channelDisplay';
+import { formatTimecode } from '../common/formatTimecode';
 import { shouldApplyMiniGuideRowUpdate } from './MiniGuideCoordinatorPolicies';
 
 const ROW_COUNT = 5;
@@ -20,6 +21,7 @@ interface MiniGuideCoordinatorDeps {
     getOverlay: () => IMiniGuideOverlay | null;
     getChannelManager: () => IChannelManager | null;
     getScheduler: () => IChannelScheduler | null;
+    getWatchingChannelId: () => string | null;
 
     buildDailyScheduleConfig: (
         channel: ChannelConfig,
@@ -28,12 +30,11 @@ interface MiniGuideCoordinatorDeps {
     ) => ScheduleConfig;
 
     switchToChannel: (channelId: string) => Promise<void>;
-    getAutoHideMs: () => number;
+    openFullGuide?: () => void;
     notifyToast?: (toast: ToastInput) => void;
 }
 
 export class MiniGuideCoordinator {
-    private _autoHideTimer: number | null = null;
     private _focusedIndex = CENTER_INDEX;
     private _allChannels: ChannelConfig[] = [];
     private _windowStartIndex = 0;
@@ -43,6 +44,7 @@ export class MiniGuideCoordinator {
     private _playingChannelId: string | null = null;
     private _channelResolves = new Map<string, AbortController>();
     private _windowChannelIndices = new Map<string, number[]>();
+    private _resolvedContentByChannel = new Map<string, ResolvedChannelContent>();
     private readonly _shuffler = new ShuffleGenerator();
 
     constructor(private readonly deps: MiniGuideCoordinatorDeps) { }
@@ -54,23 +56,60 @@ export class MiniGuideCoordinator {
             return;
         }
         const allChannels = channelManager.getAllChannels();
+        this._resolvedContentByChannel.clear();
         if (allChannels.length === 0) {
+            this._abortAllResolves();
+            this._allChannels = [];
+            this._channels = [];
+            this._viewModel = { channels: [], emptyMessage: 'No channels available' };
+            overlay.setActions({
+                select: () => undefined,
+                fullGuide: () => {
+                    if (this.deps.openFullGuide) {
+                        this.hide();
+                        this.deps.openFullGuide();
+                    }
+                },
+                close: () => this.hide(),
+                tick: () => this._refreshProjectionAtTick(),
+            });
+            overlay.setViewModel(this._viewModel);
+            overlay.show();
             return;
         }
 
-        const current = channelManager.getCurrentChannel() ?? allChannels[0]!;
-        const currentIndex = Math.max(0, allChannels.findIndex((channel) => channel.id === current.id));
+        const playing = channelManager.getCurrentChannel();
+        const playingIndex = playing
+            ? allChannels.findIndex((channel) => channel.id === playing.id)
+            : -1;
+        const currentIndex = Math.max(0, playingIndex);
+        const current = allChannels[currentIndex]!;
         this._allChannels = allChannels;
-        this._playingChannelId = current?.id ?? null;
+        this._playingChannelId = this.deps.getWatchingChannelId();
         this._windowStartIndex = wrapIndex(currentIndex - CENTER_INDEX, allChannels.length);
         this._channels = this._buildWindowChannels(this._windowStartIndex);
-        this._focusedIndex = CENTER_INDEX;
+        this._focusedIndex = Math.max(0, this._channels.findIndex((channel) => channel.id === current.id));
 
         this._abortAllResolves();
+        this._viewModel = null;
         const token = this._showToken;
         const fastViewModel = this._buildFastViewModel(current);
         this._viewModel = fastViewModel;
 
+        overlay.setActions({
+            select: (index) => {
+                this._focusedIndex = index;
+                this.handleSelect();
+            },
+            fullGuide: () => {
+                if (this.deps.openFullGuide) {
+                    this.hide();
+                    this.deps.openFullGuide();
+                }
+            },
+            close: () => this.hide(),
+            tick: () => this._refreshProjectionAtTick(),
+        });
         overlay.setViewModel(fastViewModel);
         overlay.setFocusedIndex(this._focusedIndex);
         overlay.show();
@@ -80,7 +119,7 @@ export class MiniGuideCoordinator {
 
     hide(): void {
         this._abortAllResolves();
-        this._clearAutoHideTimer();
+        this._resolvedContentByChannel.clear();
         this._viewModel = null;
         this.deps.getOverlay()?.hide();
     }
@@ -90,6 +129,7 @@ export class MiniGuideCoordinator {
         if (!overlay || !overlay.isVisible()) {
             return false;
         }
+        if (this._allChannels.length === 0) return true;
         if (direction === 'up') {
             if (this._focusedIndex > 0) {
                 this._focusedIndex -= 1;
@@ -99,7 +139,7 @@ export class MiniGuideCoordinator {
                 this._refreshWindow();
             }
         } else {
-            if (this._focusedIndex < ROW_COUNT - 1) {
+            if (this._focusedIndex < this._channels.length - 1) {
                 this._focusedIndex += 1;
                 overlay.setFocusedIndex(this._focusedIndex);
             } else {
@@ -107,7 +147,6 @@ export class MiniGuideCoordinator {
                 this._refreshWindow();
             }
         }
-        this._scheduleAutoHide();
         return true;
     }
 
@@ -116,10 +155,10 @@ export class MiniGuideCoordinator {
         if (!overlay || !overlay.isVisible()) {
             return false;
         }
+        if (this._allChannels.length === 0) return true;
         const delta = direction === 'up' ? -PAGE_JUMP : PAGE_JUMP;
         this._windowStartIndex = wrapIndex(this._windowStartIndex + delta, this._allChannels.length);
         this._refreshWindow();
-        this._scheduleAutoHide();
         return true;
     }
 
@@ -154,10 +193,31 @@ export class MiniGuideCoordinator {
         this._startResolveForWindow(current, token);
     }
 
+    private _refreshProjectionAtTick(): void {
+        const overlay = this.deps.getOverlay();
+        if (!overlay?.isVisible() || !this._viewModel || this._channels.length === 0) return;
+        this._playingChannelId = this.deps.getWatchingChannelId();
+        const current = this.deps.getChannelManager()?.getCurrentChannel() ?? null;
+        const nowMs = Date.now();
+        const rows = this._channels.map((channel, index) => {
+            if (current?.id === channel.id) return this._buildCurrentRow(channel, current);
+            const content = this._resolvedContentByChannel.get(channel.id);
+            if (content) return this._buildResolvedRow(channel, content, nowMs);
+            const cached = this._viewModel?.channels[index];
+            if (cached?.channelId === channel.id) {
+                return { ...cached, isWatching: channel.id === this._playingChannelId };
+            }
+            return this._buildLoadingRow(channel);
+        });
+        this._viewModel = { channels: rows };
+        overlay.setViewModel(this._viewModel);
+        overlay.setFocusedIndex(this._focusedIndex);
+    }
+
     private _buildWindowChannels(startIndex: number): ChannelConfig[] {
         const channels: ChannelConfig[] = [];
         const length = this._allChannels.length;
-        for (let i = 0; i < ROW_COUNT; i += 1) {
+        for (let i = 0; i < Math.min(ROW_COUNT, length); i += 1) {
             const index = wrapIndex(startIndex + i, length);
             channels.push(this._allChannels[index]!);
         }
@@ -170,7 +230,7 @@ export class MiniGuideCoordinator {
     ): void {
         const pendingResolves = new Map<string, ChannelConfig>();
         this._windowChannelIndices.clear();
-        for (let i = 0; i < ROW_COUNT; i += 1) {
+        for (let i = 0; i < this._channels.length; i += 1) {
             const channel = this._channels[i]!;
             const indices = this._windowChannelIndices.get(channel.id) ?? [];
             indices.push(i);
@@ -184,9 +244,14 @@ export class MiniGuideCoordinator {
         }
 
         const keepIds = new Set(pendingResolves.keys());
+        const windowIds = new Set(this._channels.map((channel) => channel.id));
+        for (const channelId of this._resolvedContentByChannel.keys()) {
+            if (!windowIds.has(channelId)) this._resolvedContentByChannel.delete(channelId);
+        }
         this._pruneResolves(keepIds);
 
         for (const [channelId, channel] of pendingResolves) {
+            if (this._resolvedContentByChannel.has(channelId)) continue;
             const existing = this._channelResolves.get(channelId);
             if (existing && !existing.signal.aborted) {
                 continue;
@@ -202,7 +267,7 @@ export class MiniGuideCoordinator {
 
     private _buildFastViewModel(current: ChannelConfig | null): MiniGuideViewModel {
         const rows: MiniGuideChannelViewModel[] = [];
-        for (let i = 0; i < ROW_COUNT; i += 1) {
+        for (let i = 0; i < this._channels.length; i += 1) {
             const channel = this._channels[i]!;
             if (current && channel.id === current.id) {
                 rows.push(this._buildCurrentRow(channel, current));
@@ -253,6 +318,7 @@ export class MiniGuideCoordinator {
             channelId: channel.id,
             channelNumber: channel.number,
             channelName: displayName,
+            isWatching: channel.id === this._playingChannelId,
             buildStrategy: channel.buildStrategy ?? null,
             showBrandingIcon: this._shouldShowBrandingIcon(channel),
             status: 'loading',
@@ -272,6 +338,7 @@ export class MiniGuideCoordinator {
             channelId: channel.id,
             channelNumber: channel.number,
             channelName: displayName,
+            isWatching: channel.id === this._playingChannelId,
             buildStrategy: channel.buildStrategy ?? null,
             showBrandingIcon: this._shouldShowBrandingIcon(channel),
             status: 'unavailable',
@@ -303,6 +370,7 @@ export class MiniGuideCoordinator {
                 return;
             }
             const row = this._buildResolvedRow(channel, resolved, Date.now());
+            this._resolvedContentByChannel.set(channel.id, resolved);
             const indices = this._windowChannelIndices.get(channel.id);
             if (indices) {
                 for (const index of indices) {
@@ -355,13 +423,9 @@ export class MiniGuideCoordinator {
     ): MiniGuideChannelViewModel {
         const nowTitle = this._formatMiniGuideTitle(now) ?? 'Unavailable';
         const nextTitle = this._formatMiniGuideTitle(next);
-        const nowStartTime = now?.scheduledStartTime
-            ? new Date(now.scheduledStartTime).toLocaleTimeString(undefined, {
-                hour: 'numeric',
-                minute: '2-digit',
-                hour12: true,
-            })
-            : null;
+        const nowStartTime = formatTime(now?.scheduledStartTime);
+        const nowEndTime = formatTime(now?.scheduledEndTime);
+        const nextStartTime = formatTime(next?.scheduledStartTime);
         const displayName = getChannelNameForDisplay({
             name: channel.name,
             sourceLibraryName: channel.sourceLibraryName ?? null,
@@ -370,17 +434,24 @@ export class MiniGuideCoordinator {
         const durationMs = getDurationMs(now);
         const elapsedMs = Math.max(0, Math.min(durationMs, now?.elapsedMs ?? 0));
         const nowProgress = durationMs > 0 ? clamp01(elapsedMs / durationMs) : 0;
+        const nowElapsedTime = durationMs > 0 ? formatTimecode(elapsedMs) : null;
+        const nowRemainingTime = durationMs > 0 ? formatTimecode(durationMs - elapsedMs) : null;
 
         return {
             channelId: channel.id,
             channelNumber: channel.number,
             channelName: displayName,
+            isWatching: channel.id === this._playingChannelId,
             buildStrategy: channel.buildStrategy ?? null,
             showBrandingIcon: this._shouldShowBrandingIcon(channel),
             status: 'ready',
             nowTitle,
             nowStartTime,
+            nowEndTime,
+            nowElapsedTime,
+            nowRemainingTime,
             nextTitle,
+            nextStartTime,
             nowProgress,
         };
     }
@@ -441,25 +512,6 @@ export class MiniGuideCoordinator {
         overlay.setViewModel(nextViewModel);
     }
 
-    private _scheduleAutoHide(): void {
-        this._clearAutoHideTimer();
-        const autoHideMs = this.deps.getAutoHideMs();
-        if (!Number.isFinite(autoHideMs) || autoHideMs <= 0) {
-            return;
-        }
-        this._autoHideTimer = globalThis.setTimeout(() => {
-            this._autoHideTimer = null;
-            this.hide();
-        }, autoHideMs) as unknown as number;
-    }
-
-    private _clearAutoHideTimer(): void {
-        if (this._autoHideTimer !== null) {
-            globalThis.clearTimeout(this._autoHideTimer);
-            this._autoHideTimer = null;
-        }
-    }
-
     private _abortAllResolves(): void {
         for (const controller of this._channelResolves.values()) {
             controller.abort();
@@ -485,6 +537,15 @@ function wrapIndex(index: number, length: number): number {
 
 function clamp01(value: number): number {
     return Math.max(0, Math.min(1, value));
+}
+
+function formatTime(timeMs: number | undefined): string | null {
+    if (timeMs === undefined || !Number.isFinite(timeMs)) return null;
+    return new Date(timeMs).toLocaleTimeString(undefined, {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+    });
 }
 
 function getDurationMs(program: ScheduledProgram | null): number {

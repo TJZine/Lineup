@@ -1,5 +1,5 @@
 import { ContentSelectionPolicy } from '../resolution/ContentSelectionPolicy';
-import type { ContentFilter, ResolvedContentItem } from '../contracts/types';
+import type { ChannelConfig, ContentFilter, ResolvedContentItem } from '../contracts/types';
 import { shuffleWithSeed } from '../../shared/prng';
 
 describe('ContentSelectionPolicy', () => {
@@ -42,6 +42,32 @@ describe('ContentSelectionPolicy', () => {
             directors: ['Director C'],
         },
     ];
+
+    it('selects from the full saved channel config without mutating raw items', () => {
+        const items = [...createItems(), { ...createItems()[0]!, ratingKey: 'zero', durationMs: 0 }];
+        const channel = { contentFilters: [{ field: 'year', operator: 'gte', value: 2020 }],
+            sortOrder: 'duration_desc', minEpisodeRunTimeMs: 6_000_000 } as ChannelConfig;
+
+        expect(policy.selectChannelItems(channel, items).map((item) => item.ratingKey)).toEqual(['2']);
+        expect(items.map((item) => item.ratingKey)).toEqual(['1', '2', '3', 'zero']);
+    });
+
+    it('excludes only season-zero episodes for block channels with specials disabled', () => {
+        const items: ResolvedContentItem[] = [
+            { ...createItems()[0]!, type: 'episode', ratingKey: 'special', seasonNumber: 0 },
+            { ...createItems()[0]!, type: 'episode', ratingKey: 'regular', seasonNumber: 1 },
+            { ...createItems()[0]!, type: 'episode', ratingKey: 'unknown' },
+            { ...createItems()[0]!, ratingKey: 'movie', seasonNumber: 0 },
+        ];
+        const block = { playbackMode: 'block', includeSpecials: false } as ChannelConfig;
+        expect(policy.selectChannelItems(block, items).map((item) => item.ratingKey))
+            .toEqual(['regular', 'unknown', 'movie']);
+        expect(policy.selectChannelItems({ ...block, includeSpecials: true }, items)).toHaveLength(4);
+        const legacy = { ...block };
+        delete legacy.includeSpecials;
+        expect(policy.selectChannelItems(legacy, items)).toHaveLength(4);
+        expect(policy.selectChannelItems({ ...block, playbackMode: 'shuffle' }, items)).toHaveLength(4);
+    });
 
     it('uses the supplied seed for random playback ordering', () => {
         const items = createItems();

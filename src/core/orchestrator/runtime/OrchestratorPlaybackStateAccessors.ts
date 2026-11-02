@@ -11,6 +11,4 @@ export interface OrchestratorPlaybackStateAccessors {
     setCurrentStreamDecision: (decision: StreamDecision | null) => void;
     getPendingNowPlayingChannelId: () => string | null;
     setPendingNowPlayingChannelId: (channelId: string | null) => void;
-    getShouldAutoShowInfoBannerOnNextPlay: () => boolean;
-    setShouldAutoShowInfoBannerOnNextPlay: (value: boolean) => void;
 }

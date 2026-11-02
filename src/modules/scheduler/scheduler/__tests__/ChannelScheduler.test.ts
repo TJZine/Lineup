@@ -9,6 +9,176 @@ import type { ScheduleConfig, ResolvedContentItem } from '../types';
 import { SCHEDULER_ERROR_MESSAGES } from '../constants';
 
 describe('ChannelScheduler', () => {
+    it('holds the real current item, exposes a spliced timeline, and starts the saved program once at its boundary', () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(1_000_000);
+        const scheduler = new ChannelScheduler();
+        const starts = jest.fn(), ends = jest.fn();
+        const stateSeenAtStart: string[] = [];
+        scheduler.on('programStart', starts);
+        scheduler.on('programStart', () => { stateSeenAtStart.push(scheduler.getState().currentProgram?.item.ratingKey ?? 'none'); });
+        scheduler.on('programEnd', ends);
+        scheduler.loadChannel({ channelId: 'c1', anchorTime: 1_000_000, content, playbackMode: 'sequential', shuffleSeed: 1 });
+        const current = scheduler.getState().currentProgram!;
+        const saved = [{ ...content[1]!, ratingKey: 'saved-b' }, { ...content[0]!, ratingKey: 'saved-a' }];
+        scheduler.stageChannelReplacement({ channelId: 'c1', anchorTime: 1_000_000, content: saved, playbackMode: 'sequential', shuffleSeed: 1 });
+        expect(scheduler.getState().currentProgram).toEqual(current);
+        expect(starts).toHaveBeenCalledTimes(1);
+        const before = scheduler.getScheduleWindow(1_000_000, 1_025_000).programs;
+        expect(before.map(p => p.item.ratingKey)).toEqual(['a', 'saved-b', 'saved-a']);
+        expect(before[0]?.scheduledEndTime).toBe(before[1]?.scheduledStartTime);
+        jest.setSystemTime(current.scheduledEndTime);
+        scheduler.syncToCurrentTime();
+        expect(ends).toHaveBeenCalledTimes(1);
+        expect(starts).toHaveBeenCalledTimes(2);
+        expect(stateSeenAtStart).toEqual(['a', 'saved-b']);
+        expect(scheduler.getState().currentProgram?.item.ratingKey).toBe('saved-b');
+        expect(scheduler.getState().currentProgram?.scheduledStartTime).toBe(current.scheduledEndTime);
+        expect(scheduler.getScheduleWindow(1_000_000, 1_025_000).programs.map(p => p.item.ratingKey)).toEqual(['a', 'saved-b', 'saved-a']);
+        scheduler.syncToCurrentTime();
+        expect(starts).toHaveBeenCalledTimes(2);
+        scheduler.unloadChannel();
+        jest.useRealTimers();
+    });
+
+    it('replaces a pending Save and clears it on an explicit channel load', () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(1_000_000);
+        const scheduler = new ChannelScheduler();
+        const config: ScheduleConfig = { channelId: 'c1', anchorTime: 1_000_000,
+            content, playbackMode: 'sequential', shuffleSeed: 1 };
+        scheduler.loadChannel(config);
+        scheduler.stageChannelReplacement({ ...config, content: [{ ...content[0]!, ratingKey: 'first' }] });
+        scheduler.stageChannelReplacement({ ...config, content: [{ ...content[0]!, ratingKey: 'second' }] });
+        expect(scheduler.getProgramAtTime(1_010_000).item.ratingKey).toBe('second');
+        scheduler.loadChannel({ ...config, channelId: 'c2' });
+        expect(scheduler.hasPendingChannelReplacement()).toBe(false);
+        expect(scheduler.getState().channelId).toBe('c2');
+        scheduler.unloadChannel();
+        jest.useRealTimers();
+    });
+
+    it('uses the same handoff for next, upcoming, native advance, and previous', () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(1_000_000);
+        const scheduler = new ChannelScheduler();
+        scheduler.loadChannel({ channelId: 'c1', anchorTime: 1_000_000,
+            content, playbackMode: 'sequential', shuffleSeed: 1 });
+        const saved = [{ ...content[1]!, ratingKey: 'saved' }];
+        scheduler.stageChannelReplacement({ channelId: 'c1', anchorTime: 1_000_000,
+            content: saved, playbackMode: 'sequential', shuffleSeed: 1 });
+        expect(scheduler.getNextProgram()).toEqual(scheduler.getUpcoming(2)[1]);
+        expect(scheduler.getNextProgram()).toEqual(scheduler.getState().nextProgram);
+        expect(scheduler.getNextProgram().item.ratingKey).toBe('saved');
+        const starts = jest.fn(), ends = jest.fn();
+        scheduler.on('programStart', starts);
+        scheduler.on('programEnd', ends);
+        scheduler.skipToNext();
+        expect(scheduler.getState().currentProgram?.item.ratingKey).toBe('saved');
+        expect(scheduler.hasPendingChannelReplacement()).toBe(false);
+        expect(starts).toHaveBeenCalledTimes(1);
+        expect(ends).toHaveBeenCalledTimes(1);
+        scheduler.unloadChannel();
+
+        const after = new ChannelScheduler();
+        after.loadChannel({ channelId: 'c1', anchorTime: 1_000_000,
+            content, playbackMode: 'sequential', shuffleSeed: 1 });
+        after.stageChannelReplacement({ channelId: 'c1', anchorTime: 1_000_000,
+            content: saved, playbackMode: 'sequential', shuffleSeed: 1 });
+        jest.setSystemTime(1_010_000);
+        after.syncToCurrentTime();
+        expect(after.getPreviousProgram().item.ratingKey).toBe('a');
+        after.skipToPrevious();
+        expect(after.getState().currentProgram?.item.ratingKey).toBe('a');
+        expect(after.hasPendingChannelReplacement()).toBe(true);
+        expect(after.getNextProgram().item.ratingKey).toBe('saved');
+        after.unloadChannel();
+        jest.useRealTimers();
+    });
+
+    it.each(['previous', 'current'] as const)(
+        'preserves pending saved programming when jumping to the %s program before its boundary',
+        (target) => {
+            jest.setSystemTime(1_000_000);
+            const config: ScheduleConfig = { channelId: 'c1', anchorTime: 1_000_000,
+                content, playbackMode: 'sequential', shuffleSeed: 1 };
+            scheduler.loadChannel(config);
+            scheduler.stageChannelReplacement({ ...config,
+                content: [{ ...content[1]!, ratingKey: 'saved' }] });
+
+            if (target === 'previous') scheduler.skipToPrevious();
+            else scheduler.jumpToProgram(scheduler.getCurrentProgram());
+
+            expect(scheduler.getCurrentProgram().item.ratingKey).toBe(target === 'previous' ? 'b' : 'a');
+            expect(scheduler.hasPendingChannelReplacement()).toBe(true);
+            expect(scheduler.getNextProgram().item.ratingKey).toBe('saved');
+
+            jest.setSystemTime(scheduler.getCurrentProgram().scheduledEndTime);
+            scheduler.syncToCurrentTime();
+            expect(scheduler.getState().currentProgram?.item.ratingKey).toBe('saved');
+            expect(scheduler.hasPendingChannelReplacement()).toBe(false);
+        }
+    );
+
+    it('settles a due handoff before unsynced Next selects the saved timeline', () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(1_000_000);
+        const scheduler = new ChannelScheduler();
+        scheduler.loadChannel({ channelId: 'c1', anchorTime: 1_000_000,
+            content, playbackMode: 'sequential', shuffleSeed: 1 });
+        const saved = [{ ...content[1]!, ratingKey: 'saved-first' },
+            { ...content[0]!, ratingKey: 'saved-second' }];
+        scheduler.stageChannelReplacement({ channelId: 'c1', anchorTime: 1_000_000,
+            content: saved, playbackMode: 'sequential', shuffleSeed: 1 });
+        const starts: string[] = [], ends: string[] = [];
+        scheduler.on('programStart', program => starts.push(program.item.ratingKey));
+        scheduler.on('programEnd', program => ends.push(program.item.ratingKey));
+        jest.setSystemTime(1_010_000); // wall clock crossed; the 1s sync callback has not run
+        expect(scheduler.getState().currentProgram?.item.ratingKey).toBe('a');
+        expect(scheduler.getNextProgram().item.ratingKey).toBe('saved-second');
+        scheduler.skipToNext();
+        expect(ends).toEqual(['a', 'saved-first']);
+        expect(starts).toEqual(['saved-first', 'saved-second']);
+        expect(scheduler.getState().currentProgram?.item.ratingKey).toBe('saved-second');
+        expect(scheduler.getScheduleIndex().orderedItems.map(program => program.ratingKey))
+            .toEqual(['saved-first', 'saved-second']);
+        expect(scheduler.hasPendingChannelReplacement()).toBe(false);
+        scheduler.syncToCurrentTime();
+        expect(starts).toHaveLength(2);
+        scheduler.unloadChannel();
+        jest.useRealTimers();
+    });
+
+    it('settles a due handoff before unsynced Previous and preserves saved programming', () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(1_000_000);
+        const scheduler = new ChannelScheduler();
+        scheduler.loadChannel({ channelId: 'c1', anchorTime: 1_000_000,
+            content, playbackMode: 'sequential', shuffleSeed: 1 });
+        const saved = [{ ...content[1]!, ratingKey: 'saved-first' },
+            { ...content[0]!, ratingKey: 'saved-second' }];
+        scheduler.stageChannelReplacement({ channelId: 'c1', anchorTime: 1_000_000,
+            content: saved, playbackMode: 'sequential', shuffleSeed: 1 });
+        const starts: string[] = [], ends: string[] = [];
+        scheduler.on('programStart', program => starts.push(program.item.ratingKey));
+        scheduler.on('programEnd', program => ends.push(program.item.ratingKey));
+        jest.setSystemTime(1_010_000); // no scheduler sync before the remote action
+        expect(scheduler.getState().currentProgram?.item.ratingKey).toBe('a');
+        expect(scheduler.getPreviousProgram().item.ratingKey).toBe('a');
+        scheduler.skipToPrevious();
+        expect(ends).toEqual(['a', 'saved-first']);
+        expect(starts).toEqual(['saved-first', 'a']);
+        expect(scheduler.getState().currentProgram?.item.ratingKey).toBe('a');
+        expect(scheduler.hasPendingChannelReplacement()).toBe(true);
+        expect(scheduler.getNextProgram().item.ratingKey).toBe('saved-second');
+        jest.setSystemTime(scheduler.getState().currentProgram!.scheduledEndTime);
+        scheduler.syncToCurrentTime();
+        expect(starts).toEqual(['saved-first', 'a', 'saved-second']);
+        expect(ends).toEqual(['a', 'saved-first', 'a']);
+        expect(scheduler.getState().currentProgram?.item.ratingKey).toBe('saved-second');
+        scheduler.unloadChannel();
+        jest.useRealTimers();
+    });
     let scheduler: ChannelScheduler;
     let shuffler: ShuffleGenerator;
 

@@ -366,10 +366,7 @@ export class EPGFocusNavigator {
             libraryTabs.closePicker();
             return true;
         }
-        if (this.context.getState().isVisible) {
-            this.context.hide();
-            return true;
-        }
+        // Guide root Back belongs to NavigationManager and the native webOS path.
         return false;
     }
 

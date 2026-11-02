@@ -26,8 +26,15 @@ export function createPriorityOneControllersAndBinder(
     input: PriorityOneAssemblyInput
 ): PriorityOneControllersAndBinder {
     const overlayRuntimePolicyController = createOverlayRuntimePolicyController(input);
-    const playbackStartController = createPlaybackStartController(input);
-    const playbackRuntimeController = createPlaybackRuntimeController(input);
+    let playbackStartController: PlaybackStartController | null = null;
+    const playbackRuntimeController = createPlaybackRuntimeController(input, () => {
+        const program = input.modules.scheduler.getCurrentProgram();
+        if (!program || !playbackStartController) return null;
+        return playbackRuntimeController.trackProgramStart(
+            playbackStartController.handleProgramStart(program)
+        );
+    });
+    playbackStartController = createPlaybackStartController(input, playbackRuntimeController);
     const profileSwitchCleanupController = createProfileSwitchCleanupController(input);
     const eventBinder = createEventBinder(
         input,

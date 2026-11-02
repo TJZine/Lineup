@@ -5,6 +5,12 @@
 jest.mock('../styles.css', () => ({}), { virtual: true });
 
 import { SplashScreen } from '../SplashScreen';
+import type { InitializationRestoreProjection } from '../../../../core/initialization/InitializationRestoreProjection';
+
+const restoring = (change: Partial<InitializationRestoreProjection> = {}): InitializationRestoreProjection => ({
+    generation: 1, phase: 'read-lineup', outcome: null, channelCount: null,
+    requiredComplete: false, optionalComplete: null, reason: null, actions: [], ...change,
+});
 
 describe('SplashScreen', () => {
     afterEach(() => {
@@ -65,5 +71,38 @@ describe('SplashScreen', () => {
 
         screen.hide();
         expect(container.classList.contains('visible')).toBe(false);
+    });
+
+    it('shows real restore phase/count and ignores a superseded generation', () => {
+        const container = document.createElement('div');
+        const switchServer = jest.fn();
+        const screen = new SplashScreen(container, switchServer);
+        screen.updateRestoreProjection(restoring({ generation: 2, phase: 'prepare-guide', channelCount: 3 }));
+
+        expect(container.querySelector('.splash-restore-title')?.textContent).toBe('Loading your lineup…');
+        expect(container.querySelector('.splash-restore-phase')?.textContent).toBe('Preparing the Guide… 3 saved channels.');
+        container.querySelector<HTMLButtonElement>('.splash-switch-server')?.click();
+        expect(switchServer).toHaveBeenCalledTimes(1);
+
+        screen.updateRestoreProjection(restoring({ generation: 1, phase: 'server' }));
+        expect(container.querySelector('.splash-restore-phase')?.textContent).toBe('Preparing the Guide… 3 saved channels.');
+        screen.updateRestoreProjection(restoring({ generation: 3, phase: 'server' }));
+        expect(container.querySelector('.splash-restore-phase')?.textContent).toBe('Connecting to your server…');
+    });
+
+    it('registers Switch server for remote focus only during visible restore', () => {
+        const container = document.createElement('div');
+        const navigation = { registerFocusable: jest.fn(), unregisterFocusable: jest.fn(), setFocus: jest.fn() };
+        const screen = new SplashScreen(container, jest.fn(), () => navigation);
+        screen.show();
+        screen.updateRestoreProjection(restoring());
+        expect(navigation.registerFocusable).toHaveBeenCalledWith(expect.objectContaining({ id: 'splash-switch-server' }));
+        expect(navigation.setFocus).toHaveBeenCalledWith('splash-switch-server');
+        screen.hide();
+        expect(navigation.unregisterFocusable).toHaveBeenCalledWith('splash-switch-server');
+        screen.show();
+        expect(navigation.registerFocusable).toHaveBeenCalledTimes(2);
+        screen.updateRestoreProjection(restoring({ phase: 'complete' }));
+        expect(navigation.unregisterFocusable).toHaveBeenCalledTimes(2);
     });
 });

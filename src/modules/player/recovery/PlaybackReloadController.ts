@@ -14,7 +14,8 @@ export type RecoveryReloadIgnoredReason =
     | 'recovery_in_progress'
     | 'missing_deps'
     | 'no_program'
-    | 'program_changed';
+    | 'program_changed'
+    | 'admission_changed';
 
 export type RecoveryAttemptResult<Success extends string, IgnoredReason extends string> =
     | { outcome: Success }
@@ -22,6 +23,7 @@ export type RecoveryAttemptResult<Success extends string, IgnoredReason extends 
     | { outcome: 'failed' };
 
 export type RecoveryReloadContext = {
+    admissionGeneration: number;
     program: ScheduledProgram;
     programIdentity: ScheduledProgramIdentity;
     player: IVideoPlayer;
@@ -56,6 +58,10 @@ export type RecoveryReloadFailureContext = RecoveryReloadContext & {
 };
 
 interface PlaybackReloadControllerDeps {
+    captureRecoveryAdmission: () => number | null;
+    isRecoveryAdmissionCurrent: (generation: number) => boolean;
+    canPlayForRecovery: (generation: number) => boolean;
+    acceptCommittedSession: (descriptor: StreamDescriptor) => void;
     getVideoPlayer: () => IVideoPlayer | null;
     getStreamResolver: () => IPlexStreamResolver | null;
     getCurrentProgramForPlayback: () => ScheduledProgram | null;
@@ -88,6 +94,11 @@ export class PlaybackReloadController {
             return { outcome: 'ignored', reason: 'recovery_in_progress' };
         }
 
+        const admissionGeneration = this.deps.captureRecoveryAdmission();
+        if (admissionGeneration === null) {
+            return { outcome: 'ignored', reason: 'admission_changed' };
+        }
+
         const program = this.deps.getCurrentProgramForPlayback();
         const programIdentity = this.deps.getCurrentProgramIdentityForPlayback();
         if (!program || !programIdentity) {
@@ -101,6 +112,7 @@ export class PlaybackReloadController {
         }
 
         return {
+            admissionGeneration,
             program,
             programIdentity,
             player,
@@ -134,18 +146,17 @@ export class PlaybackReloadController {
         shouldResumeAfterReload?: boolean;
         onSuccess?: (context: RecoveryDescriptorContext) => void;
         onFailure?: (context: RecoveryReloadFailureContext) => void | Promise<void>;
-    }): Promise<RecoveryAttemptResult<TSuccess, 'program_changed'>> {
+    }): Promise<RecoveryAttemptResult<TSuccess, 'program_changed' | 'admission_changed'>> {
         const { context } = config;
+        if (!this.deps.isRecoveryAdmissionCurrent(context.admissionGeneration)) {
+            return { outcome: 'ignored', reason: 'admission_changed' };
+        }
         logPlaybackRecoveryWarning(config.startEvent, {
             reason: context.safeReason,
             ...(config.startData?.(context) ?? {}),
         });
         this._streamRecoveryInProgress = true;
         let teardownDescriptor: StreamDescriptor | null = null;
-        const clearCommittedState = (): void => {
-            this.deps.setCurrentStreamDecision(null);
-            this.deps.setCurrentStreamDescriptor(null);
-        };
         const playerCurrentDescriptorMatches = (descriptor: StreamDescriptor): boolean => {
             if (typeof context.player.getCurrentDescriptor !== 'function') {
                 return false;
@@ -163,39 +174,62 @@ export class PlaybackReloadController {
             } catch {
                 // Preserve the original reload failure/abort path.
             }
-            clearCommittedState();
+            const committedDescriptor = this.deps.getCurrentStreamDescriptor?.() ?? null;
+            if (committedDescriptor === descriptor || committedDescriptor === context.currentDescriptor) {
+                this.deps.setCurrentStreamDecision(null);
+                this.deps.setCurrentStreamDescriptor(null);
+            }
         };
 
         let failureStage: RecoveryReloadFailureStage = 'unknown';
         let attemptedRequest: StreamRequest | null = null;
         let attemptedDecision: StreamDecision | null = null;
         let attemptedDescriptor: StreamDescriptor | null = null;
+        let attemptedSessionDiscarded = false;
+        const discardAttemptedSession = (): void => {
+            const sessionId = attemptedDecision?.isTranscoding ? attemptedDecision.sessionId : null;
+            if (!sessionId || attemptedSessionDiscarded
+                || sessionId === context.currentDecision?.sessionId
+                || sessionId === this.deps.getCurrentStreamDecision?.()?.sessionId
+                || typeof context.resolver.stopTranscodeSession !== 'function') return;
+            attemptedSessionDiscarded = true;
+            try {
+                void context.resolver.stopTranscodeSession(sessionId).catch((error: unknown) => {
+                    logPlaybackRecoveryError('reloadAttemptedTranscodeStop.failed', { sessionId }, error);
+                });
+            } catch (error: unknown) {
+                logPlaybackRecoveryError('reloadAttemptedTranscodeStop.failed', { sessionId }, error);
+            }
+        };
         try {
-            const abortIfProgramChanged = (
+            const abortIfStale = (
                 teardownDescriptor: StreamDescriptor | null
-            ): RecoveryAttemptResult<TSuccess, 'program_changed'> | null => {
-                if (
-                    scheduledProgramIdentitiesMatch(
+            ): RecoveryAttemptResult<TSuccess, 'program_changed' | 'admission_changed'> | null => {
+                const programCurrent = scheduledProgramIdentitiesMatch(
                         this.deps.getCurrentProgramIdentityForPlayback(),
                         context.programIdentity
-                    )
-                ) {
+                    );
+                const admissionCurrent = this.deps.isRecoveryAdmissionCurrent(context.admissionGeneration);
+                if (programCurrent && admissionCurrent) {
                     return null;
                 }
 
                 teardownLoadedStreamIfStillActive(teardownDescriptor);
+                discardAttemptedSession();
+
+                const reason = programCurrent ? 'admission_changed' : 'program_changed';
 
                 logPlaybackRecoveryWarning(config.abortedEvent, {
                     reason: context.safeReason,
-                    outcome: 'program_changed',
+                    outcome: reason,
                     ...(config.startData?.(context) ?? {}),
                 });
-                return { outcome: 'ignored', reason: 'program_changed' };
+                return { outcome: 'ignored', reason };
             };
 
             failureStage = 'before_resolve';
             await config.beforeResolve?.(context);
-            const beforeResolveAbort = abortIfProgramChanged(null);
+            const beforeResolveAbort = abortIfStale(null);
             if (beforeResolveAbort) {
                 return beforeResolveAbort;
             }
@@ -204,7 +238,7 @@ export class PlaybackReloadController {
             attemptedRequest = config.buildRequest(context);
             const decision = await context.resolver.resolveStream(attemptedRequest);
             attemptedDecision = decision;
-            const resolveAbort = abortIfProgramChanged(null);
+            const resolveAbort = abortIfStale(null);
             if (resolveAbort) {
                 return resolveAbort;
             }
@@ -224,40 +258,63 @@ export class PlaybackReloadController {
             }
             attemptedDescriptor = descriptor;
 
+            const beforeLoadAbort = abortIfStale(null);
+            if (beforeLoadAbort) return beforeLoadAbort;
+
             teardownDescriptor = descriptor;
             failureStage = 'load';
             await context.player.loadStream(descriptor);
-            const loadAbort = abortIfProgramChanged(descriptor);
+            const loadAbort = abortIfStale(descriptor);
             if (loadAbort) {
                 return loadAbort;
             }
 
             failureStage = 'after_load';
             await config.afterLoad?.(descriptor, descriptorContext);
-            const afterLoadAbort = abortIfProgramChanged(descriptor);
+            const afterLoadAbort = abortIfStale(descriptor);
             if (afterLoadAbort) {
                 return afterLoadAbort;
             }
 
-            if (config.shouldResumeAfterReload) {
+            if (config.shouldResumeAfterReload && this.deps.canPlayForRecovery(context.admissionGeneration)) {
                 failureStage = 'play';
                 await context.player.play();
-                const playAbort = abortIfProgramChanged(descriptor);
+                const playAbort = abortIfStale(descriptor);
                 if (playAbort) {
                     return playAbort;
                 }
             }
+            const beforeCommitAbort = abortIfStale(descriptor);
+            if (beforeCommitAbort) return beforeCommitAbort;
             this.deps.setCurrentStreamDecision(decision);
             this.deps.setCurrentStreamDescriptor(descriptor);
+            const publicationAbort = abortIfStale(descriptor);
+            if (publicationAbort) return publicationAbort;
+            this.deps.acceptCommittedSession(descriptor);
             this.deps.resetPlaybackFailureGuard();
-            try {
-                config.onSuccess?.(descriptorContext);
-            } finally {
-                this._stopPriorTranscodeSessionAfterCommit(context.currentDecision, decision, context.resolver);
-            }
+            const afterResetAbort = abortIfStale(descriptor);
+            if (afterResetAbort) return afterResetAbort;
+            config.onSuccess?.(descriptorContext);
+            const afterSuccessAbort = abortIfStale(descriptor);
+            if (afterSuccessAbort) return afterSuccessAbort;
+            this._stopPriorTranscodeSessionAfterCommit(context.currentDecision, decision, context.resolver);
             return { outcome: config.successOutcome };
         } catch (error) {
             teardownLoadedStreamIfStillActive(teardownDescriptor);
+            discardAttemptedSession();
+            const programCurrent = scheduledProgramIdentitiesMatch(
+                this.deps.getCurrentProgramIdentityForPlayback(), context.programIdentity
+            );
+            const admissionCurrent = this.deps.isRecoveryAdmissionCurrent(context.admissionGeneration);
+            if (!programCurrent || !admissionCurrent) {
+                const reason = programCurrent ? 'admission_changed' : 'program_changed';
+                logPlaybackRecoveryWarning(config.abortedEvent, {
+                    reason: context.safeReason,
+                    outcome: reason,
+                    ...(config.startData?.(context) ?? {}),
+                });
+                return { outcome: 'ignored', reason };
+            }
             logPlaybackRecoveryError(
                 config.failedEvent,
                 {

@@ -10,7 +10,6 @@ export const PLAYER_OSD_CLASSES = {
     ZONE_BRAND: 'player-osd-zone-brand',
     ZONE_DETAILS: 'player-osd-zone-details',
     PROGRESS_CONTAINER: 'player-osd-progress-container',
-    INFO_ONLY: 'info-only',
     STATUS: 'player-osd-status',
     CLEAR_LOGO: 'player-osd-clear-logo',
     TITLE: 'player-osd-title',

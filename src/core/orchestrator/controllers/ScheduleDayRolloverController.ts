@@ -23,6 +23,7 @@ export interface ScheduleDayRolloverControllerDeps {
 
 interface PendingDayRolloverAttempt {
     dayKey: number;
+    hadPendingReplacement: boolean;
     abortController: AbortController;
 }
 
@@ -68,6 +69,7 @@ export class ScheduleDayRolloverController {
         this.cancelPendingDayRollover();
         const attempt: PendingDayRolloverAttempt = {
             dayKey,
+            hadPendingReplacement: scheduler.hasPendingChannelReplacement(),
             abortController: new AbortController(),
         };
         this._pendingDayRolloverAttempt = attempt;
@@ -117,7 +119,10 @@ export class ScheduleDayRolloverController {
                 return;
             }
 
-            const current = channelManager.getCurrentChannel();
+            const state = scheduler.getState();
+            const current = state.isActive
+                ? channelManager.getChannel(state.channelId)
+                : channelManager.getCurrentChannel();
             if (!current) {
                 this._activeScheduleDayKey = dayKey;
                 return;
@@ -128,7 +133,12 @@ export class ScheduleDayRolloverController {
             if (!this._isCurrentAttempt(attempt)) {
                 return;
             }
-            scheduler.loadChannel(this._deps.buildDailyScheduleConfig(current, content.items, now));
+            const config = this._deps.buildDailyScheduleConfig(current, content.items, now);
+            if (attempt.hadPendingReplacement || scheduler.hasPendingChannelReplacement()) {
+                scheduler.stageChannelReplacement(config);
+            } else {
+                scheduler.loadChannel(config);
+            }
             scheduler.syncToCurrentTime();
 
             const epgCoordinator = this._deps.getEpgCoordinator();

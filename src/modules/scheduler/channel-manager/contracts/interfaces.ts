@@ -10,9 +10,8 @@ import type {
 import type { PlexCollection, PlexMediaFile } from '../../../plex/library';
 import type { PlexMediaType } from '../../../plex/shared/types';
 import type { IDisposable } from '../../../../utils/interfaces';
-import type { OperationContextUpstream } from '../../../../utils/RetainedOperationContext';
-import type { ChannelInitialResolutionAuthorization } from './ChannelResolutionAuthority';
 import type { ObserveSourceResolution } from './SourceResolutionDiagnostic';
+import type { ChannelLoadOutcome, ChannelMutationOutcome, ChannelStructuralBase } from './ChannelDurability';
 
 export type ChannelContentResolutionOptions = {
     signal?: AbortSignal | null;
@@ -26,16 +25,19 @@ export interface IChannelManager {
      * @throws ChannelError if content source is missing or non-fallback content resolution fails
      */
     createChannel(config: ChannelCreateInput, options?: ChannelCreateOptions): Promise<ChannelConfig>;
+    tryCreateChannel(config: ChannelCreateInput, options?: ChannelCreateOptions): Promise<ChannelMutationOutcome<ChannelConfig>>;
 
     /**
      * @throws ChannelError if channel not found or a content-affecting update hits a non-fallback resolution failure
      */
-    updateChannel(id: string, updates: ChannelUpdateInput): Promise<ChannelConfig>;
+    updateChannel(id: string, updates: ChannelUpdateInput, expectedBase?: ChannelStructuralBase): Promise<ChannelConfig>;
+    tryUpdateChannel(id: string, updates: ChannelUpdateInput, expectedBase?: ChannelStructuralBase): Promise<ChannelMutationOutcome<ChannelConfig>>;
 
     /**
      * @throws ChannelError if channel not found
      */
-    deleteChannel(id: string): Promise<void>;
+    deleteChannel(id: string, expectedBase?: ChannelStructuralBase): Promise<void>;
+    tryDeleteChannel(id: string, expectedBase?: ChannelStructuralBase): Promise<ChannelMutationOutcome<void>>;
 
     getChannel(id: string): ChannelConfig | null;
 
@@ -64,27 +66,6 @@ export interface IChannelManager {
      * channel and resolver state. Resolution admission remains suspended.
      */
     clearRuntimeStateForScopeTransition(): Promise<void>;
-
-    /**
-     * Creates a single-use initial-tune authorization while general resolution
-     * admission is suspended.
-     * @throws AbortError when admission is active or the validator is not current.
-     */
-    createInitialTuneResolutionAuthorization(
-        channelId: string,
-        validator: OperationContextUpstream
-    ): ChannelInitialResolutionAuthorization;
-
-    /**
-     * Resolves the same channel authorized by createInitialTuneResolutionAuthorization.
-     * The authorization must be consumed exactly once before resume or supersession.
-     * @throws ChannelError when the channel does not exist.
-     * @throws AbortError for a mismatched, consumed, or superseded authorization.
-     */
-    resolveChannelContentForInitialTune(
-        channelId: string,
-        authorization: ChannelInitialResolutionAuthorization
-    ): Promise<ResolvedChannelContent>;
 
     getChannelByNumber(number: number): ChannelConfig | null;
 
@@ -116,7 +97,8 @@ export interface IChannelManager {
      * existing in-memory order unchanged and does not queue persistence.
      * @throws ChannelError if any existing id is missing, duplicated, or unknown.
      */
-    reorderChannels(orderedIds: string[]): Promise<void>;
+    reorderChannels(orderedIds: string[], expectedBase?: ChannelStructuralBase): Promise<void>;
+    tryReorderChannels(orderedIds: string[], expectedBase?: ChannelStructuralBase): Promise<ChannelMutationOutcome<void>>;
 
     setCurrentChannel(channelId: string): void;
 
@@ -157,7 +139,16 @@ export interface IChannelManager {
     /**
      * Loads channel state through the persistence boundary.
      */
-    loadChannels(): Promise<void>;
+    loadChannels(): Promise<ChannelLoadOutcome>;
+
+    getStructuralBase(): ChannelStructuralBase;
+    getLastLoadOutcome(): ChannelLoadOutcome;
+    prepareProtectedReplacement(): ChannelLoadOutcome;
+    cancelProtectedReplacement(handle: string): void;
+    tryReplaceAllChannels(
+        channels: ChannelConfig[],
+        options?: { currentChannelId?: string | null; expectedBase?: ChannelStructuralBase; protectedReplacementHandle?: string }
+    ): Promise<ChannelMutationOutcome<void>>;
 
     /**
      * Update persistence keys for multi-server/multi-mode support.
@@ -173,7 +164,7 @@ export interface IChannelManager {
      */
     replaceAllChannels(
         channels: ChannelConfig[],
-        options?: { currentChannelId?: string | null }
+        options?: { currentChannelId?: string | null; expectedBase?: ChannelStructuralBase; protectedReplacementHandle?: string }
     ): Promise<void>;
 
     on<K extends keyof ChannelManagerEventMap>(
@@ -185,6 +176,7 @@ export interface IChannelManager {
 export interface ChannelCreateOptions {
     signal?: AbortSignal | null;
     initialContent?: ReadonlyArray<ResolvedContentItem> | undefined;
+    expectedBase?: ChannelStructuralBase;
 }
 
 export interface ChannelManagerConfig {

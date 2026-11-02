@@ -5,14 +5,36 @@ import {
     readStoredBoolean,
     readStoredBooleanAndClean,
     safeLocalStorageGet,
+    safeLocalStorageGetWithResult,
     safeLocalStorageRemove,
+    safeLocalStorageRemoveWithResult,
     safeLocalStorageSetWithResult,
     readTrimmedStringAndClean,
     writeTrimmedStringOrRemoveWithResult,
 } from '../../utils/storage';
 
-export type EpgLayoutMode = 'overlay' | 'classic';
-export type EpgGuideDensity = 'detailed' | 'wide';
+export const EPG_GUIDE_HOURS_OPTIONS = [2, 3, 4] as const;
+export type EpgGuideHours = (typeof EPG_GUIDE_HOURS_OPTIONS)[number];
+export const DEFAULT_EPG_GUIDE_HOURS: EpgGuideHours = 2;
+
+export type EpgGuideHoursReadResult =
+    | { ok: true; value: EpgGuideHours; source: 'stored' | 'legacy' | 'default' }
+    | {
+        ok: false;
+        reason: 'quota-exceeded' | 'unavailable';
+        stage: 'read' | 'replacement-write' | 'invalid-value-cleanup' | 'legacy-cleanup';
+        effectiveValue: EpgGuideHours;
+    };
+
+export type EpgGuideHoursMigrationCleanupResult =
+    | { ok: true; value: EpgGuideHours; legacyRemoved: boolean }
+    | {
+        ok: false;
+        reason: 'quota-exceeded' | 'unavailable';
+        stage: 'read' | 'replacement-write' | 'legacy-cleanup';
+        effectiveValue: EpgGuideHours;
+    };
+
 export const EPG_PAST_ITEMS_WINDOWS = ['auto', '0', '15', '30'] as const;
 export type EpgPastItemsWindow = (typeof EPG_PAST_ITEMS_WINDOWS)[number];
 export type EpgScheduleRangeSnapshot = {
@@ -64,34 +86,158 @@ export class EpgPreferencesStore {
         return writeTrimmedStringOrRemoveWithResult(key, libraryId);
     }
 
-    readGuideDensityAndClean(fallback: EpgGuideDensity = 'detailed'): EpgGuideDensity {
-        const raw = safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY);
-        if (raw === 'wide' || raw === 'detailed') {
-            return raw;
+    /**
+     * Read the current 2/3/4-hour preference, translating the legacy
+     * detailed/wide value into the new key. Retire the old key only after the
+     * replacement is durable; a failed cleanup remains visible and retryable.
+     */
+    readGuideHoursAndMigrate(): EpgGuideHoursReadResult {
+        const current = safeLocalStorageGetWithResult(LINEUP_STORAGE_KEYS.EPG_GUIDE_HOURS);
+        if (!current.ok) {
+            return {
+                ok: false,
+                reason: current.reason,
+                stage: 'read',
+                effectiveValue: DEFAULT_EPG_GUIDE_HOURS,
+            };
         }
-        if (raw !== null) {
-            safeLocalStorageRemove(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY);
-        }
-        return fallback;
-    }
 
-    writeGuideDensity(density: EpgGuideDensity): SafeLocalStorageMutationResult {
-        return safeLocalStorageSetWithResult(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY, density);
-    }
-
-    readLayoutModeAndClean(fallback: EpgLayoutMode = 'classic'): EpgLayoutMode {
-        const raw = safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE);
-        if (raw === 'overlay' || raw === 'classic') {
-            return raw;
-        }
-        if (raw !== null) {
+        const storedHours = this._parseGuideHours(current.value);
+        if (storedHours !== null) {
+            const cleanup = this.completeGuideHoursMigrationAfterConsumerCutover();
+            if (!cleanup.ok) return cleanup;
             safeLocalStorageRemove(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE);
+            return { ok: true, value: storedHours, source: 'stored' };
         }
-        return fallback;
+
+        if (current.value !== null) {
+            const legacy = this._readLegacyGuideHours();
+            const effectiveValue = legacy.ok
+                ? legacy.value ?? DEFAULT_EPG_GUIDE_HOURS
+                : DEFAULT_EPG_GUIDE_HOURS;
+            const cleanup = safeLocalStorageRemoveWithResult(LINEUP_STORAGE_KEYS.EPG_GUIDE_HOURS);
+            if (!cleanup.ok) {
+                return {
+                    ok: false,
+                    reason: cleanup.reason,
+                    stage: 'invalid-value-cleanup',
+                    effectiveValue,
+                };
+            }
+        }
+
+        const legacy = this._readLegacyGuideHours();
+        if (!legacy.ok) {
+            return {
+                ok: false,
+                reason: legacy.reason,
+                stage: 'read',
+                effectiveValue: DEFAULT_EPG_GUIDE_HOURS,
+            };
+        }
+        if (legacy.value === null) {
+            const cleanup = this.completeGuideHoursMigrationAfterConsumerCutover();
+            if (!cleanup.ok) return cleanup;
+            safeLocalStorageRemove(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE);
+            return { ok: true, value: DEFAULT_EPG_GUIDE_HOURS, source: 'default' };
+        }
+
+        const replacement = safeLocalStorageSetWithResult(
+            LINEUP_STORAGE_KEYS.EPG_GUIDE_HOURS,
+            String(legacy.value)
+        );
+        if (!replacement.ok) {
+            return {
+                ok: false,
+                reason: replacement.reason,
+                stage: 'replacement-write',
+                effectiveValue: legacy.value,
+            };
+        }
+
+        const cleanup = this.completeGuideHoursMigrationAfterConsumerCutover();
+        if (!cleanup.ok) return cleanup;
+        safeLocalStorageRemove(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE);
+        return { ok: true, value: legacy.value, source: 'legacy' };
     }
 
-    writeLayoutMode(mode: EpgLayoutMode): SafeLocalStorageMutationResult {
-        return safeLocalStorageSetWithResult(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE, mode);
+    writeGuideHours(hours: EpgGuideHours): SafeLocalStorageMutationResult | { ok: false; reason: 'invalid-value' } {
+        if (!this._isGuideHours(hours)) {
+            return { ok: false, reason: 'invalid-value' };
+        }
+        return safeLocalStorageSetWithResult(LINEUP_STORAGE_KEYS.EPG_GUIDE_HOURS, String(hours));
+    }
+
+    /**
+     * Call only after Settings and viewing code no longer reads or writes the
+     * legacy density API. A failed read/write/removal is retryable and leaves
+     * the old selection intact until its replacement is durable.
+     */
+    completeGuideHoursMigrationAfterConsumerCutover(): EpgGuideHoursMigrationCleanupResult {
+        const current = safeLocalStorageGetWithResult(LINEUP_STORAGE_KEYS.EPG_GUIDE_HOURS);
+        if (!current.ok) {
+            return {
+                ok: false,
+                reason: current.reason,
+                stage: 'read',
+                effectiveValue: DEFAULT_EPG_GUIDE_HOURS,
+            };
+        }
+
+        const legacy = safeLocalStorageGetWithResult(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY);
+        if (!legacy.ok) {
+            return {
+                ok: false,
+                reason: legacy.reason,
+                stage: 'read',
+                effectiveValue: this._parseGuideHours(current.value) ?? DEFAULT_EPG_GUIDE_HOURS,
+            };
+        }
+
+        const storedHours = this._parseGuideHours(current.value);
+        if (legacy.value === null) {
+            return {
+                ok: true,
+                value: storedHours ?? DEFAULT_EPG_GUIDE_HOURS,
+                legacyRemoved: false,
+            };
+        }
+
+        const effectiveValue = storedHours ?? this._legacyDensityToHours(legacy.value) ?? DEFAULT_EPG_GUIDE_HOURS;
+        if (storedHours === null) {
+            const replacement = safeLocalStorageSetWithResult(
+                LINEUP_STORAGE_KEYS.EPG_GUIDE_HOURS,
+                String(effectiveValue)
+            );
+            if (!replacement.ok) {
+                return {
+                    ok: false,
+                    reason: replacement.reason,
+                    stage: 'replacement-write',
+                    effectiveValue,
+                };
+            }
+        }
+
+        const cleanup = safeLocalStorageRemoveWithResult(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY);
+        if (!cleanup.ok) {
+            return {
+                ok: false,
+                reason: cleanup.reason,
+                stage: 'legacy-cleanup',
+                effectiveValue,
+            };
+        }
+
+        return { ok: true, value: effectiveValue, legacyRemoved: true };
+    }
+
+    readSourceLabelsEnabledAndClean(fallback: boolean = false): boolean {
+        return readStoredBooleanAndClean(LINEUP_STORAGE_KEYS.EPG_SOURCE_LABELS_ENABLED, fallback);
+    }
+
+    writeSourceLabelsEnabled(enabled: boolean): SafeLocalStorageMutationResult {
+        return safeLocalStorageSetWithResult(LINEUP_STORAGE_KEYS.EPG_SOURCE_LABELS_ENABLED, enabled ? '1' : '0');
     }
 
     readNowWatchingEnabledAndClean(fallback: boolean = true): boolean {
@@ -170,5 +316,27 @@ export class EpgPreferencesStore {
             return null;
         }
         return `${LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER}:${this._libraryFilterScope.serverId}:${this._libraryFilterScope.userId}`;
+    }
+
+    private _readLegacyGuideHours():
+        | { ok: true; value: EpgGuideHours | null }
+        | { ok: false; reason: 'unavailable' } {
+        const result = safeLocalStorageGetWithResult(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY);
+        if (!result.ok) return result;
+        return { ok: true, value: this._legacyDensityToHours(result.value) };
+    }
+
+    private _legacyDensityToHours(value: string | null): EpgGuideHours | null {
+        if (value === 'detailed') return 2;
+        if (value === 'wide') return 3;
+        return null;
+    }
+
+    private _parseGuideHours(value: string | null): EpgGuideHours | null {
+        return EPG_GUIDE_HOURS_OPTIONS.find((hours) => String(hours) === value) ?? null;
+    }
+
+    private _isGuideHours(value: number): value is EpgGuideHours {
+        return EPG_GUIDE_HOURS_OPTIONS.some((hours) => hours === value);
     }
 }

@@ -6,9 +6,8 @@ const MODULE_IDS = [
     'event-emitter', 'app-lifecycle', 'navigation', 'plex-auth',
     'plex-server-discovery', 'plex-library', 'plex-stream-resolver',
     'channel-manager', 'channel-scheduler', 'video-player', 'epg-ui',
-    'now-playing-info-ui', 'player-osd-ui', 'channel-number-overlay-ui',
+    'player-osd-ui', 'channel-number-overlay-ui',
     'channel-badge-ui', 'mini-guide-ui', 'channel-transition-ui',
-    'playback-options-ui', 'exit-confirm-ui',
 ] as const;
 
 export interface OrchestratorModuleStatusRegistryDeps {

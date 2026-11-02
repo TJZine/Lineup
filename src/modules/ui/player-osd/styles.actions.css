@@ -5,6 +5,10 @@
   gap: var(--player-osd-actions-space-10);
 }
 
+.no-flex-gap .player-osd-actions > * + * {
+  margin-left: var(--player-osd-actions-space-10);
+}
+
 .player-osd-action {
   --osd-focus-outline: 2px solid var(--color-text-primary);
   --osd-focus-outline-offset: 2px;
@@ -59,15 +63,17 @@
   }
 
   .player-osd-action.focused,
-  .player-osd-action:focus,
-  .player-osd-action:focus-visible {
+  .player-osd-action:focus {
     outline: 2px solid CanvasText;
     outline-offset: 2px;
     box-shadow: none;
   }
-}
 
-.player-osd-panel.info-only .player-osd-actions,
-.player-osd-panel.info-only .player-osd-sleep {
-  display: none;
+  @supports selector(:focus-visible) {
+    .player-osd-action:focus-visible {
+      outline: 2px solid CanvasText;
+      outline-offset: 2px;
+      box-shadow: none;
+    }
+  }
 }

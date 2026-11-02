@@ -220,14 +220,12 @@ describe('ChannelManager', () => {
             const handler = jest.fn();
             manager.on('channelUpdated', handler);
 
-            const updated = await manager.updateChannel(channel.id, {
+            await expect(manager.updateChannel(channel.id, {
                 name: 'Updated',
                 color: '#ff0000',
-            } as unknown as ChannelUpdateInput);
+            } as unknown as ChannelUpdateInput)).rejects.toMatchObject({ code: AppErrorCode.STORAGE_VALIDATION_FAILED });
 
-            expect(updated.name).toBe('Updated');
-            expect(updated).not.toHaveProperty('color');
-            expect(handler).toHaveBeenCalledWith(expect.not.objectContaining({ color: expect.anything() }));
+            expect(handler).not.toHaveBeenCalled();
             expect(manager.getChannel(channel.id)).not.toHaveProperty('color');
             expect(manager.getAllChannels()[0]).not.toHaveProperty('color');
         });
@@ -347,22 +345,16 @@ describe('ChannelManager', () => {
                 contentSource: createMockContentSource(),
             });
 
-            const updated = await manager.updateChannel(channel.id, {
+            await expect(manager.updateChannel(channel.id, {
                 name: 'Updated',
                 id: 'mutated-id',
                 createdAt: 123,
                 lastContentRefresh: 456,
                 itemCount: 789,
                 totalDurationMs: 101112,
-            } as unknown as ChannelUpdateInput);
+            } as unknown as ChannelUpdateInput)).rejects.toMatchObject({ code: AppErrorCode.STORAGE_VALIDATION_FAILED });
 
-            expect(updated.id).toBe(channel.id);
-            expect(updated.createdAt).toBe(channel.createdAt);
-            expect(updated.lastContentRefresh).toBe(channel.lastContentRefresh);
-            expect(updated.itemCount).toBe(channel.itemCount);
-            expect(updated.totalDurationMs).toBe(channel.totalDurationMs);
-            expect(updated.updatedAt).toBeGreaterThanOrEqual(channel.updatedAt);
-            expect(updated.name).toBe('Updated');
+            expect(manager.getChannel(channel.id)?.name).toBe('Original');
         });
 
         it('should throw when updating to a fractional channel number', async () => {

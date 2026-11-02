@@ -1,5 +1,6 @@
 import type { IPlexLibraryMinimal, PlexMediaItemMinimal } from '../contracts/interfaces';
 import type {
+    ChannelConfig,
     ChannelContentSource,
     LibraryContentSource,
     CollectionContentSource,
@@ -24,6 +25,8 @@ import {
 } from './SourceResolutionEntryAuthority';
 import { isAbortLikeError } from '../../../../utils/errors';
 import type { ObserveSourceResolution } from '../contracts/SourceResolutionDiagnostic';
+import { ChannelError } from '../ChannelErrors';
+import { AppErrorCode } from '../../../../types/app-errors';
 
 
 const CONTENT_RESOLVER_CACHE_TTL_MS = 5 * 60_000;
@@ -224,6 +227,10 @@ export class ContentResolver {
 
     applyFilters(items: ResolvedContentItem[], filters: ContentFilter[]): ResolvedContentItem[] {
         return this._selectionPolicy.applyFilters(items, filters);
+    }
+
+    selectChannelItems(channel: ChannelConfig, rawItems: ResolvedContentItem[]): ResolvedContentItem[] {
+        return this._selectionPolicy.selectChannelItems(channel, rawItems);
     }
 
     applySort(items: ResolvedContentItem[], order: SortOrder): ResolvedContentItem[] {
@@ -431,40 +438,37 @@ export class ContentResolver {
         return items.map((item, index) => this._mapper.toResolvedItem(item, index));
     }
 
-    private _resolveManualSource(
+    private async _resolveManualSource(
         source: ManualContentSource,
-        _options?: ContentResolutionOptions
+        options?: ContentResolutionOptions
     ): Promise<ResolvedContentItem[]> {
         const results: ResolvedContentItem[] = [];
+        const byKey = new Map<string, PlexMediaItemMinimal>();
 
         for (let i = 0; i < source.items.length; i++) {
+            options?.operationContext?.assertCurrent();
             const manualItem = source.items[i];
-            if (!manualItem) continue;
-            if (
-                typeof manualItem.ratingKey !== 'string' ||
-                manualItem.ratingKey.length === 0 ||
-                typeof manualItem.title !== 'string' ||
-                manualItem.title.length === 0 ||
-                typeof manualItem.durationMs !== 'number' ||
-                !Number.isFinite(manualItem.durationMs) ||
-                manualItem.durationMs <= 0
-            ) {
-                continue;
+            if (!manualItem || typeof manualItem.ratingKey !== 'string' || manualItem.ratingKey.length === 0) {
+                throw new ChannelError(AppErrorCode.CONTENT_UNAVAILABLE, 'Hand-picked program has no valid identity', true);
             }
-
-            results.push({
-                ratingKey: manualItem.ratingKey,
-                type: 'movie', // Default, could be extended in ManualContentItem
-                title: manualItem.title,
-                fullTitle: manualItem.title,
-                durationMs: manualItem.durationMs,
-                thumb: null,
-                year: 0, // Not cached in manual items
-                scheduledIndex: i,
-            });
+            // Persisted title/duration are display hints. Resolve current metadata so
+            // missing items, episode ordering, filters and Air Check share one policy.
+            let item = byKey.get(manualItem.ratingKey);
+            if (!item) {
+                const fetched = await this._library.getItem(manualItem.ratingKey, { signal: options?.signal ?? null });
+                options?.operationContext?.assertCurrent();
+                if (!fetched || fetched.ratingKey !== manualItem.ratingKey
+                    || (fetched.type !== 'movie' && fetched.type !== 'episode')
+                    || !Number.isFinite(fetched.durationMs) || fetched.durationMs <= 0) {
+                    throw new ChannelError(AppErrorCode.CONTENT_UNAVAILABLE, 'Hand-picked program is unavailable or not playable', true);
+                }
+                item = fetched;
+                byKey.set(manualItem.ratingKey, item);
+            }
+            results.push(this._mapper.toResolvedItem(item, i));
         }
 
-        return Promise.resolve(results);
+        return results;
     }
 
     private async _resolveMixedSource(

@@ -89,6 +89,91 @@ describe('MiniGuideOverlay', () => {
         expect(container.classList.contains(MINI_GUIDE_CLASSES.VISIBLE)).toBe(false);
     });
 
+    it('uses the visible clock interval for projection ticks and stops it on hide and destroy', () => {
+        jest.useFakeTimers();
+        try {
+            const tick = jest.fn();
+            overlay.setActions({ select: jest.fn(), fullGuide: jest.fn(), close: jest.fn(), tick });
+            overlay.show();
+            jest.advanceTimersByTime(30_000);
+            expect(tick).toHaveBeenCalledTimes(1);
+            overlay.hide();
+            jest.advanceTimersByTime(60_000);
+            expect(tick).toHaveBeenCalledTimes(1);
+            overlay.show();
+            jest.advanceTimersByTime(30_000);
+            expect(tick).toHaveBeenCalledTimes(2);
+            overlay.destroy();
+            jest.advanceTimersByTime(30_000);
+            expect(tick).toHaveBeenCalledTimes(2);
+        } finally {
+            jest.useRealTimers();
+        }
+    });
+
+    it('shows a bounded empty state and hides unused rows', () => {
+        overlay.setViewModel({ channels: [], emptyMessage: 'No channels available' });
+        overlay.show();
+
+        expect(document.querySelector(`.${MINI_GUIDE_CLASSES.EMPTY}`)?.textContent).toBe('No channels available');
+        expect(document.getElementById('mini-guide-row-0')?.hidden).toBe(true);
+        expect(document.getElementById('mini-guide-row-4')?.hidden).toBe(true);
+    });
+
+    it('shows watching separately from focus and routes visible pointer actions once', () => {
+        const select = jest.fn();
+        const fullGuide = jest.fn();
+        const close = jest.fn();
+        const vm = makeViewModel();
+        vm.channels[0]!.isWatching = true;
+        overlay.setActions({ select, fullGuide, close });
+        overlay.setViewModel(vm);
+        overlay.setFocusedIndex(2);
+        overlay.show();
+
+        expect(document.getElementById('mini-guide-row-0')?.classList.contains('watching')).toBe(true);
+        expect(document.getElementById('mini-guide-row-0')?.classList.contains('focused')).toBe(false);
+        document.getElementById('mini-guide-row-1')?.click();
+        document.querySelector<HTMLElement>('.mini-guide-full-guide')?.click();
+        document.querySelector<HTMLElement>('.mini-guide-close')?.click();
+        expect(select).toHaveBeenCalledTimes(1);
+        expect(select).toHaveBeenCalledWith(1);
+        expect(fullGuide).toHaveBeenCalledTimes(1);
+        expect(close).toHaveBeenCalledTimes(1);
+
+        overlay.hide();
+        document.getElementById('mini-guide-row-1')?.click();
+        expect(select).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps Watching markers attached across channel-name and watching updates', () => {
+        const vm = makeViewModel();
+        vm.channels[0]!.isWatching = true;
+        overlay.setViewModel(vm);
+
+        const firstMarker = document.getElementById('mini-guide-watching-0');
+        const secondMarker = document.getElementById('mini-guide-watching-1');
+        expect(firstMarker).not.toBeNull();
+        expect(secondMarker).not.toBeNull();
+        expect(firstMarker?.hidden).toBe(false);
+        expect(secondMarker?.hidden).toBe(true);
+
+        vm.channels[0]!.channelName = 'Renamed Channel';
+        vm.channels[0]!.isWatching = false;
+        vm.channels[1]!.isWatching = true;
+        overlay.setViewModel(vm);
+        overlay.setViewModel(vm);
+
+        const updatedFirstMarker = document.getElementById('mini-guide-watching-0');
+        const updatedSecondMarker = document.getElementById('mini-guide-watching-1');
+        expect(updatedFirstMarker).not.toBeNull();
+        expect(updatedSecondMarker).not.toBeNull();
+        expect(updatedFirstMarker?.hidden).toBe(true);
+        expect(updatedSecondMarker?.hidden).toBe(false);
+        expect(updatedSecondMarker?.textContent).toContain('Watching');
+        expect(document.getElementById('mini-guide-name-0')?.textContent).toBe('Renamed Channel');
+    });
+
     it('renders text and progress values', () => {
         const vm = makeViewModel();
         overlay.setViewModel(vm);
@@ -107,7 +192,7 @@ describe('MiniGuideOverlay', () => {
         expect(parseFloat(progress2.style.width)).toBeCloseTo(100, 1);
 
         const next1 = document.getElementById('mini-guide-next-1') as HTMLElement;
-        expect(next1.style.display).toBe('none');
+        expect(next1.textContent).toBe('—');
     });
 
     it('renders footer hint text', () => {
@@ -116,8 +201,8 @@ describe('MiniGuideOverlay', () => {
 
         const hint = document.querySelector(`.${MINI_GUIDE_CLASSES.FOOTER_HINT}`) as HTMLElement;
         expect(hint).toBeTruthy();
-        expect(hint.textContent).toContain('UP/DOWN Browse');
-        expect(hint.textContent).toContain('CH± Page');
+        expect(hint.textContent).toContain('Up/Down Browse');
+        expect(hint.textContent).toContain('Select Tune');
     });
 
     it('toggles focused row class', () => {
@@ -141,7 +226,7 @@ describe('MiniGuideOverlay', () => {
         overlay.show();
 
         const now = document.getElementById('mini-guide-now-0') as HTMLElement;
-        const start = now.querySelector('.mini-guide-start-time') as HTMLElement | null;
+        const start = document.getElementById('mini-guide-now-time-0');
         expect(start?.textContent).toBe('9:30 PM');
         expect(now.textContent).toContain('Now One');
     });
@@ -153,8 +238,7 @@ describe('MiniGuideOverlay', () => {
         overlay.setViewModel(vm);
         overlay.show();
 
-        const now = document.getElementById('mini-guide-now-0') as HTMLElement;
-        expect(now.querySelector('.mini-guide-start-time')).toBeNull();
+        expect(document.getElementById('mini-guide-now-time-0')?.textContent).toBe('');
     });
 
     it('does not set row build strategy data attribute when present', () => {

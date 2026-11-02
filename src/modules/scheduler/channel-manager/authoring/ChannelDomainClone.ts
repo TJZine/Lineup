@@ -4,6 +4,7 @@ import type {
     ContentFilter,
     ManualContentItem,
 } from '../contracts/types';
+import { getCompleteCollectionLibraryMetadata, hasCollectionLibraryMetadata } from './ChannelContentSourceValidator';
 
 export function cloneChannelForOwnership(channel: ChannelConfig): ChannelConfig {
     return clonePersistableChannel(channel);
@@ -36,7 +37,9 @@ export function clonePersistableChannel(channel: ChannelConfig): ChannelConfig {
     assignIfDefined(persistable, 'isPlaybackModeVariant', channel.isPlaybackModeVariant);
     assignIfDefined(persistable, 'shuffleSeed', channel.shuffleSeed);
     assignIfDefined(persistable, 'blockSize', channel.blockSize);
+    assignIfDefined(persistable, 'includeSpecials', channel.includeSpecials);
     assignIfDefined(persistable, 'phaseSeed', channel.phaseSeed);
+    assignIfDefined(persistable, 'scheduleAnchorMode', channel.scheduleAnchorMode);
     if (channel.contentFilters) {
         persistable.contentFilters = cloneContentFilters(channel.contentFilters);
     }
@@ -73,7 +76,15 @@ export function cloneContentSource(source: ChannelContentSource): ChannelContent
                 ...source,
                 ...(source.seasonFilter ? { seasonFilter: [...source.seasonFilter] } : {}),
             };
-        case 'collection':
+        case 'collection': {
+            const cloned = { ...source };
+            if (hasCollectionLibraryMetadata(source) && !getCompleteCollectionLibraryMetadata(source)) {
+                delete cloned.libraryId;
+                delete cloned.libraryType;
+                delete cloned.libraryName;
+            }
+            return cloned;
+        }
         case 'playlist':
             return { ...source };
     }

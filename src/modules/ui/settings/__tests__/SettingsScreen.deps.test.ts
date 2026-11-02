@@ -4,6 +4,7 @@
 
 import { SettingsScreen } from '../SettingsScreen';
 import { SettingsStore } from '../SettingsStore';
+import type { SettingsPersistenceResult } from '../types';
 import { THEME_OPTIONS, type ThemeName } from '../../theme/themeDefinitions';
 import type { SubtitleMode } from '../../../../shared/subtitle-mode';
 import { activateCategory, createNavigationStub } from './settings-screen-test-helpers';
@@ -70,7 +71,8 @@ describe('SettingsScreen deps constructor', () => {
         screen.show();
 
         expect(container.classList.contains('visible')).toBe(true);
-        expect(container.querySelector('.settings-profile-name')?.textContent).toBe('Profile');
+        activateCategory(container, 'account');
+        expect(container.querySelector('.settings-detail-description')?.textContent).toContain('Current profile: Plex account');
         expect(nav.registerFocusable).toHaveBeenCalled();
 
         screen.destroy();
@@ -87,7 +89,10 @@ describe('SettingsScreen deps constructor', () => {
         const onGuideSettingChange = jest.fn();
         const getActiveUsername = jest.fn(() => 'NamedUser');
         const getTheme = jest.fn<ThemeName, []>(() => 'ember-steel');
-        const setTheme = jest.fn(() => ({ ok: true } as const));
+        const setTheme = jest.fn((theme: ThemeName): SettingsPersistenceResult => {
+            getTheme.mockReturnValue(theme);
+            return { ok: true, effectiveValue: theme, migration: null };
+        });
 
         const screen = new SettingsScreen({
             container,
@@ -102,9 +107,11 @@ describe('SettingsScreen deps constructor', () => {
 
         screen.show();
 
-        expect(container.querySelector('.settings-profile-name')?.textContent).toBe('NamedUser');
+        activateCategory(container, 'account');
+        expect(container.querySelector('.settings-detail-description')?.textContent).toContain('Current profile: NamedUser');
         expect(getActiveUsername).toHaveBeenCalled();
 
+        activateCategory(container, 'audio_subtitles');
         const subtitleMode = container.querySelector('#settings-subtitle-mode') as HTMLButtonElement | null;
         subtitleMode?.click();
         const directSubtitleOption = container.querySelectorAll<HTMLButtonElement>('.settings-dropdown-option')[1];
@@ -121,6 +128,7 @@ describe('SettingsScreen deps constructor', () => {
         expect(getTheme).toHaveBeenCalled();
         expect(setTheme).toHaveBeenCalledWith(THEME_OPTIONS[emberSteelIndex + 1]?.theme);
 
+        activateCategory(container, 'guide');
         const libraryTabs = container.querySelector(
             '#settings-guide-library-tabs'
         ) as HTMLButtonElement | null;

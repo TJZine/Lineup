@@ -9,10 +9,10 @@ import {
 } from '../constants';
 import type { ChannelConfig, StoredChannelData } from '../contracts/types';
 
-export type LoadedChannelState = {
-    data: StoredChannelData;
-    didMutate: boolean;
-} | null;
+export type LoadedChannelState =
+    | { kind: 'absent' | 'read-failed' }
+    | { kind: 'unreadable' | 'unsupported'; raw: string }
+    | { kind: 'readable'; data: StoredChannelData; didMutate: boolean };
 
 type ChannelRepositoryLogger = {
     warn: (message: string, ...args: unknown[]) => void;
@@ -28,9 +28,8 @@ function isValidChannelNumber(value: unknown): value is number {
 }
 
 function normalizeChannelNumbers(
-    channels: ChannelConfig[],
-    logger?: ChannelRepositoryLogger
-): { channels: ChannelConfig[]; didMutate: boolean } {
+    channels: ChannelConfig[]
+): { channels: ChannelConfig[]; didMutate: boolean } | null {
     const reservedNumbers = new Set<number>();
     for (const channel of channels) {
         const number = (channel as { number?: unknown }).number;
@@ -63,11 +62,7 @@ function normalizeChannelNumbers(
 
         const fallbackNumber = takeNextAvailableNumber();
         if (fallbackNumber === null) {
-            didMutate = true;
-            logger?.warn('Dropping persisted channel during normalized load due to number exhaustion', {
-                channelId: typeof channel.id === 'string' ? channel.id : null,
-            });
-            continue;
+            return null;
         }
 
         didMutate = true;
@@ -97,48 +92,53 @@ export class ChannelRepository {
 
     loadNormalized(): LoadedChannelState {
         const stored = this._store.readStoredChannelData();
-        if (stored === null) {
-            return null;
-        }
+        if (stored.kind !== 'readable') return stored;
+        const body = stored.data;
 
-        if (!Array.isArray(stored.channels) || !Array.isArray(stored.channelOrder)) {
-            return null;
+        if (!Array.isArray(body.channels) || !Array.isArray(body.channelOrder)) {
+            return { kind: 'unreadable', raw: stored.raw };
         }
-        const storedChannelOrder = stored.channelOrder;
+        if (body.channels.length === 0 && body.channelOrder.length !== 0) {
+            return { kind: 'unreadable', raw: stored.raw };
+        }
+        const storedChannelOrder = body.channelOrder;
 
         const savedCurrentChannelId = this._store.readCurrentChannelId();
         const savedAt =
-            typeof stored.savedAt === 'number' && Number.isFinite(stored.savedAt) ? stored.savedAt : Date.now();
+            typeof body.savedAt === 'number' && Number.isFinite(body.savedAt) ? body.savedAt : Date.now();
 
         const dataCurrentChannelId =
-            typeof stored.currentChannelId === 'string' ? stored.currentChannelId : null;
+            typeof body.currentChannelId === 'string' ? body.currentChannelId : null;
 
         const channelCandidatesById = new Map<string, ChannelConfig>();
         let didMutate = false;
 
-        for (const raw of stored.channels) {
+        for (const raw of body.channels) {
             const decoded = decodeStoredChannelConfigRecord(raw);
             if (decoded === null) {
-                didMutate = true;
-                continue;
+                return { kind: 'unreadable', raw: stored.raw };
             }
             if (decoded.didMutate) {
                 didMutate = true;
             }
             if (channelCandidatesById.has(decoded.channel.id)) {
-                didMutate = true;
+                return { kind: 'unreadable', raw: stored.raw };
             }
             channelCandidatesById.set(decoded.channel.id, decoded.channel);
         }
 
-        const channelNumberNormalization = normalizeChannelNumbers(
-            [...channelCandidatesById.values()],
-            this._logger
-        );
+        const channelNumberNormalization = normalizeChannelNumbers([...channelCandidatesById.values()]);
+        if (channelNumberNormalization === null) {
+            this._logger?.warn('Blocking persisted lineup because channel numbers cannot be normalized without loss');
+            return { kind: 'unreadable', raw: stored.raw };
+        }
         if (channelNumberNormalization.didMutate) {
             didMutate = true;
         }
         const normalizedChannels = channelNumberNormalization.channels;
+        if (body.channels.length > 0 && normalizedChannels.length === 0) {
+            return { kind: 'unreadable', raw: stored.raw };
+        }
         const channelIds = new Set<string>();
         for (const channel of normalizedChannels) {
             channelIds.add(channel.id);
@@ -183,6 +183,7 @@ export class ChannelRepository {
         }
 
         return {
+            kind: 'readable',
             data: {
                 channels: normalizedChannels,
                 channelOrder,
@@ -199,5 +200,9 @@ export class ChannelRepository {
 
     saveCurrentChannelId(channelId: string): SafeLocalStorageMutationResult {
         return this._store.writeCurrentChannelId(channelId);
+    }
+
+    readRawBody(): { ok: true; value: string | null } | { ok: false } {
+        return this._store.readRawBody();
     }
 }

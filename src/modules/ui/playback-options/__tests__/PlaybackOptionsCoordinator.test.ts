@@ -1,7 +1,5 @@
 import { PlaybackOptionsCoordinator } from '../PlaybackOptionsCoordinator';
-import type { AudioTrack, IVideoPlayer, SubtitleTrack } from '../../../player';
-import type { INavigationManager } from '../../../navigation';
-import type { IPlaybackOptionsModal } from '../interfaces';
+import type { AudioTrack, IVideoPlayer, StreamDescriptor, SubtitleTrack } from '../../../player';
 import type { PlaybackOptionsViewModel } from '../types';
 import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
 import { flushPromises as flushSharedPromises } from '../../../../__tests__/helpers';
@@ -46,8 +44,7 @@ const createPlayer = (subtitles: SubtitleTrack[], audio: AudioTrack[] = []): IVi
     } as unknown as IVideoPlayer);
 
 const getViewModel = (coordinator: PlaybackOptionsCoordinator): PlaybackOptionsViewModel => {
-    coordinator.prepareModal();
-    return (coordinator as unknown as { pendingViewModel: PlaybackOptionsViewModel | null }).pendingViewModel!;
+    return coordinator.getViewModel();
 };
 
 const flushPlaybackOptionsPromises = (): Promise<void> => flushSharedPromises(10);
@@ -125,9 +122,6 @@ describe('PlaybackOptionsCoordinator', () => {
         ]);
 
         const coordinator = new PlaybackOptionsCoordinator({
-            playbackOptionsModalId: 'playback-options',
-            getNavigation: (): null => null,
-            getPlaybackOptionsModal: (): null => null,
             getVideoPlayer: (): IVideoPlayer => player,
         });
 
@@ -139,94 +133,10 @@ describe('PlaybackOptionsCoordinator', () => {
         expect(optionIds).not.toContain('playback-subtitle-burn');
     });
 
-    it('prefers audio section when requested', () => {
-        const player = createPlayer(
-            [makeTextTrack({ id: 'sub-1' })],
-            [{ id: 'audio-1', language: 'en', codec: 'aac', channels: 2 } as AudioTrack]
-        );
-
-        const coordinator = new PlaybackOptionsCoordinator({
-            playbackOptionsModalId: 'playback-options',
-            getNavigation: (): null => null,
-            getPlaybackOptionsModal: (): null => null,
-            getVideoPlayer: (): IVideoPlayer => player,
-        });
-
-        const prep = coordinator.prepareModal('audio');
-
-        expect(prep.preferredFocusId).toBe('playback-audio-audio-1');
-    });
-
-    it('registers modal options with scroll-neutral native focus', () => {
-        const player = createPlayer(
-            [makeTextTrack({ id: 'sub-1' })],
-            [{ id: 'audio-1', language: 'en', codec: 'aac', channels: 2 } as AudioTrack]
-        );
-        const navigation: INavigationManager = {
-            registerFocusable: jest.fn(),
-            setFocus: jest.fn(),
-        } as unknown as INavigationManager;
-        const modal = {
-            show: jest.fn(),
-        };
-        const coordinator = new PlaybackOptionsCoordinator({
-            playbackOptionsModalId: 'playback-options',
-            getNavigation: (): INavigationManager => navigation,
-            getPlaybackOptionsModal: (): IPlaybackOptionsModal => modal as unknown as IPlaybackOptionsModal,
-            getVideoPlayer: (): IVideoPlayer => player,
-        });
-
-        const originalDocumentDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'document');
-        const elementsById = new Map<string, HTMLElement>();
-        const prep = coordinator.prepareModal('audio');
-        for (const id of prep.focusableIds) {
-            elementsById.set(id, { id, click: jest.fn() } as unknown as HTMLElement);
-        }
-
-        Object.defineProperty(globalThis, 'document', {
-            value: {
-                getElementById: jest.fn((id: string) => elementsById.get(id) ?? null),
-            },
-            configurable: true,
-        });
-
-        try {
-            coordinator.handleModalOpen('playback-options');
-        } finally {
-            if (originalDocumentDescriptor) {
-                Object.defineProperty(globalThis, 'document', originalDocumentDescriptor);
-            } else {
-                delete (globalThis as { document?: Document }).document;
-            }
-        }
-
-        const focusables = (navigation.registerFocusable as jest.Mock).mock.calls.map(
-            (call) => call[0]
-        );
-        expect(focusables).toEqual(expect.arrayContaining([
-            expect.objectContaining({
-                id: 'playback-subtitle-off',
-                preventScrollOnFocus: true,
-            }),
-            expect.objectContaining({
-                id: 'playback-subtitle-sub-1',
-                preventScrollOnFocus: true,
-            }),
-            expect.objectContaining({
-                id: 'playback-audio-audio-1',
-                preventScrollOnFocus: true,
-            }),
-        ]));
-        expect(navigation.setFocus).toHaveBeenCalledWith('playback-audio-audio-1');
-    });
-
     it('surfaces unavailable subtitle and audio copy when no tracks exist', () => {
         const player = createPlayer([]);
 
         const coordinator = new PlaybackOptionsCoordinator({
-            playbackOptionsModalId: 'playback-options',
-            getNavigation: (): null => null,
-            getPlaybackOptionsModal: (): null => null,
             getVideoPlayer: (): IVideoPlayer => player,
         });
 
@@ -243,9 +153,6 @@ describe('PlaybackOptionsCoordinator', () => {
 
         const player = createPlayer([makeTextTrack({ id: 'sub-1' })]);
         const coordinator = new PlaybackOptionsCoordinator({
-            playbackOptionsModalId: 'playback-options',
-            getNavigation: (): null => null,
-            getPlaybackOptionsModal: (): null => null,
             getVideoPlayer: (): IVideoPlayer => player,
         });
 
@@ -266,9 +173,6 @@ describe('PlaybackOptionsCoordinator', () => {
             makeTextTrack({ id: 'sub-1', fetchableViaKey: true, key: '/library/streams/1' }),
         ]);
         const coordinator = new PlaybackOptionsCoordinator({
-            playbackOptionsModalId: 'playback-options',
-            getNavigation: (): null => null,
-            getPlaybackOptionsModal: (): null => null,
             getVideoPlayer: (): IVideoPlayer => player,
         });
 
@@ -288,9 +192,6 @@ describe('PlaybackOptionsCoordinator', () => {
         const player = createPlayer([makeBurnInTrack({ id: 'burn' })]);
 
         const coordinator = new PlaybackOptionsCoordinator({
-            playbackOptionsModalId: 'playback-options',
-            getNavigation: (): null => null,
-            getPlaybackOptionsModal: (): null => null,
             getVideoPlayer: (): IVideoPlayer => player,
         });
 
@@ -308,9 +209,6 @@ describe('PlaybackOptionsCoordinator', () => {
         const requestBurnInSubtitle = jest.fn();
 
         const coordinator = new PlaybackOptionsCoordinator({
-            playbackOptionsModalId: 'playback-options',
-            getNavigation: (): null => null,
-            getPlaybackOptionsModal: (): null => null,
             getVideoPlayer: (): IVideoPlayer => player,
             requestBurnInSubtitle,
         });
@@ -323,54 +221,6 @@ describe('PlaybackOptionsCoordinator', () => {
         expect(server?.meta).toBe('Burn-in');
     });
 
-    it('renders unavailable burn-in options without making them focusable', () => {
-        localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
-
-        const player = createPlayer([makeTextTrack({ id: 'server', fetchableViaKey: false })]);
-        const navigation: INavigationManager = {
-            registerFocusable: jest.fn(),
-            unregisterFocusable: jest.fn(),
-            setFocus: jest.fn(),
-        } as unknown as INavigationManager;
-        const modal = {
-            show: jest.fn(),
-        };
-        const coordinator = new PlaybackOptionsCoordinator({
-            playbackOptionsModalId: 'playback-options',
-            getNavigation: (): INavigationManager => navigation,
-            getPlaybackOptionsModal: (): IPlaybackOptionsModal => modal as unknown as IPlaybackOptionsModal,
-            getVideoPlayer: (): IVideoPlayer => player,
-        });
-
-        const originalDocumentDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'document');
-        const prep = coordinator.prepareModal('subtitles');
-        const elementsById = new Map<string, HTMLElement>();
-        for (const id of prep.focusableIds) {
-            elementsById.set(id, { id, click: jest.fn() } as unknown as HTMLElement);
-        }
-        Object.defineProperty(globalThis, 'document', {
-            value: {
-                getElementById: jest.fn((id: string) => elementsById.get(id) ?? null),
-            },
-            configurable: true,
-        });
-        try {
-            coordinator.handleModalOpen('playback-options');
-        } finally {
-            if (originalDocumentDescriptor) {
-                Object.defineProperty(globalThis, 'document', originalDocumentDescriptor);
-            } else {
-                delete (globalThis as { document?: Document }).document;
-            }
-        }
-        const viewModel = (modal.show as jest.Mock).mock.calls[0]?.[0] as PlaybackOptionsViewModel;
-        const server = viewModel.subtitles.options.find((option) => option.id === 'playback-subtitle-server');
-
-        expect(server).toEqual(expect.objectContaining({ meta: 'Burn-in', disabled: true }));
-        expect(prep.focusableIds).toEqual(['playback-subtitle-off']);
-        expect(prep.preferredFocusId).toBe('playback-subtitle-off');
-    });
-
     it('requests burn-in immediately for burn-in subtitle formats in Full mode', async () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
 
@@ -378,9 +228,6 @@ describe('PlaybackOptionsCoordinator', () => {
         const requestBurnInSubtitle = jest.fn();
 
         const coordinator = new PlaybackOptionsCoordinator({
-            playbackOptionsModalId: 'playback-options',
-            getNavigation: (): null => null,
-            getPlaybackOptionsModal: (): null => null,
             getVideoPlayer: (): IVideoPlayer => player,
             requestBurnInSubtitle,
         });
@@ -404,10 +251,7 @@ describe('PlaybackOptionsCoordinator', () => {
         const player = createPlayer([makeTextTrack({ id: 'keyless', fetchableViaKey: false })]);
         try {
             const coordinator = new PlaybackOptionsCoordinator({
-                playbackOptionsModalId: 'playback-options',
-                getNavigation: (): null => null,
-                getPlaybackOptionsModal: (): null => null,
-                getVideoPlayer: (): IVideoPlayer => player,
+                            getVideoPlayer: (): IVideoPlayer => player,
                 requestBurnInSubtitle,
             });
 
@@ -435,9 +279,6 @@ describe('PlaybackOptionsCoordinator', () => {
         const notifyToast = jest.fn();
 
         const coordinator = new PlaybackOptionsCoordinator({
-            playbackOptionsModalId: 'playback-options',
-            getNavigation: (): null => null,
-            getPlaybackOptionsModal: (): null => null,
             getVideoPlayer: (): IVideoPlayer => player,
             requestBurnInSubtitle,
             notifyToast,
@@ -462,9 +303,6 @@ describe('PlaybackOptionsCoordinator', () => {
         const notifyToast = jest.fn();
 
         const coordinator = new PlaybackOptionsCoordinator({
-            playbackOptionsModalId: 'playback-options',
-            getNavigation: (): null => null,
-            getPlaybackOptionsModal: (): null => null,
             getVideoPlayer: (): IVideoPlayer => player,
             requestBurnInSubtitle,
             notifyToast,
@@ -493,9 +331,6 @@ describe('PlaybackOptionsCoordinator', () => {
         const notifyToast = jest.fn();
 
         const coordinator = new PlaybackOptionsCoordinator({
-            playbackOptionsModalId: 'playback-options',
-            getNavigation: (): null => null,
-            getPlaybackOptionsModal: (): null => null,
             getVideoPlayer: (): IVideoPlayer => player,
             requestBurnInSubtitle,
             notifyToast,
@@ -511,6 +346,60 @@ describe('PlaybackOptionsCoordinator', () => {
         expect(notifyToast).not.toHaveBeenCalledWith({ message: 'Failed to load burn-in subtitles', type: 'warning' });
     });
 
+    it.each([
+        'missing_deps', 'recovery_in_progress', 'already_attempted',
+        'no_program', 'program_changed', 'admission_changed',
+    ] as const)('keeps the confirmed subtitle and marks active ignored %s as failed', async (reason) => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
+        const player = createPlayer([makeTextTrack({ id: 'old' }), makeBurnInTrack({ id: 'burn' })]);
+        player.getState = jest.fn(() => ({
+            activeAudioId: null, activeSubtitleId: 'old',
+        } as ReturnType<IVideoPlayer['getState']>));
+        const notifyToast = jest.fn();
+        const coordinator = new PlaybackOptionsCoordinator({
+            getVideoPlayer: (): IVideoPlayer => player,
+            requestBurnInSubtitle: jest.fn().mockResolvedValue({ outcome: 'ignored', reason }),
+            notifyToast,
+        });
+
+        coordinator.getViewModel().subtitles.options
+            .find((option) => option.id === 'playback-subtitle-burn')?.onSelect();
+        await flushPlaybackOptionsPromises();
+
+        const options = coordinator.getViewModel().subtitles.options;
+        expect(options.find((option) => option.id === 'playback-subtitle-old')?.selected).toBe(true);
+        expect(options.find((option) => option.id === 'playback-subtitle-burn')?.state).toBe('Failed');
+        expect(notifyToast).toHaveBeenCalledWith({ message: 'Failed to load burn-in subtitles', type: 'warning' });
+    });
+
+    it('suppresses an ignored result after the media identity changes', async () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
+        const player = createPlayer([makeBurnInTrack({ id: 'burn' })]);
+        const deferred = createDeferred<{ outcome: 'ignored'; reason: 'program_changed' }>();
+        const requestBurnInSubtitle = jest.fn().mockReturnValue(deferred.promise);
+        let identity = 'first-program';
+        const notifyToast = jest.fn();
+        const onSelectionChange = jest.fn();
+        const coordinator = new PlaybackOptionsCoordinator({
+            getVideoPlayer: (): IVideoPlayer => player,
+            getMediaIdentity: (): string => identity,
+            requestBurnInSubtitle,
+            notifyToast,
+            onSelectionChange,
+        });
+        coordinator.getViewModel().subtitles.options
+            .find((option) => option.id === 'playback-subtitle-burn')?.onSelect();
+        expect(requestBurnInSubtitle).toHaveBeenCalledWith('burn', expect.any(String));
+        identity = 'later-program';
+        deferred.resolve({ outcome: 'ignored', reason: 'program_changed' });
+        await flushPlaybackOptionsPromises();
+
+        expect(coordinator.getViewModel().subtitles.options
+            .find((option) => option.id === 'playback-subtitle-burn')?.state).toBeUndefined();
+        expect(notifyToast).not.toHaveBeenCalledWith({ message: 'Failed to load burn-in subtitles', type: 'warning' });
+        expect(onSelectionChange).toHaveBeenCalledTimes(1);
+    });
+
     it('shows a failure toast when burn-in subtitle request rejects', async () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
 
@@ -519,9 +408,6 @@ describe('PlaybackOptionsCoordinator', () => {
         const notifyToast = jest.fn();
 
         const coordinator = new PlaybackOptionsCoordinator({
-            playbackOptionsModalId: 'playback-options',
-            getNavigation: (): null => null,
-            getPlaybackOptionsModal: (): null => null,
             getVideoPlayer: (): IVideoPlayer => player,
             requestBurnInSubtitle,
             notifyToast,
@@ -546,9 +432,6 @@ describe('PlaybackOptionsCoordinator', () => {
         const notifyToast = jest.fn();
 
         const coordinator = new PlaybackOptionsCoordinator({
-            playbackOptionsModalId: 'playback-options',
-            getNavigation: (): null => null,
-            getPlaybackOptionsModal: (): null => null,
             getVideoPlayer: (): IVideoPlayer => player,
             requestBurnInSubtitle,
             notifyToast,
@@ -572,9 +455,6 @@ describe('PlaybackOptionsCoordinator', () => {
         ]);
 
         const coordinator = new PlaybackOptionsCoordinator({
-            playbackOptionsModalId: 'playback-options',
-            getNavigation: (): null => null,
-            getPlaybackOptionsModal: (): null => null,
             getVideoPlayer: (): IVideoPlayer => player,
         });
 
@@ -590,60 +470,123 @@ describe('PlaybackOptionsCoordinator', () => {
         expect(storedGlobal).toBeNull();
     });
 
-    it('shows a warning toast for audio switch errors and still closes/refreshes modal state', async () => {
-        const navigation: INavigationManager = {
-            isModalOpen: jest.fn().mockReturnValue(true),
-            closeModal: jest.fn(),
-        } as unknown as INavigationManager;
+    it('reports audio switch failure and exposes failed drawer state', async () => {
         const player = createPlayer(
             [makeTextTrack({ id: 'sub-1' })],
             [{ id: 'audio-1', language: 'en', codec: 'aac', channels: 2 } as AudioTrack]
         );
         (player.setAudioTrack as jest.Mock).mockRejectedValue(new Error('switch failed X-Plex-Token=abc123'));
         const notifyToast = jest.fn();
-
+        const onSelectionChange = jest.fn();
         const coordinator = new PlaybackOptionsCoordinator({
-            playbackOptionsModalId: 'playback-options',
-            getNavigation: (): INavigationManager => navigation,
-            getPlaybackOptionsModal: (): null => null,
             getVideoPlayer: (): IVideoPlayer => player,
             notifyToast,
+            onSelectionChange,
         });
-        const refreshSpy = jest.spyOn(coordinator, 'refreshIfOpen').mockImplementation(() => undefined);
 
-        const viewModel = getViewModel(coordinator);
-        const audioOption = viewModel.audio.options.find((option) => option.id === 'playback-audio-audio-1');
-        audioOption?.onSelect?.();
+        coordinator.getViewModel().audio.options.find((option) => option.id === 'playback-audio-audio-1')?.onSelect();
         await flushPlaybackOptionsPromises();
 
         expect(notifyToast).toHaveBeenCalledWith({ message: 'Failed to apply audio track change', type: 'warning' });
-        expect(navigation.closeModal).toHaveBeenCalledWith('playback-options');
-        expect(refreshSpy).toHaveBeenCalled();
+        expect(coordinator.getViewModel().audio.options[0]?.state).toBe('Failed');
+        expect(onSelectionChange).toHaveBeenCalled();
     });
 
-    it('closes modal after selecting subtitle or audio', () => {
-        const navigation: INavigationManager = {
-            isModalOpen: jest.fn().mockReturnValue(true),
-            closeModal: jest.fn(),
-        } as unknown as INavigationManager;
-        const player = createPlayer(
-            [makeTextTrack({ id: 'sub-1' })],
-            [{ id: 'audio-1', language: 'en', codec: 'aac', channels: 2 } as AudioTrack]
-        );
-
+    it('keeps the confirmed audio check while a new choice is pending and failed', async () => {
+        const pending = createDeferred<void>();
+        const player = createPlayer([], [
+            { id: 'old', language: 'en', codec: 'aac', channels: 2 } as AudioTrack,
+            { id: 'new', language: 'fr', codec: 'aac', channels: 2 } as AudioTrack,
+        ]);
+        player.getState = jest.fn(() => ({ activeAudioId: 'old', activeSubtitleId: null } as ReturnType<IVideoPlayer['getState']>));
+        (player.setAudioTrack as jest.Mock).mockReturnValue(pending.promise);
         const coordinator = new PlaybackOptionsCoordinator({
-            playbackOptionsModalId: 'playback-options',
-            getNavigation: (): INavigationManager => navigation,
-            getPlaybackOptionsModal: (): null => null,
             getVideoPlayer: (): IVideoPlayer => player,
         });
-
-        const viewModel = getViewModel(coordinator);
-        const subtitleOption = viewModel.subtitles.options.find((option) => option.id === 'playback-subtitle-sub-1');
-        subtitleOption?.onSelect?.();
-        const audioOption = viewModel.audio.options.find((option) => option.id === 'playback-audio-audio-1');
-        audioOption?.onSelect?.();
-
-        expect(navigation.closeModal).toHaveBeenCalledWith('playback-options');
+        coordinator.getViewModel().audio.options.find((option) => option.id === 'playback-audio-new')?.onSelect();
+        let rows = coordinator.getViewModel().audio.options;
+        expect(rows.find((row) => row.id === 'playback-audio-old')?.selected).toBe(true);
+        expect(rows.find((row) => row.id === 'playback-audio-new')?.state).toBe('Applying…');
+        pending.reject(new Error('selection failed'));
+        await flushPlaybackOptionsPromises();
+        rows = coordinator.getViewModel().audio.options;
+        expect(rows.find((row) => row.id === 'playback-audio-old')?.selected).toBe(true);
+        expect(rows.find((row) => row.id === 'playback-audio-new')?.state).toBe('Failed');
     });
+
+    it('does not publish a late track result into another media identity', async () => {
+        const pending = createDeferred<void>();
+        const player = createPlayer([], [{ id: 'audio-1', language: 'en', codec: 'aac', channels: 2 } as AudioTrack]);
+        (player.setAudioTrack as jest.Mock).mockReturnValue(pending.promise);
+        let identity = 'program-1';
+        const onSelectionChange = jest.fn();
+        const coordinator = new PlaybackOptionsCoordinator({
+            getVideoPlayer: (): IVideoPlayer => player,
+            getMediaIdentity: (): string => identity,
+            onSelectionChange,
+        });
+        coordinator.getViewModel().audio.options[0]?.onSelect();
+        identity = 'program-2';
+        pending.reject(new Error('late failure'));
+        await flushPlaybackOptionsPromises();
+        expect(coordinator.getViewModel().audio.options[0]?.state).toBeUndefined();
+        expect(onSelectionChange).toHaveBeenCalledTimes(1);
+    });
+
+    it('fences a completed track request when a same-program stream is replaced', async () => {
+        const pending = createDeferred<void>();
+        const player = createPlayer([], [{ id: 'audio-1', language: 'en', codec: 'aac', channels: 2 } as AudioTrack]);
+        (player.setAudioTrack as jest.Mock).mockReturnValue(pending.promise);
+        let descriptor = { url: 'first' } as StreamDescriptor;
+        const onSelectionChange = jest.fn();
+        const coordinator = new PlaybackOptionsCoordinator({
+            getVideoPlayer: (): IVideoPlayer => player,
+            getMediaIdentity: (): string => 'same-program',
+            getMediaDescriptor: (): StreamDescriptor => descriptor,
+            onSelectionChange,
+        });
+        coordinator.getViewModel().audio.options[0]?.onSelect();
+        descriptor = { url: 'replacement' } as StreamDescriptor;
+        pending.reject(new Error('old stream failed'));
+        await flushPlaybackOptionsPromises();
+        expect(coordinator.getViewModel().audio.options[0]?.state).toBeUndefined();
+        expect(onSelectionChange).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps a confirmed subtitle visible when the selected mode filters its format', () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'direct');
+        const player = createPlayer([makeBurnInTrack({ id: 'confirmed' })]);
+        player.getState = jest.fn(() => ({ activeSubtitleId: 'confirmed', activeAudioId: null } as ReturnType<IVideoPlayer['getState']>));
+        const coordinator = new PlaybackOptionsCoordinator({
+            getVideoPlayer: (): IVideoPlayer => player,
+        });
+        const selected = coordinator.getViewModel().subtitles.options.find((option) => option.selected);
+        expect(selected?.id).toBe('playback-subtitle-confirmed');
+        expect(selected?.disabled).toBe(true);
+    });
+
+    it('does not warn for a superseded audio failure on the same media', async () => {
+        const first = createDeferred<void>();
+        const second = createDeferred<void>();
+        const player = createPlayer([], [
+            { id: 'first', language: 'en', codec: 'aac', channels: 2 } as AudioTrack,
+            { id: 'second', language: 'fr', codec: 'aac', channels: 2 } as AudioTrack,
+        ]);
+        (player.setAudioTrack as jest.Mock)
+            .mockReturnValueOnce(first.promise)
+            .mockReturnValueOnce(second.promise);
+        const notifyToast = jest.fn();
+        const coordinator = new PlaybackOptionsCoordinator({
+            getVideoPlayer: (): IVideoPlayer => player,
+            notifyToast,
+        });
+        coordinator.getViewModel().audio.options[0]?.onSelect();
+        coordinator.getViewModel().audio.options[1]?.onSelect();
+        first.reject(new Error('old request failed'));
+        await flushPlaybackOptionsPromises();
+        expect(notifyToast).not.toHaveBeenCalled();
+        second.resolve();
+        await flushPlaybackOptionsPromises();
+    });
+
 });

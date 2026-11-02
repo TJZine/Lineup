@@ -51,7 +51,6 @@ async function createBuildExecutor(
     const buildCommitter = new ChannelSetupBuildCommitter({
         plexLibrary: deps.plexLibrary,
         channelManager: deps.channelManager,
-        scratchStore: deps.scratchStore,
         ensureEpgInitialized: deps.ensureEpgInitialized,
         clearSelectedChannelScheduleSnapshot: deps.clearSelectedChannelScheduleSnapshot,
         primeEpgChannels: deps.primeEpgChannels,
@@ -69,9 +68,15 @@ export function createLazyChannelSetupWorkflowPortOwners(
 ): ChannelSetupWorkflowPortOwners {
     let planningServicePromise: Promise<ChannelSetupPlanningService> | null = null;
     let buildExecutorPromise: Promise<ChannelSetupBuildExecutor> | null = null;
+    let planningServiceInstance: ChannelSetupPlanningService | null = null;
+    let buildExecutorInstance: ChannelSetupBuildExecutor | null = null;
+    let cancelPreparedOnLoad = false;
 
     const getPlanningService = (): Promise<ChannelSetupPlanningService> => {
-        planningServicePromise ??= createPlanningService(deps).catch((error: unknown) => {
+        planningServicePromise ??= createPlanningService(deps).then((service) => {
+            planningServiceInstance = service;
+            return service;
+        }).catch((error: unknown) => {
             planningServicePromise = null;
             throw error;
         });
@@ -81,7 +86,14 @@ export function createLazyChannelSetupWorkflowPortOwners(
     const getBuildExecutor = (): Promise<ChannelSetupBuildExecutor> => {
         buildExecutorPromise ??= getPlanningService().then((planningService) =>
             createBuildExecutor(deps, planningService)
-        ).catch((error: unknown) => {
+        ).then((executor) => {
+            buildExecutorInstance = executor;
+            if (cancelPreparedOnLoad) {
+                executor.cancelPreparedReview();
+                cancelPreparedOnLoad = false;
+            }
+            return executor;
+        }).catch((error: unknown) => {
             buildExecutorPromise = null;
             throw error;
         });
@@ -126,22 +138,35 @@ export function createLazyChannelSetupWorkflowPortOwners(
             },
             getLibrariesForSetup: async (signal) =>
                 (await getPlanningService()).getLibrariesForSetup(signal),
+            scanSetupInventory: async (config, options) =>
+                (await getPlanningService()).scanSetupInventory(config, options),
+            retrySetupInventory: (libraryId): void => {
+                planningServiceInstance?.retrySetupInventory(libraryId);
+            },
             getSetupPreview: async (config, options) =>
                 (await getPlanningService()).getSetupPreview(config, options),
-            getSetupReview: async (config, options) =>
-                (await getPlanningService()).getSetupReview(config, options),
             getSetupPlanDiagnostics: async (config, options) =>
                 (await getPlanningService()).getSetupPlanDiagnostics(config, options),
         },
         buildExecutor: {
-            createChannelsFromSetup: async (config, options) =>
-                (await getBuildExecutor()).createChannelsFromSetup(config, options),
+            prepareSetupReview: async (config, options) =>
+                (await getBuildExecutor()).prepareSetupReview(config, options),
+            applySetupReview: async (reviewId, config, consent, options) =>
+                (await getBuildExecutor()).applySetupReview(reviewId, config, consent, options),
+            cancelPreparedReview: (): void => {
+                if (buildExecutorInstance) buildExecutorInstance.cancelPreparedReview();
+                else if (buildExecutorPromise) cancelPreparedOnLoad = true;
+            },
         },
         recordStore: deps.recordStore,
         completionTracker: {
-            markSetupComplete: (serverId, setupConfig): ChannelSetupCompletionResult => {
+            markSetupComplete: (serverId, setupConfig, expectedScopeKey): ChannelSetupCompletionResult => {
+                if (JSON.stringify([deps.getActiveUserId(), deps.getSelectedServerId()]) !== expectedScopeKey) {
+                    return { ok: false, reason: 'scope-changed',
+                        message: 'Active profile or server changed before setup completion was recorded.' };
+                }
                 const result = deps.recordStore.markSetupComplete(serverId, setupConfig);
-                if (result.ok) {
+                if (result.ok && JSON.stringify([deps.getActiveUserId(), deps.getSelectedServerId()]) === expectedScopeKey) {
                     deps.clearRerunRequest();
                 }
                 return result;

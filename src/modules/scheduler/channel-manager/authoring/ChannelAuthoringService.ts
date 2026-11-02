@@ -1,23 +1,27 @@
 import { AppErrorCode } from '../../../../types/app-errors';
 import { CHANNEL_ERROR_MESSAGES, MAX_CHANNELS, MAX_CHANNEL_NUMBER, MIN_CHANNEL_NUMBER } from '../constants';
 import { ChannelError } from '../ChannelErrors';
-import { isValidContentSource } from './ChannelContentSourceValidator';
+import { isExactAuthoredContentSource } from './ChannelContentSourceValidator';
 import { applyChannelSeedDefaults, isValidChannelSeed } from './ChannelSeedPolicy';
+import { isValidBuildStrategy, isValidContentFilterArray, isValidPlaybackMode, isValidSortOrder } from './ChannelValueValidators';
 import {
     cloneChannelForOwnership,
     cloneContentFilters,
     cloneContentSource,
 } from './ChannelDomainClone';
-import type { ChannelConfig, ChannelContentSource, ChannelCreateInput, ChannelUpdateInput } from '../contracts/types';
+import type {
+    ChannelClearableField,
+    ChannelConfig,
+    ChannelContentSource,
+    ChannelCreateInput,
+    ChannelUpdateInput,
+} from '../contracts/types';
 
 type ChannelAuthoringServiceConfig = {
     generateId: () => string;
     now: () => number;
 };
 
-type ChannelAuthoringLogger = {
-    warn: (message: string, ...args: unknown[]) => void;
-};
 
 const CHANNEL_UPDATE_FIELDS = new Set<string>([
     'number',
@@ -33,8 +37,10 @@ const CHANNEL_UPDATE_FIELDS = new Set<string>([
     'playbackMode',
     'shuffleSeed',
     'blockSize',
+    'includeSpecials',
     'phaseSeed',
     'startTimeAnchor',
+    'scheduleAnchorMode',
     'contentFilters',
     'sortOrder',
     'skipIntros',
@@ -43,14 +49,59 @@ const CHANNEL_UPDATE_FIELDS = new Set<string>([
     'minEpisodeRunTimeMs',
     'contentSource',
 ]);
+const CHANNEL_CLEARABLE_FIELDS = new Set<ChannelClearableField>([
+    'sortOrder',
+    'minEpisodeRunTimeMs',
+    'maxEpisodeRunTimeMs',
+]);
+const REPLACEMENT_FIELDS = new Set<string>([
+    ...CHANNEL_UPDATE_FIELDS, 'id', 'createdAt', 'updatedAt',
+    'lastContentRefresh', 'itemCount', 'totalDurationMs',
+]);
+
+function isExactContentFilterArray(value: unknown): boolean {
+    return isValidContentFilterArray(value) && value.every((filter) =>
+        (Object.getPrototypeOf(filter) === Object.prototype || Object.getPrototypeOf(filter) === null)
+        && Object.keys(filter).every((key) => key === 'field' || key === 'operator' || key === 'value')
+    );
+}
 
 export function omitUndefinedChannelUpdates(updates: ChannelUpdateInput): ChannelUpdateInput {
     const filtered: Record<string, unknown> = {};
+    const rawClearFields: unknown = (updates as { clearFields?: unknown }).clearFields;
+    const clearFields: ChannelClearableField[] = [];
+    if (rawClearFields !== undefined) {
+        if (!Array.isArray(rawClearFields)) {
+            throw new ChannelError(AppErrorCode.STORAGE_VALIDATION_FAILED, 'Invalid channel clearFields command', false);
+        }
+        const seen = new Set<ChannelClearableField>();
+        for (const field of rawClearFields as unknown[]) {
+            if (typeof field !== 'string' || !CHANNEL_CLEARABLE_FIELDS.has(field as ChannelClearableField)) {
+                throw new ChannelError(AppErrorCode.STORAGE_VALIDATION_FAILED, 'Invalid channel clearFields entry', false);
+            }
+            const clearableField = field as ChannelClearableField;
+            if (seen.has(clearableField)) {
+                throw new ChannelError(AppErrorCode.STORAGE_VALIDATION_FAILED, 'Duplicate channel clearFields entry', false);
+            }
+            seen.add(clearableField);
+            clearFields.push(clearableField);
+        }
+    }
+    const clearFieldSet = new Set<string>(clearFields);
     for (const [key, value] of Object.entries(updates)) {
-        if (value !== undefined && CHANNEL_UPDATE_FIELDS.has(key)) {
+        if (key === 'clearFields') continue;
+        if (!CHANNEL_UPDATE_FIELDS.has(key)) {
+            throw new ChannelError(AppErrorCode.STORAGE_VALIDATION_FAILED, `Unknown channel update field: ${key}`, false);
+        }
+        if (value !== undefined) {
+            if (clearFieldSet.has(key)) {
+                throw new ChannelError(AppErrorCode.STORAGE_VALIDATION_FAILED, `Channel field cannot be set and cleared together: ${key}`, false);
+            }
             filtered[key] = value;
         }
     }
+    for (const field of clearFields) filtered[field] = undefined;
+    if (rawClearFields !== undefined) filtered.clearFields = clearFields;
     return filtered as ChannelUpdateInput;
 }
 
@@ -69,6 +120,15 @@ export class ChannelAuthoringService {
     }
 
     createChannel(input: ChannelCreateInput, existingChannels: Iterable<ChannelConfig>): ChannelConfig {
+        for (const key of Object.keys(input)) {
+            if (!CHANNEL_UPDATE_FIELDS.has(key)) {
+                throw new ChannelError(AppErrorCode.STORAGE_VALIDATION_FAILED, `Unknown channel create field: ${key}`, false);
+            }
+        }
+        this._validateAuthoringFields(input);
+        if (input.scheduleAnchorMode === 'fixed' && input.startTimeAnchor === undefined) {
+            throw new ChannelError(AppErrorCode.STORAGE_VALIDATION_FAILED, 'Fixed schedule anchor requires a timestamp', false);
+        }
         if (!input.contentSource) {
             throw new ChannelError(
                 AppErrorCode.CHANNEL_CONTENT_SOURCE_REQUIRED,
@@ -104,6 +164,7 @@ export class ChannelAuthoringService {
                 typeof input.startTimeAnchor === 'number'
                     ? input.startTimeAnchor
                     : now,
+            ...(input.scheduleAnchorMode !== undefined ? { scheduleAnchorMode: input.scheduleAnchorMode } : {}),
             skipIntros: input.skipIntros === true,
             skipCredits: input.skipCredits === true,
             createdAt: now,
@@ -118,52 +179,39 @@ export class ChannelAuthoringService {
         return channel;
     }
 
-    buildReplacementState(
-        channels: ChannelConfig[],
-        logger: ChannelAuthoringLogger
-    ): ReplacementChannelState {
+    buildReplacementState(channels: ChannelConfig[]): ReplacementChannelState {
+        if (channels.length > MAX_CHANNELS) {
+            throw new ChannelError(AppErrorCode.MAX_CHANNELS_REACHED, CHANNEL_ERROR_MESSAGES.MAX_CHANNELS_REACHED, false);
+        }
         const nextChannels = new Map<string, ChannelConfig>();
         const nextChannelOrder: string[] = [];
-        const availableNumbers: number[] = [];
-        for (let n = MIN_CHANNEL_NUMBER; n <= MAX_CHANNEL_NUMBER; n++) {
-            availableNumbers.push(n);
-        }
         const usedNumbers = new Set<number>();
-        const takeNextAvailable = (): number | null => {
-            const next = availableNumbers.shift();
-            if (next === undefined) {
-                return null;
-            }
-            usedNumbers.add(next);
-            return next;
-        };
 
         for (const channel of channels) {
-            if (!this._shouldAcceptReplacementChannel(channel, nextChannels, nextChannelOrder, logger)) {
-                continue;
+            if (channel) this._validateAuthoringFields(channel);
+            if (channel && Object.keys(channel).some((key) => !REPLACEMENT_FIELDS.has(key))) {
+                throw new ChannelError(AppErrorCode.STORAGE_VALIDATION_FAILED, 'Unknown replacement channel field', false);
+            }
+            if (!channel || typeof channel.id !== 'string' || channel.id.length === 0
+                || nextChannels.has(channel.id) || !isExactAuthoredContentSource(channel.contentSource)
+                || !Number.isInteger(channel.number) || channel.number < MIN_CHANNEL_NUMBER
+                || channel.number > MAX_CHANNEL_NUMBER || usedNumbers.has(channel.number)
+                || typeof channel.name !== 'string' || channel.name.length === 0
+                || !isValidPlaybackMode(channel.playbackMode)
+                || !Number.isFinite(channel.startTimeAnchor)
+                || !Number.isFinite(channel.createdAt) || !Number.isFinite(channel.updatedAt)
+                || !Number.isFinite(channel.lastContentRefresh) || !Number.isFinite(channel.itemCount)
+                || !Number.isFinite(channel.totalDurationMs)
+                || typeof channel.skipIntros !== 'boolean' || typeof channel.skipCredits !== 'boolean'
+                || (channel.shuffleSeed !== undefined && !isValidChannelSeed(channel.shuffleSeed))
+                || (channel.phaseSeed !== undefined && !isValidChannelSeed(channel.phaseSeed))
+                || (channel.buildStrategy !== undefined && !isValidBuildStrategy(channel.buildStrategy))
+                || (channel.sortOrder !== undefined && !isValidSortOrder(channel.sortOrder))
+                || (channel.contentFilters !== undefined && !isExactContentFilterArray(channel.contentFilters))) {
+                throw new ChannelError(AppErrorCode.STORAGE_VALIDATION_FAILED, 'Invalid replacement channel identity, source, or number', false);
             }
             const normalizedChannel = cloneChannelForOwnership(channel);
-            const isValidNumber =
-                typeof normalizedChannel.number === 'number' &&
-                Number.isInteger(normalizedChannel.number) &&
-                normalizedChannel.number >= MIN_CHANNEL_NUMBER &&
-                normalizedChannel.number <= MAX_CHANNEL_NUMBER &&
-                !usedNumbers.has(normalizedChannel.number);
-            if (isValidNumber) {
-                const index = availableNumbers.indexOf(normalizedChannel.number);
-                if (index >= 0) {
-                    availableNumbers.splice(index, 1);
-                }
-                usedNumbers.add(normalizedChannel.number);
-            } else {
-                const fallback = takeNextAvailable();
-                if (fallback === null) {
-                    logger.warn(`Skipping channel ${channel.name} (${channel.id}) due to number exhaustion`);
-                    continue;
-                }
-                normalizedChannel.number = fallback;
-            }
-            this.applySeedDefaults(normalizedChannel);
+            usedNumbers.add(normalizedChannel.number);
             nextChannels.set(normalizedChannel.id, normalizedChannel);
             nextChannelOrder.push(normalizedChannel.id);
         }
@@ -177,20 +225,29 @@ export class ChannelAuthoringService {
         existingChannels: Iterable<ChannelConfig>
     ): ChannelConfig {
         const filteredUpdates = omitUndefinedChannelUpdates(updates);
-        if (typeof filteredUpdates.number === 'number' && filteredUpdates.number !== channel.number) {
-            this._validateRequestedNumber(filteredUpdates.number, existingChannels);
+        const clearFields = filteredUpdates.clearFields ?? [];
+        const writableUpdates = { ...filteredUpdates };
+        delete writableUpdates.clearFields;
+        this._validateAuthoringFields(writableUpdates);
+        if (writableUpdates.scheduleAnchorMode === 'fixed'
+            && channel.scheduleAnchorMode !== 'fixed'
+            && writableUpdates.startTimeAnchor === undefined) {
+            throw new ChannelError(AppErrorCode.STORAGE_VALIDATION_FAILED, 'Fixed schedule anchor requires a timestamp', false);
+        }
+        if (typeof writableUpdates.number === 'number' && writableUpdates.number !== channel.number) {
+            this._validateRequestedNumber(writableUpdates.number, existingChannels);
         }
 
-        const hasContentSourceUpdate = Object.prototype.hasOwnProperty.call(filteredUpdates, 'contentSource');
+        const hasContentSourceUpdate = Object.prototype.hasOwnProperty.call(writableUpdates, 'contentSource');
         const contentSourceUpdate = hasContentSourceUpdate
-            ? this._validateContentSource(filteredUpdates.contentSource)
+            ? this._validateContentSource(writableUpdates.contentSource)
             : undefined;
         const clonedUpdates: ChannelUpdateInput = {
-            ...filteredUpdates,
+            ...writableUpdates,
             ...(hasContentSourceUpdate && contentSourceUpdate
                 ? { contentSource: cloneContentSource(contentSourceUpdate) }
                 : {}),
-            ...(filteredUpdates.contentFilters ? { contentFilters: cloneContentFilters(filteredUpdates.contentFilters) } : {}),
+            ...(writableUpdates.contentFilters ? { contentFilters: cloneContentFilters(writableUpdates.contentFilters) } : {}),
         };
 
         const baseChannel = cloneChannelForOwnership(channel);
@@ -206,6 +263,7 @@ export class ChannelAuthoringService {
         };
 
         this._applyOptionalFields(updated, clonedUpdates);
+        for (const field of clearFields) delete updated[field];
         this.applySeedDefaults(updated);
         return updated;
     }
@@ -242,6 +300,39 @@ export class ChannelAuthoringService {
         applyChannelSeedDefaults(channel);
     }
 
+    private _validateAuthoringFields(input: Partial<ChannelCreateInput>): void {
+        const invalid =
+            (input.name !== undefined && (typeof input.name !== 'string' || input.name.length === 0))
+            || (input.description !== undefined && typeof input.description !== 'string')
+            || (input.icon !== undefined && typeof input.icon !== 'string')
+            || (input.sourceLibraryId !== undefined && typeof input.sourceLibraryId !== 'string')
+            || (input.sourceLibraryName !== undefined && typeof input.sourceLibraryName !== 'string')
+            || (input.isAutoGenerated !== undefined && typeof input.isAutoGenerated !== 'boolean')
+            || (input.isPlaybackModeVariant !== undefined && typeof input.isPlaybackModeVariant !== 'boolean')
+            || (input.skipIntros !== undefined && typeof input.skipIntros !== 'boolean')
+            || (input.skipCredits !== undefined && typeof input.skipCredits !== 'boolean')
+            || (input.shuffleSeed !== undefined && !isValidChannelSeed(input.shuffleSeed))
+            || (input.phaseSeed !== undefined && !isValidChannelSeed(input.phaseSeed))
+            || (input.playbackMode !== undefined && !isValidPlaybackMode(input.playbackMode))
+            || (input.buildStrategy !== undefined && !isValidBuildStrategy(input.buildStrategy))
+            || (input.sortOrder !== undefined && !isValidSortOrder(input.sortOrder))
+            || (input.contentFilters !== undefined && !isExactContentFilterArray(input.contentFilters))
+            || (input.blockSize !== undefined && (!Number.isInteger(input.blockSize) || input.blockSize < 1))
+            || (input.includeSpecials !== undefined && typeof input.includeSpecials !== 'boolean')
+            || (input.lineupReplicaIndex !== undefined && (!Number.isInteger(input.lineupReplicaIndex) || input.lineupReplicaIndex < 0))
+            || (input.startTimeAnchor !== undefined && !Number.isFinite(input.startTimeAnchor))
+            || (input.scheduleAnchorMode !== undefined && input.scheduleAnchorMode !== 'daily' && input.scheduleAnchorMode !== 'fixed')
+            || (input.maxEpisodeRunTimeMs !== undefined && !Number.isFinite(input.maxEpisodeRunTimeMs))
+            || (input.minEpisodeRunTimeMs !== undefined && !Number.isFinite(input.minEpisodeRunTimeMs));
+        if (invalid) {
+            throw new ChannelError(AppErrorCode.STORAGE_VALIDATION_FAILED, 'Invalid authored channel configuration', false);
+        }
+        if (input.number !== undefined && (typeof input.number !== 'number' || !Number.isInteger(input.number)
+            || input.number < MIN_CHANNEL_NUMBER || input.number > MAX_CHANNEL_NUMBER)) {
+            throw new ChannelError(AppErrorCode.INVALID_CHANNEL_NUMBER, CHANNEL_ERROR_MESSAGES.INVALID_CHANNEL_NUMBER, false);
+        }
+    }
+
     private _applyOptionalFields(channel: ChannelConfig, input: Partial<ChannelCreateInput>): void {
         if (input.description !== undefined) channel.description = input.description;
         if (input.isAutoGenerated !== undefined) channel.isAutoGenerated = input.isAutoGenerated;
@@ -268,6 +359,7 @@ export class ChannelAuthoringService {
         ) {
             channel.blockSize = Math.max(1, Math.floor(input.blockSize));
         }
+        if (input.includeSpecials !== undefined) channel.includeSpecials = input.includeSpecials;
         if (input.contentFilters !== undefined) channel.contentFilters = cloneContentFilters(input.contentFilters);
         if (input.sortOrder !== undefined) channel.sortOrder = input.sortOrder;
         if (input.maxEpisodeRunTimeMs !== undefined) channel.maxEpisodeRunTimeMs = input.maxEpisodeRunTimeMs;
@@ -275,7 +367,7 @@ export class ChannelAuthoringService {
     }
 
     private _validateContentSource(source: unknown): ChannelContentSource {
-        if (!isValidContentSource(source)) {
+        if (!isExactAuthoredContentSource(source)) {
             throw new ChannelError(
                 AppErrorCode.CHANNEL_CONTENT_SOURCE_INVALID,
                 CHANNEL_ERROR_MESSAGES.CONTENT_SOURCE_INVALID,
@@ -307,24 +399,4 @@ export class ChannelAuthoringService {
         return number;
     }
 
-    private _shouldAcceptReplacementChannel(
-        channel: ChannelConfig,
-        nextChannels: Map<string, ChannelConfig>,
-        nextChannelOrder: string[],
-        logger: ChannelAuthoringLogger
-    ): boolean {
-        if (!isValidContentSource(channel.contentSource)) {
-            logger.warn(`Skipping invalid channel ${channel.name} (${channel.id}) during replaceAllChannels`);
-            return false;
-        }
-        if (nextChannels.has(channel.id)) {
-            logger.warn(`Skipping duplicate channel ${channel.name} (${channel.id}) during replaceAllChannels`);
-            return false;
-        }
-        if (nextChannelOrder.length >= MAX_CHANNELS) {
-            logger.warn(`Skipping channel ${channel.name} (${channel.id}) due to MAX_CHANNELS limit`);
-            return false;
-        }
-        return true;
-    }
 }

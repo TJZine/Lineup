@@ -1,4 +1,4 @@
-import type { ChannelContentSource } from '../contracts/types';
+import type { ChannelContentSource, CollectionContentSource } from '../contracts/types';
 
 const MAX_CONTENT_SOURCE_DEPTH = 25;
 type ContentSourceRecord = Record<string, unknown> & { type?: unknown };
@@ -23,7 +23,7 @@ const isValidSeasonFilter = (value: unknown): boolean => {
             typeof entry === 'number' &&
             Number.isFinite(entry) &&
             Number.isInteger(entry) &&
-            entry > 0
+            entry >= 0
     );
 };
 
@@ -65,6 +65,49 @@ const isValidLibrarySource = (source: Record<string, unknown>): boolean => {
 
 const isValidCollectionSource = (source: Record<string, unknown>): boolean =>
     isValidIdString(source['collectionKey']) && isNonEmptyString(source['collectionName']);
+
+const COLLECTION_LIBRARY_METADATA_KEYS = ['libraryId', 'libraryType', 'libraryName'] as const;
+
+export type CollectionLibraryMetadata = Required<Pick<
+    CollectionContentSource,
+    'libraryId' | 'libraryType' | 'libraryName'
+>>;
+
+export function hasCollectionLibraryMetadata(source: unknown): boolean {
+    return isPlainRecord(source)
+        && COLLECTION_LIBRARY_METADATA_KEYS.some((key) => Object.prototype.hasOwnProperty.call(source, key));
+}
+
+export function getCompleteCollectionLibraryMetadata(source: unknown): CollectionLibraryMetadata | undefined {
+    if (!isPlainRecord(source)) return undefined;
+    if (!COLLECTION_LIBRARY_METADATA_KEYS.every((key) => Object.prototype.hasOwnProperty.call(source, key))) {
+        return undefined;
+    }
+
+    const libraryId = source['libraryId'];
+    const libraryType = source['libraryType'];
+    const libraryName = source['libraryName'];
+    if (!isValidIdString(libraryId) || (libraryType !== 'movie' && libraryType !== 'show')
+        || !isNonEmptyString(libraryName)) {
+        return undefined;
+    }
+    return { libraryId, libraryType, libraryName };
+}
+
+export function containsMalformedCollectionLibraryMetadata(source: unknown): boolean {
+    return containsMalformedCollectionLibraryMetadataAtDepth(source, 0);
+}
+
+function containsMalformedCollectionLibraryMetadataAtDepth(source: unknown, depth: number): boolean {
+    if (depth > MAX_CONTENT_SOURCE_DEPTH || !isPlainRecord(source)) return false;
+    if (source['type'] === 'collection') {
+        return hasCollectionLibraryMetadata(source) && getCompleteCollectionLibraryMetadata(source) === undefined;
+    }
+    if (source['type'] === 'mixed' && Array.isArray(source['sources'])) {
+        return source['sources'].some((child) => containsMalformedCollectionLibraryMetadataAtDepth(child, depth + 1));
+    }
+    return false;
+}
 
 const isValidShowSource = (source: Record<string, unknown>): boolean =>
     isValidIdString(source['showKey']) &&
@@ -114,4 +157,46 @@ export function isValidContentSource(source: unknown, depth: number = 0): source
 
     const validator = CONTENT_SOURCE_VALIDATORS[src.type as ContentSourceType];
     return typeof validator === 'function' ? validator(src, depth) : false;
+}
+
+const EXACT_SOURCE_KEYS: Record<ChannelContentSource['type'], readonly string[]> = {
+    library: ['type', 'libraryId', 'libraryType', 'includeWatched', 'libraryFilter'],
+    collection: ['type', 'collectionKey', 'collectionName', ...COLLECTION_LIBRARY_METADATA_KEYS],
+    show: ['type', 'showKey', 'showName', 'seasonFilter'],
+    playlist: ['type', 'playlistKey', 'playlistName'],
+    manual: ['type', 'items'],
+    mixed: ['type', 'sources', 'mixMode'],
+};
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+    const prototype: unknown = Object.getPrototypeOf(value);
+    return prototype === Object.prototype || prototype === null;
+}
+
+function hasOnlyKeys(record: Record<string, unknown>, keys: readonly string[]): boolean {
+    return Object.keys(record).every((key) => keys.includes(key));
+}
+
+/** Authored candidates are exact; stored legacy records retain the tolerant decoder above. */
+export function isExactAuthoredContentSource(source: unknown): source is ChannelContentSource {
+    if (!isValidContentSource(source) || !isPlainRecord(source)
+        || !hasOnlyKeys(source, EXACT_SOURCE_KEYS[source.type])) return false;
+    switch (source.type) {
+        case 'library': {
+            const filter = source.libraryFilter;
+            return filter === undefined || (isPlainRecord(filter)
+                && Object.values(filter).every((value) => typeof value === 'string'
+                    || (typeof value === 'number' && Number.isFinite(value))));
+        }
+        case 'collection':
+            return !hasCollectionLibraryMetadata(source) || getCompleteCollectionLibraryMetadata(source) !== undefined;
+        case 'manual':
+            return source.items.every((item) => isPlainRecord(item)
+                && hasOnlyKeys(item, ['ratingKey', 'title', 'durationMs']));
+        case 'mixed':
+            return source.sources.every(isExactAuthoredContentSource);
+        default:
+            return true;
+    }
 }

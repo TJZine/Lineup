@@ -124,7 +124,7 @@ const makePlexMediaItem = (
 
 describe('EPG model adapters', () => {
     it('clones channel and scheduled-program nested data instead of leaking references', () => {
-        const channel = makeChannel();
+        const channel = makeChannel({ scheduleAnchorMode: 'fixed', startTimeAnchor: 1234 });
         const program = makeScheduledProgram({
             item: makeResolvedContentItem({
                 title: 'Morning News',

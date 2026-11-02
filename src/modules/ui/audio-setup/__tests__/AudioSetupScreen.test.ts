@@ -51,7 +51,7 @@ describe('AudioSetupScreen', () => {
         document.body.innerHTML = '';
     });
 
-    it('defaults to TV speakers when DTS passthrough not enabled', () => {
+    it('starts with no sound system choice and focuses TV speakers', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
@@ -63,11 +63,15 @@ describe('AudioSetupScreen', () => {
         const tvButton = container.querySelector('#audio-choice-tv-speakers');
         const continueBtn = container.querySelector('#audio-setup-continue') as HTMLButtonElement | null;
 
-        expect(tvButton?.classList.contains('selected')).toBe(true);
-        expect(continueBtn?.disabled).toBe(false);
+        expect(tvButton?.classList.contains('selected')).toBe(false);
+        expect(continueBtn?.disabled).toBe(true);
+        expect(nav.getFocusedElement()?.id).toBe('audio-choice-tv-speakers');
+        expect(container.querySelector('#audio-setup-saved-values')?.textContent)
+            .toContain('DTS passthrough — Default (not saved): Off');
+        expect(container.textContent).not.toContain('Step 2 of 3');
     });
 
-    it('defaults to External when DTS passthrough enabled', () => {
+    it('shows saved DTS state without treating it as the user choice', () => {
         localStorage.setItem(SETTINGS_STORAGE_KEYS.DTS_PASSTHROUGH, '1');
 
         const container = document.createElement('div');
@@ -79,7 +83,47 @@ describe('AudioSetupScreen', () => {
         screen.show();
 
         const externalButton = container.querySelector('#audio-choice-external');
-        expect(externalButton?.classList.contains('selected')).toBe(true);
+        expect(externalButton?.classList.contains('selected')).toBe(false);
+        expect(container.querySelector('#audio-setup-saved-values')?.textContent)
+            .toContain('DTS passthrough — Saved: On');
+    });
+
+    it('distinguishes invalid stored values from an effective default', () => {
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.DTS_PASSTHROUGH, 'invalid');
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const screen = new AudioSetupScreen(container, () => createNavigationStub() as unknown as never, jest.fn());
+
+        screen.show();
+
+        expect(container.querySelector('#audio-setup-saved-values')?.textContent)
+            .toContain('DTS passthrough — Default (invalid stored value): Off');
+        expect(container.querySelector('#audio-setup-saved-values')?.textContent)
+            .not.toContain('DTS passthrough — Saved:');
+    });
+
+    it('labels unavailable reads separately from saved state and keeps the fallback choice actionable', () => {
+        jest.spyOn(AudioSettingsStore.prototype, 'readDtsPassthroughState').mockReturnValue({
+            kind: 'unavailable',
+            effectiveValue: false,
+        });
+        jest.spyOn(AudioSettingsStore.prototype, 'readDirectPlayAudioFallbackState').mockReturnValue({
+            kind: 'unavailable',
+            effectiveValue: false,
+        });
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const screen = new AudioSetupScreen(container, () => createNavigationStub() as unknown as never, jest.fn());
+
+        screen.show();
+
+        const summary = container.querySelector('#audio-setup-saved-values')?.textContent ?? '';
+        const fallback = container.querySelector('#audio-direct-play-fallback') as HTMLButtonElement;
+        expect(summary).toContain('DTS passthrough — Unavailable; default Off');
+        expect(summary).toContain('Audio fallback — Unavailable; default Off');
+        expect(fallback.getAttribute('aria-label')).toContain('Chosen: Off');
+        expect(fallback.getAttribute('aria-label')).toContain('Unavailable; default Off');
+        expect(fallback.getAttribute('aria-label')).not.toContain('Saved');
     });
 
     it('registers neighbors with explicit wiring', () => {
@@ -180,7 +224,7 @@ describe('AudioSetupScreen', () => {
         expect(container.innerHTML).toBe('');
     });
 
-    it('shows current-settings continue text until user explicitly chooses', () => {
+    it('enables Continue only after a sound system choice', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
@@ -190,11 +234,12 @@ describe('AudioSetupScreen', () => {
         screen.show();
 
         const continueBtn = container.querySelector('#audio-setup-continue') as HTMLButtonElement | null;
-        expect(continueBtn?.textContent).toContain('current settings');
+        expect(continueBtn?.disabled).toBe(true);
 
         const externalButton = container.querySelector('#audio-choice-external') as HTMLButtonElement | null;
         externalButton?.click();
         expect(continueBtn?.textContent).toBe('Continue');
+        expect(continueBtn?.disabled).toBe(false);
     });
 
     it('delegates setup-complete reads through AudioSettingsStore', () => {
@@ -240,13 +285,16 @@ describe('AudioSetupScreen', () => {
         const screen = new AudioSetupScreen(container, () => nav as unknown as never, onComplete);
         screen.show();
 
+        (container.querySelector('#audio-choice-external') as HTMLButtonElement).click();
         (container.querySelector('#audio-setup-continue') as HTMLButtonElement).click();
 
         const status = container.querySelector('#audio-setup-status');
-        expect(status?.textContent).toBe('Could not save audio settings. Check device storage and try again.');
+        expect(status?.textContent)
+            .toBe('Audio settings were not fully saved. Current read results and retry choices are shown above.');
         expect(status?.getAttribute('role')).toBe('status');
         expect(status?.getAttribute('aria-live')).toBe('polite');
         expect(nav.getFocusedElement()?.id).toBe('audio-setup-continue');
+        expect((container.querySelector('#audio-setup-continue') as HTMLButtonElement).textContent).toBe('Try again');
         expect(writeSetupCompleteSpy).not.toHaveBeenCalled();
         expect(onComplete).not.toHaveBeenCalled();
     });
@@ -263,11 +311,71 @@ describe('AudioSetupScreen', () => {
         const screen = new AudioSetupScreen(container, () => nav as unknown as never, onComplete);
         screen.show();
 
+        (container.querySelector('#audio-choice-external') as HTMLButtonElement).click();
         (container.querySelector('#audio-setup-continue') as HTMLButtonElement).click();
 
         expect(container.querySelector('#audio-setup-status')?.textContent).toBe(
-            'Could not save audio settings. Check device storage and try again.'
+            'Audio settings were not fully saved. Current read results and retry choices are shown above.'
         );
+        expect(onComplete).not.toHaveBeenCalled();
+    });
+
+    it('keeps the saved audio values separate from the chosen retry state after a partial write', () => {
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.DTS_PASSTHROUGH, '1');
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK, '0');
+        jest.spyOn(AudioSettingsStore.prototype, 'writeDirectPlayAudioFallbackEnabled').mockReturnValue({
+            ok: false,
+            reason: 'quota-exceeded',
+        });
+
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const nav = createNavigationStub();
+        const onComplete = jest.fn();
+        const screen = new AudioSetupScreen(container, () => nav as unknown as never, onComplete);
+        screen.show();
+
+        const tvSpeakersButton = container.querySelector('#audio-choice-tv-speakers') as HTMLButtonElement;
+        const fallbackButton = container.querySelector('#audio-direct-play-fallback') as HTMLButtonElement;
+        tvSpeakersButton.click();
+        fallbackButton.click();
+        (container.querySelector('#audio-setup-continue') as HTMLButtonElement).click();
+
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.DTS_PASSTHROUGH)).toBe('0');
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK)).toBe('0');
+        expect(container.querySelector('#audio-setup-saved-values')?.textContent)
+            .toBe('DTS passthrough — Saved: Off · Audio fallback — Saved: Off');
+        expect(container.querySelector('#audio-choice-tv-speakers')?.classList.contains('saved')).toBe(true);
+        expect(container.querySelector('#audio-choice-tv-speakers')?.classList.contains('selected')).toBe(true);
+        expect(container.querySelector('#audio-direct-play-fallback .audio-fallback-state')?.textContent)
+            .toBe('Saved: Off · Chosen for retry: On');
+        expect((container.querySelector('#audio-setup-continue') as HTMLButtonElement).textContent).toBe('Try again');
+        expect(nav.getFocusedElement()?.id).toBe('audio-setup-continue');
+        expect(onComplete).not.toHaveBeenCalled();
+    });
+
+    it('re-reads both effective audio values after the final setup-complete write fails', () => {
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.DTS_PASSTHROUGH, '1');
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK, '0');
+        jest.spyOn(AudioSettingsStore.prototype, 'writeAudioSetupComplete').mockReturnValue({
+            ok: false,
+            reason: 'unavailable',
+        });
+        const readDtsSpy = jest.spyOn(AudioSettingsStore.prototype, 'readDtsPassthroughState');
+        const readFallbackSpy = jest.spyOn(AudioSettingsStore.prototype, 'readDirectPlayAudioFallbackState');
+
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const onComplete = jest.fn();
+        const screen = new AudioSetupScreen(container, () => createNavigationStub() as unknown as never, onComplete);
+        screen.show();
+        (container.querySelector('#audio-choice-tv-speakers') as HTMLButtonElement).click();
+        (container.querySelector('#audio-setup-continue') as HTMLButtonElement).click();
+
+        expect(readDtsSpy.mock.calls.length).toBeGreaterThanOrEqual(2);
+        expect(readFallbackSpy.mock.calls.length).toBeGreaterThanOrEqual(2);
+        expect(container.querySelector('#audio-setup-saved-values')?.textContent)
+            .toBe('DTS passthrough — Saved: Off · Audio fallback — Saved: Off');
         expect(onComplete).not.toHaveBeenCalled();
     });
 });

@@ -1,14 +1,3 @@
-.theme-glass .player-osd-panel {
-  --player-osd-scrim-fallback-rgb: 8, 11, 15;
-  --player-osd-stop-1: 6%;
-  --player-osd-stop-2: 25%;
-  --player-osd-stop-3: 40%;
-  border: none;
-  box-shadow: none;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
-
 .theme-slate-pine .player-osd-panel {
   --player-osd-scrim-fallback-rgb: 22, 24, 22;
   --player-osd-stop-1: 10%;
@@ -37,8 +26,6 @@
   --player-osd-stop-3: 56%;
 }
 
-.theme-glass .player-osd-status,
-.theme-glass .player-osd-title,
 .theme-swiss .player-osd-status,
 .theme-swiss .player-osd-title,
 .theme-directv .player-osd-status,

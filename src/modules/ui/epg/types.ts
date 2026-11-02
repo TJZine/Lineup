@@ -1,4 +1,3 @@
-import type { EpgLayoutMode } from '../../settings/EpgPreferencesStore';
 import type { AppErrorCode } from '../../../types/app-errors';
 import type {
     EpgChannel,
@@ -8,6 +7,7 @@ import type {
 } from './model/domainTypes';
 import type { IEPGDebugRuntime } from './debug/EPGDebugRuntime';
 import type { EpgUiStatus } from './coordinator/EPGCoordinatorContracts';
+import type { IDisposable } from '../../../utils/interfaces';
 
 // Re-export EPG-owned aliases for UI contracts.
 export type ScheduledProgram = EpgScheduledProgram;
@@ -42,8 +42,11 @@ export interface EPGConfig {
         ratingKey: string,
         options?: { signal?: AbortSignal | null }
     ) => Promise<EpgItemDetails | null>;
-    isVideoPlaying?: () => boolean;
-    layoutMode?: EpgLayoutMode;
+    getPictureStatus?: () => 'untuned' | 'playing' | 'paused' | 'buffering' | 'seeking' | 'error';
+    subscribePictureStatus?: (listener: () => void) => IDisposable;
+    onPictureOperation?: (operation: 'guide-pip' | 'fullscreen') => void;
+    onGuideHoursChange?: (hours: 2 | 3 | 4) => boolean;
+    sourceLabelsEnabled?: boolean;
     showNowWatchingBanner?: boolean;
     getCurrentChannelInfo?: () => {
         channelNumber: number;
@@ -51,7 +54,6 @@ export interface EPGConfig {
         programTitle: string;
         timeLabel: string;
     } | null;
-    onLayoutModeChange?: (mode: EpgLayoutMode) => void;
     /** Optional explicit debug runtime shared by EPG UI and runtime collaborators. */
     debugRuntime?: IEPGDebugRuntime | null;
     /**
@@ -224,7 +226,8 @@ export function getEpgScheduleChannelIdentity(channel: ChannelConfig): string {
         shuffleSeed: channel.shuffleSeed,
         blockSize: channel.blockSize,
         phaseSeed: channel.phaseSeed,
-        startTimeAnchor: channel.startTimeAnchor,
+        scheduleAnchorMode: channel.scheduleAnchorMode === 'fixed' ? 'fixed' : 'daily',
+        startTimeAnchor: channel.scheduleAnchorMode === 'fixed' ? channel.startTimeAnchor : null,
         contentFilters: channel.contentFilters,
         sortOrder: channel.sortOrder,
         skipIntros: channel.skipIntros,
@@ -261,6 +264,8 @@ export interface EPGEventMap {
     rowRetryRequested: { channelId: string };
     timeScroll: { direction: 'left' | 'right'; newOffset: number };
     channelScroll: { direction: 'up' | 'down'; newOffset: number };
+    menuRouteRequested: 'player' | 'settings' | 'channels' | 'channel-setup' | 'server-select';
+    setupRequested: void;
 }
 
 

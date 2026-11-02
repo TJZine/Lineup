@@ -12,6 +12,7 @@ import type {
     PlexTagDirectoryItem,
 } from '../../../modules/plex/library';
 import type { ChannelConfig } from '../../../modules/scheduler/channel-manager';
+import { isValidChannelSeed } from '../../../modules/scheduler/channel-manager/authoring/ChannelSeedPolicy';
 import {
     buildChannelSetupStrategyBuckets,
     buildChannelSetupStrategyBucketsCooperatively,
@@ -178,6 +179,13 @@ const sanitizeBlockSize = (raw: unknown, fallback: number): number => {
     if (value < 1) return fallback;
     return value;
 };
+/** Keep legacy source seeds when automatic; scope an explicit lineup seed to each source identity. */
+const resolveSeedFor = (config: ChannelSetupConfig, seedFor: (value: string) => number): ((value: string) => number) => {
+    const lineupSeed = config.seriesOrdering?.lineupSeed;
+    return isValidChannelSeed(lineupSeed)
+        ? (value): number => seedFor(`${lineupSeed}:${value}`)
+        : seedFor;
+};
 const isTvOnlySource = (source: ChannelConfig['contentSource']): boolean => {
     switch (source.type) {
         case 'library':
@@ -218,8 +226,9 @@ export async function buildChannelSetupPlanCooperatively(
         studiosByLibraryId,
         peopleSeriesIndexByLibraryId = new Map(),
         warnings,
-        seedFor,
+        seedFor: rawSeedFor,
     } = input;
+    const seedFor = resolveSeedFor(config, rawSeedFor);
     const { effectiveMaxChannels, minItems } = resolvePlanningLimits(config);
     const selectedLibraries = selectConfiguredLibraries(libraries, config);
 
@@ -289,8 +298,9 @@ function buildChannelSetupPlanInternal(
         studiosByLibraryId,
         peopleSeriesIndexByLibraryId = new Map(),
         warnings,
-        seedFor,
+        seedFor: rawSeedFor,
     } = input;
+    const seedFor = resolveSeedFor(config, rawSeedFor);
 
     const { effectiveMaxChannels, minItems } = resolvePlanningLimits(config);
     const selectedLibraries = selectConfiguredLibraries(libraries, config);
@@ -422,24 +432,35 @@ function normalizeSeriesPlayback(
 ): PendingChannel[] {
     const baseSeriesModeRaw = config.seriesOrdering?.basePlaybackMode;
     const baseSeriesMode =
-        baseSeriesModeRaw === 'sequential' || baseSeriesModeRaw === 'block'
+        baseSeriesModeRaw === 'sequential' || baseSeriesModeRaw === 'block' || baseSeriesModeRaw === 'random'
             ? baseSeriesModeRaw
             : 'shuffle';
     const baseSeriesBlockSize = sanitizeBlockSize(config.seriesOrdering?.baseBlockSize, 3);
 
     return channels.map((channel) => {
         const isSeriesDerived = isSeriesDerivedChannel(channel, showLibraryIds);
-        if (baseSeriesMode === 'shuffle' || !isSeriesDerived || channel.playbackMode !== 'shuffle') {
-            return channel;
-        }
         const updated: PendingChannel = {
             ...channel,
-            playbackMode: baseSeriesMode,
         };
-        if (baseSeriesMode === 'block') {
-            updated.blockSize = baseSeriesBlockSize;
+        const anchor = config.seriesOrdering?.startTimeAnchor;
+        if (typeof anchor === 'number' && Number.isFinite(anchor)) {
+            updated.startTimeAnchor = anchor;
+            updated.scheduleAnchorMode = 'fixed';
         } else {
-            delete updated.blockSize;
+            delete updated.scheduleAnchorMode;
+        }
+        if (baseSeriesMode !== 'shuffle' && isSeriesDerived && channel.playbackMode === 'shuffle') {
+            updated.playbackMode = baseSeriesMode;
+            if (baseSeriesMode === 'block') {
+                updated.blockSize = baseSeriesBlockSize;
+            } else {
+                delete updated.blockSize;
+            }
+        }
+        if (updated.playbackMode === 'block' && config.seriesOrdering?.includeSpecials === false) {
+            updated.includeSpecials = false;
+        } else {
+            delete updated.includeSpecials;
         }
         return updated;
     });
@@ -535,8 +556,10 @@ function expandPlaybackVariants(
         };
         if (variantType === 'block') {
             variant.blockSize = variantBlockSize;
+            if (config.seriesOrdering?.includeSpecials === false) variant.includeSpecials = false;
         } else {
             delete variant.blockSize;
+            delete variant.includeSpecials;
         }
         withVariants.push(variant);
     }

@@ -17,6 +17,7 @@ import type {
     PlexAuthValidationGuard,
     PlexHomeUser,
     PlexPinRequest,
+    PlexPinCancellationResult,
     PlexAuthState,
     PlexDeviceKey,
     StoredAuthData,
@@ -153,16 +154,18 @@ export class PlexAuth implements IPlexAuth {
         );
     }
 
-    public async cancelPin(pinId: number): Promise<void> {
+    public async cancelPin(pinId: number): Promise<PlexPinCancellationResult> {
         this._supersedeMatchingPinOperation(pinId);
         if (this._state.pendingPin?.id === pinId) this._state.pendingPin = null;
         try {
-            await fetchWithRetry(
+            const response = await fetchWithRetry(
                 PLEX_AUTH_CONSTANTS.PLEX_TV_BASE_URL + PLEX_AUTH_CONSTANTS.PIN_ENDPOINT + '/' + String(pinId),
                 { method: 'DELETE', headers: buildRequestHeaders(this._state.config) }
             );
+            return response.ok ? { kind: 'canceled' } : { kind: 'cleanup-failed' };
         } catch {
-            // Best-effort cancellation.
+            // Local operation retirement is final even when remote cleanup is unconfirmed.
+            return { kind: 'cleanup-failed' };
         }
     }
 

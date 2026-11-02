@@ -29,13 +29,6 @@ This document is directory-oriented and lists file-level owners where the canoni
 - composes Settings theme callbacks into app-shell runtime screen ports
 - delegates persistence reads/writes to `src/modules/settings/ThemePreferencesStore.ts`
 
-### `src/core/app-shell/chrome/AppStartupUiInitializer.ts`
-
-- app-shell startup UI initializer owner
-- initializes now-playing-info, playback-options, and exit-confirm overlays during startup
-- constructed directly by `AppOrchestrator` and consumed through the initialization startup-UI port
-- consumed through a narrow startup-UI port by `src/core/initialization/InitializationCoordinator.ts`
-
 ### `src/core/`
 
 - core collaborators layer used by orchestration and startup paths
@@ -325,13 +318,11 @@ This document is directory-oriented and lists file-level owners where the canoni
 - `src/modules/ui/channel-setup/`
 - `src/modules/ui/epg/`
 - `src/modules/ui/player-osd/`
-- `src/modules/ui/now-playing-info/`
 - `src/modules/ui/mini-guide/`
 - `src/modules/ui/channel-badge/`
 - `src/modules/ui/channel-number-overlay/`
 - `src/modules/ui/channel-transition/`
-- `src/modules/ui/playback-options/`
-- `src/modules/ui/exit-confirm/`
+- `src/modules/ui/playback-options/` (Player drawer track policy)
 - `src/modules/ui/audio-setup/`
 - `src/modules/ui/sleep-timer/`
 - `src/modules/ui/splash/`

@@ -28,7 +28,9 @@ export type {
     ImportResult,
     ChannelManagerEventMap,
     ChannelUpdateInput,
+    ChannelClearableField,
 } from './contracts/types';
+export type { ChannelLoadOutcome, ChannelMutationOutcome, ChannelStructuralBase } from './contracts/ChannelDurability';
 export type {
     ObserveSourceResolution,
     SourceResolutionDiagnostic,

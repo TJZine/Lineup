@@ -69,6 +69,9 @@ type CoordinatorHarness = {
         getPendingNowPlayingChannelId: jest.Mock<string | null, []>;
         resetPlaybackGuardsForNewChannel: jest.Mock<void, []>;
         stopActiveTranscodeSession: jest.Mock<void, []>;
+        capturePlaybackAdmission?: jest.Mock<number | null, []>;
+        isPlaybackAdmissionCurrent?: jest.Mock<boolean, [number]>;
+        canActivateRetainedSession?: jest.Mock<boolean, []>;
         armChannelTransitionForSwitch: jest.Mock<void, [string]>;
         appendIssueDiagnostic: jest.Mock<void, [string, string, unknown]>;
         handleGlobalError: jest.Mock<void, [unknown, string]>;
@@ -84,9 +87,8 @@ const createCoordinator = (): CoordinatorHarness => {
     const channelManager = {
         getChannel: jest.fn().mockReturnValue(mockChannel),
         getChannelByNumber: jest.fn().mockReturnValue(mockChannel),
+        getCurrentChannel: jest.fn().mockReturnValue(mockChannel),
         resolveChannelContent: jest.fn().mockResolvedValue(resolvedContent),
-        resolveChannelContentForInitialTune: jest.fn().mockResolvedValue(resolvedContent),
-        createInitialTuneResolutionAuthorization: jest.fn().mockReturnValue({}),
         supersedeActiveResolutions: jest.fn().mockResolvedValue(undefined),
         resumeActiveResolutions: jest.fn(),
         setCurrentChannel: jest.fn(),
@@ -97,6 +99,7 @@ const createCoordinator = (): CoordinatorHarness => {
         unloadChannel: jest.fn(),
         syncToCurrentTime: jest.fn(),
         getCurrentProgram: jest.fn().mockReturnValue(null),
+        getState: jest.fn().mockReturnValue({ isActive: true, channelId: 'ch1', currentProgram: { item: { ratingKey: '1' } } }),
     } as unknown as jest.Mocked<IChannelScheduler>;
 
     const videoPlayer = {
@@ -140,6 +143,42 @@ describe('ChannelTuningCoordinator', () => {
             (globalThis as { localStorage?: Storage }).localStorage = createLocalStorageMock();
         }
         localStorage.clear();
+    });
+
+    it('does not retire the current channel when Pause supersedes content resolution', async () => {
+        const { coordinator, deps, channelManager, scheduler, videoPlayer } = createCoordinator();
+        let resolve!: (content: ResolvedChannelContent) => void;
+        let admitted = true;
+        channelManager.resolveChannelContent.mockImplementation(() => new Promise((done) => { resolve = done; }));
+        deps.capturePlaybackAdmission = jest.fn().mockReturnValue(1);
+        deps.isPlaybackAdmissionCurrent = jest.fn((_generation: number) => admitted);
+        const tune = coordinator.switchToChannel('ch1');
+        admitted = false;
+        resolve(resolvedContent);
+        expect(await tune).toEqual({ kind: 'aborted' });
+        expect(videoPlayer.stop).not.toHaveBeenCalled();
+        expect(scheduler.loadChannel).not.toHaveBeenCalled();
+        expect(channelManager.setCurrentChannel).not.toHaveBeenCalled();
+    });
+
+    it('accepts only an active matching channel with a retained playback session', () => {
+        const { coordinator, deps, scheduler } = createCoordinator();
+        deps.canActivateRetainedSession = jest.fn().mockReturnValue(true);
+        expect(coordinator.canActivateCurrentSession('ch1')).toBe(true);
+        expect(coordinator.canActivateCurrentSession('ch2')).toBe(false);
+        scheduler.getState.mockReturnValue({ isActive: false, channelId: 'ch1', currentProgram: null } as never);
+        expect(coordinator.canActivateCurrentSession('ch1')).toBe(false);
+    });
+
+    it('unloads a schedule superseded during load before publishing the channel', async () => {
+        const { coordinator, deps, channelManager, scheduler } = createCoordinator();
+        let admitted = true;
+        deps.capturePlaybackAdmission = jest.fn().mockReturnValue(1);
+        deps.isPlaybackAdmissionCurrent = jest.fn((_generation: number) => admitted);
+        scheduler.loadChannel.mockImplementation(() => { admitted = false; });
+        expect(await coordinator.switchToChannel('ch1')).toEqual({ kind: 'aborted' });
+        expect(scheduler.unloadChannel).toHaveBeenCalledTimes(1);
+        expect(channelManager.setCurrentChannel).not.toHaveBeenCalled();
     });
 
     it('passes AbortSignal into resolveChannelContent', async () => {
@@ -554,53 +593,6 @@ describe('ChannelTuningCoordinator', () => {
         await expect(coordinator.switchToChannel('ch1')).resolves.toEqual({ kind: 'switched' });
         expect(channelManager.resumeActiveResolutions).toHaveBeenCalledTimes(1);
         consoleSpy.mockRestore();
-    });
-
-    it('runs exactly one lineage-bound initial tune while general tuning stays suspended', async () => {
-        const { coordinator, channelManager } = createCoordinator();
-        await coordinator.suspendAndDrainForScopeTransition();
-        const validity = { signal: new AbortController().signal, assertCurrent: jest.fn() };
-        const lineage = coordinator.beginInitialTuneLineage([validity]);
-        const permit = coordinator.mintInitialTunePermit(lineage);
-
-        await expect(coordinator.switchToInitialChannel('ch1', permit)).resolves.toEqual({
-            kind: 'switched',
-        });
-        await expect(coordinator.switchToInitialChannel('ch1', permit)).rejects.toMatchObject({
-            name: 'AbortError',
-        });
-        expect(channelManager.createInitialTuneResolutionAuthorization).toHaveBeenCalledWith(
-            'ch1',
-            expect.objectContaining({ signal: expect.any(AbortSignal) })
-        );
-        expect(channelManager.resolveChannelContentForInitialTune).toHaveBeenCalledTimes(1);
-        expect(channelManager.resolveChannelContent).not.toHaveBeenCalled();
-        expect(await coordinator.switchToChannel('ch1')).toEqual({ kind: 'aborted' });
-        coordinator.completeInitialTuneLineage(lineage);
-    });
-
-    it('rejects wrong-lineage and stale initial tune authority without effects', async () => {
-        const { coordinator, channelManager, videoPlayer } = createCoordinator();
-        await coordinator.suspendAndDrainForScopeTransition();
-        const first = coordinator.beginInitialTuneLineage([{ assertCurrent: jest.fn() }]);
-        const secondController = new AbortController();
-        const second = coordinator.beginInitialTuneLineage([{
-            signal: secondController.signal,
-            assertCurrent: (): void => {
-                if (secondController.signal.aborted) throw secondController.signal.reason;
-            },
-        }]);
-        expect(() => coordinator.mintInitialTunePermit(first)).toThrow(
-            expect.objectContaining({ name: 'AbortError' })
-        );
-        const stalePermit = coordinator.mintInitialTunePermit(second);
-        secondController.abort(new DOMException('stale', 'AbortError'));
-
-        await expect(coordinator.switchToInitialChannel('ch1', stalePermit)).rejects.toMatchObject({
-            name: 'AbortError',
-        });
-        expect(channelManager.resolveChannelContentForInitialTune).not.toHaveBeenCalled();
-        expect(videoPlayer.stop).not.toHaveBeenCalled();
     });
 
     it('stops later suffixes when suspension re-enters from a stateful tune callback', async () => {

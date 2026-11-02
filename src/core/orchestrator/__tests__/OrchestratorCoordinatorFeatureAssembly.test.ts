@@ -18,7 +18,9 @@ const planningServiceInstance = {
 const buildCommitterInstance = { kind: 'build-committer' };
 const buildExecutorInstance = {
     kind: 'build-executor',
-    createChannelsFromSetup: jest.fn().mockResolvedValue({ created: 0 }),
+    prepareSetupReview: jest.fn().mockResolvedValue({ preparedId: 'review-1' }),
+    applySetupReview: jest.fn().mockResolvedValue({ created: 0 }),
+    cancelPreparedReview: jest.fn(),
 };
 const coordinatorInstance = { clearRerunRequest: jest.fn(), kind: 'coordinator' };
 const mockNavigationCoordinatorInstance = { kind: 'navigation-coordinator' };
@@ -115,13 +117,10 @@ const createInput = (): OrchestratorCoordinatorAssemblyInput => {
             epg: { kind: 'epg' },
         } as unknown as OrchestratorCoordinatorAssemblyInput['modules'],
         overlays: {
-            nowPlayingInfo: { kind: 'now-playing' },
             playerOsd: { kind: 'player-osd' },
             channelNumberOverlay: { kind: 'channel-number' },
             miniGuide: { kind: 'mini-guide' },
             channelTransitionOverlay: { kind: 'transition' },
-            playbackOptionsModal: { kind: 'playback-options-modal' },
-            exitConfirmModal: { kind: 'exit-confirm-modal' },
             sleepTimer: { kind: 'sleep-timer' },
         } as unknown as OrchestratorCoordinatorAssemblyInput['overlays'],
         stores: {
@@ -129,7 +128,9 @@ const createInput = (): OrchestratorCoordinatorAssemblyInput => {
             debugOverridesStore: { kind: 'debug-overrides-store' },
             subtitlePreferencesStore: { kind: 'subtitle-preferences-store' },
             epgPreferencesStore: { kind: 'epg-preferences-store' },
-            nowPlayingDisplayStore: { kind: 'now-playing-display-store' },
+            nowPlayingDisplayStore: {
+                readCompactControlsTimeoutSecondsAndClean: jest.fn(() => 3),
+            },
             profileSessionStore: { kind: 'profile-session-store' },
         } as unknown as OrchestratorCoordinatorAssemblyInput['stores'],
         diagnostics: {
@@ -137,6 +138,7 @@ const createInput = (): OrchestratorCoordinatorAssemblyInput => {
             reportRecoverableAsyncFailure: jest.fn(),
         },
         playback: {
+            getWatchingChannelId: jest.fn(() => 'channel-3'),
             state: { kind: 'state' },
             getPlaybackInfoSnapshot: jest.fn(),
             refreshPlaybackInfoSnapshot: jest.fn(),
@@ -164,7 +166,6 @@ const createInput = (): OrchestratorCoordinatorAssemblyInput => {
             toggleEPG: jest.fn(),
             onOverlayVisibilityChange: jest.fn(),
             onChannelTransitionActivityChange: jest.fn(),
-            toggleNowPlayingInfoOverlay: jest.fn(),
         } as unknown as OrchestratorCoordinatorAssemblyInput['actions'],
         errors: {
             handleGlobalError: jest.fn(),
@@ -268,12 +269,15 @@ describe('OrchestratorCoordinatorFeatureAssembly', () => {
                     invalidateFacetSnapshot: expect.any(Function),
                     invalidateSessionData: expect.any(Function),
                     getLibrariesForSetup: expect.any(Function),
+                    scanSetupInventory: expect.any(Function),
+                    retrySetupInventory: expect.any(Function),
                     getSetupPreview: expect.any(Function),
-                    getSetupReview: expect.any(Function),
                     getSetupPlanDiagnostics: expect.any(Function),
                 },
                 buildExecutor: {
-                    createChannelsFromSetup: expect.any(Function),
+                    prepareSetupReview: expect.any(Function),
+                    applySetupReview: expect.any(Function),
+                    cancelPreparedReview: expect.any(Function),
                 },
                 recordStore: recordStoreInstance,
                 completionTracker: expect.objectContaining({
@@ -284,7 +288,8 @@ describe('OrchestratorCoordinatorFeatureAssembly', () => {
             },
         });
 
-        await owners.portOwners.buildExecutor.createChannelsFromSetup({} as never);
+        const review = await owners.portOwners.buildExecutor.prepareSetupReview({} as never);
+        expect(review.preparedId).toBe('review-1');
 
         expect(ChannelSetupPlanningService).toHaveBeenCalledWith({
             plexLibrary: input.modules.plexLibrary,
@@ -339,12 +344,13 @@ describe('OrchestratorCoordinatorFeatureAssembly', () => {
             .mockReturnValueOnce(persistenceFailure)
             .mockReturnValueOnce(durableSuccess);
 
-        expect(owners.portOwners.completionTracker.markSetupComplete('server-1', setupConfig))
+        const expectedScopeKey = JSON.stringify(['user-1', 'server-1']);
+        expect(owners.portOwners.completionTracker.markSetupComplete('server-1', setupConfig, expectedScopeKey))
             .toBe(persistenceFailure);
         expect(recordStoreInstance.markSetupComplete).toHaveBeenNthCalledWith(1, 'server-1', setupConfig);
         expect(coordinatorInstance.clearRerunRequest).not.toHaveBeenCalled();
 
-        expect(owners.portOwners.completionTracker.markSetupComplete('server-1', setupConfig))
+        expect(owners.portOwners.completionTracker.markSetupComplete('server-1', setupConfig, expectedScopeKey))
             .toBe(durableSuccess);
         expect(recordStoreInstance.markSetupComplete).toHaveBeenNthCalledWith(2, 'server-1', setupConfig);
         expect(coordinatorInstance.clearRerunRequest).toHaveBeenCalledTimes(1);
@@ -377,7 +383,6 @@ describe('OrchestratorCoordinatorFeatureAssembly', () => {
             overlays: {
                 playerOsd: { kind: 'player-osd' },
                 miniGuide: { kind: 'mini-guide' },
-                nowPlayingInfo: { resetAutoHideTimer: jest.fn() },
                 channelNumberOverlay: {
                     showDigits: jest.fn(),
                     scheduleHide: jest.fn(),
@@ -397,6 +402,8 @@ describe('OrchestratorCoordinatorFeatureAssembly', () => {
             },
             playback: {
                 stopPlayback: jest.fn(),
+                setPlaybackIntent: jest.fn(() => true),
+                setPlaybackRouteBlocking: jest.fn(),
             },
             schedule: {
                 setLastChannelChangeSource: jest.fn(),
@@ -406,8 +413,7 @@ describe('OrchestratorCoordinatorFeatureAssembly', () => {
                 switchToPreviousChannel: jest.fn(),
                 switchToChannelByNumberWithOutcome: jest.fn(),
                 toggleEPG: jest.fn(),
-                toggleNowPlayingInfoOverlay: jest.fn(),
-            },
+                },
             nowPlaying: {
                 handler: jest.fn(() => reportToast),
             },
@@ -419,14 +425,11 @@ describe('OrchestratorCoordinatorFeatureAssembly', () => {
             channelSetup: {
                 shouldRunChannelSetup: jest.fn(() => false),
             },
-            nowPlayingInfoCoordinator: {
-                handleModalOpen: jest.fn(),
-                handleModalClose: jest.fn(),
-            },
             playerOsdCoordinator: {
                 poke: jest.fn(),
                 toggle: jest.fn(),
                 hide: jest.fn(),
+                getPresentationState: jest.fn().mockReturnValue('audio'),
             },
             miniGuideCoordinator: {
                 show: jest.fn(),
@@ -437,18 +440,6 @@ describe('OrchestratorCoordinatorFeatureAssembly', () => {
             },
             channelTransitionCoordinator: {
                 hide: jest.fn(),
-            },
-            playbackOptionsCoordinator: {
-                prepareModal: jest.fn(() => ({
-                    focusableIds: ['audio-track'],
-                    preferredFocusId: 'audio-track',
-                })),
-                handleModalOpen: jest.fn(),
-                handleModalClose: jest.fn(),
-            },
-            exitConfirmCoordinator: {
-                handleModalOpen: jest.fn(),
-                handleModalClose: jest.fn(),
             },
         };
 
@@ -463,6 +454,12 @@ describe('OrchestratorCoordinatorFeatureAssembly', () => {
         expect(reportToast).toHaveBeenCalledWith({ message: 'Recovered', type: 'warning' });
         expect(navigationDeps.handlers.keyModeRouter).toBe(mockNavigationKeyModeRouterInstance);
         expect(navigationDeps.handlers.screenEffects).toBe(mockNavigationScreenEffectsHandlerInstance);
+        const transportPort = (mockNavigationKeyModeRouter.mock.calls[0]?.[0] as {
+            playback: { isPlayerTransportContext: () => boolean };
+        }).playback;
+        expect(transportPort.isPlayerTransportContext()).toBe(false);
+        deps.playerOsdCoordinator.getPresentationState.mockReturnValue('expanded');
+        expect(transportPort.isPlayerTransportContext()).toBe(true);
         expect(navigationDeps.events.readDebugLoggingEnabled()).toBe(true);
         navigationDeps.events.logDebug?.('navigation.inputNotHandled', { reason: 'modal_open' });
         expect(appendIssueDiagnostic).toHaveBeenCalledWith(
@@ -496,8 +493,7 @@ describe('OrchestratorCoordinatorFeatureAssembly', () => {
                 overlays: {
                     playerOsd: { kind: 'player-osd' },
                     miniGuide: { kind: 'mini-guide' },
-                    nowPlayingInfo: { resetAutoHideTimer: jest.fn() },
-                    channelNumberOverlay: {
+                        channelNumberOverlay: {
                         showDigits: jest.fn(),
                         scheduleHide: jest.fn(),
                     },
@@ -516,6 +512,8 @@ describe('OrchestratorCoordinatorFeatureAssembly', () => {
                 },
                 playback: {
                     stopPlayback: jest.fn(),
+                    setPlaybackIntent: jest.fn(() => true),
+                    setPlaybackRouteBlocking: jest.fn(),
                 },
                 schedule: {
                     setLastChannelChangeSource: jest.fn(),
@@ -525,8 +523,7 @@ describe('OrchestratorCoordinatorFeatureAssembly', () => {
                     switchToPreviousChannel: jest.fn(),
                     switchToChannelByNumberWithOutcome: jest.fn(),
                     toggleEPG: jest.fn(),
-                    toggleNowPlayingInfoOverlay: jest.fn(),
-                },
+                        },
                 nowPlaying: {
                     handler: jest.fn(() => jest.fn()),
                 },
@@ -538,14 +535,11 @@ describe('OrchestratorCoordinatorFeatureAssembly', () => {
                 channelSetup: {
                     shouldRunChannelSetup: jest.fn(() => false),
                 },
-                nowPlayingInfoCoordinator: {
-                    handleModalOpen: jest.fn(),
-                    handleModalClose: jest.fn(),
-                },
-                playerOsdCoordinator: {
+                    playerOsdCoordinator: {
                     poke: jest.fn(),
                     toggle: jest.fn(),
                     hide: jest.fn(),
+                    getPresentationState: jest.fn().mockReturnValue('hidden'),
                 },
                 miniGuideCoordinator: {
                     show: jest.fn(),
@@ -557,19 +551,7 @@ describe('OrchestratorCoordinatorFeatureAssembly', () => {
                 channelTransitionCoordinator: {
                     hide: jest.fn(),
                 },
-                playbackOptionsCoordinator: {
-                    prepareModal: jest.fn(() => ({
-                        focusableIds: [],
-                        preferredFocusId: null,
-                    })),
-                    handleModalOpen: jest.fn(),
-                    handleModalClose: jest.fn(),
-                },
-                exitConfirmCoordinator: {
-                    handleModalOpen: jest.fn(),
-                    handleModalClose: jest.fn(),
-                },
-            };
+                    };
 
             buildNavigationCoordinator(input, deps as never);
 
@@ -618,6 +600,7 @@ describe('OrchestratorCoordinatorFeatureAssembly', () => {
         const overlay = {
             setViewModel: jest.fn(),
             setFocusedIndex: jest.fn(),
+            setActions: jest.fn(),
             show: jest.fn(),
             hide: jest.fn(),
             isVisible: jest.fn(() => true),
@@ -688,9 +671,9 @@ describe('OrchestratorCoordinatorFeatureAssembly', () => {
         } as OrchestratorCoordinatorAssemblyInput['config'];
 
         const coordinator = buildPlayerOsdCoordinator(input, () => ({
-            focusableIds: [],
-            preferredFocusId: null,
-        }));
+            title: 'Audio',
+            options: [],
+        }), () => null);
         const playerOsdDeps = (
             coordinator as unknown as {
                 deps: {

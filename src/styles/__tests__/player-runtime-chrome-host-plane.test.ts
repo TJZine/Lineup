@@ -10,10 +10,13 @@ describe('player runtime chrome host plane', () => {
         const block = blockFor(css, '.runtime-chrome-host');
 
         expect(declarationValue(block, 'position')).toBe('absolute');
-        expect(declarationValue(block, 'inset')).toBe('0');
+        for (const edge of ['top', 'right', 'bottom', 'left']) {
+            expect(declarationValue(block, edge)).toBe('0');
+        }
         expect(declarationValue(block, 'pointer-events')).toBe('none');
         expect(block).not.toContain('z-index');
         expect(block).not.toContain('display');
+        expect(block).not.toMatch(/\b(?:color|background|font|padding|margin)\s*:/);
     });
 
     it('keeps the host stylesheet in the composed shell bundle', () => {

@@ -352,6 +352,7 @@ describe('EPGScheduleRefreshRuntime', () => {
             blockSize: 2,
             phaseSeed: 3,
             startTimeAnchor: 10,
+            scheduleAnchorMode: 'fixed',
             contentFilters: [{ field: 'year', operator: 'gte', value: 2020 }],
             sortOrder: 'title_asc',
             skipIntros: false,
@@ -372,6 +373,12 @@ describe('EPGScheduleRefreshRuntime', () => {
         };
 
         expect(isMatchingEpgChannelSnapshot(base, reorderedSource)).toBe(true);
+        expect(isMatchingEpgChannelSnapshot(base, { ...base, scheduleAnchorMode: 'daily' })).toBe(false);
+        const daily = { ...base, scheduleAnchorMode: 'daily' as const };
+        const legacyDaily: ChannelConfig = { ...daily };
+        delete legacyDaily.scheduleAnchorMode;
+        expect(isMatchingEpgChannelSnapshot(daily, legacyDaily)).toBe(true);
+        expect(isMatchingEpgChannelSnapshot(daily, { ...daily, startTimeAnchor: 11 })).toBe(true);
 
         const variants: Array<[string, (channel: ChannelConfig) => ChannelConfig]> = [
             ['contentSource', (channel: ChannelConfig): ChannelConfig => ({

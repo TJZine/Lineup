@@ -1,6 +1,5 @@
 import type { AppError, IAppLifecycle } from '../../modules/lifecycle';
 import { AppErrorCode } from '../../types/app-errors';
-import type { ChannelSwitchOutcome } from '../../types/channelSwitch';
 import type { INavigationManager } from '../../modules/navigation';
 import {
     type IPlexAuth,
@@ -21,6 +20,7 @@ import type { ModuleStatus } from '../orchestrator/contracts/OrchestratorTypes';
 import { throwIfStartupAborted } from './InitializationAbort';
 import { toRecoverableModuleStatusError } from './RecoverableModuleStatusError';
 import type { StartupSignalOptions } from './InitializationAbort';
+import { StartupRestoreBlockedError } from './InitializationRestoreProjection';
 
 type UpdateModuleStatus = (
     id: string,
@@ -34,7 +34,7 @@ type AuthValidationPlexAuth = Pick<
     'validateStoredCredentials' | 'getHomeUsers'
 >;
 
-type AuthValidationNavigation = Pick<INavigationManager, 'getCurrentScreen' | 'goTo'>;
+type AuthValidationNavigation = Pick<INavigationManager, 'getCurrentScreen' | 'goTo' | 'resetToAuth'>;
 
 type AuthValidationLifecycle = Pick<IAppLifecycle, 'setPhase'>;
 
@@ -67,10 +67,8 @@ export interface ServerConnectionPolicyInputs extends StartupSignalOptions {
 
 export interface PostReadyRoutingInputs extends StartupSignalOptions {
     navigation: Pick<INavigationManager, 'replaceScreen'>;
-    channelManager: Pick<IChannelManager, 'getCurrentChannel' | 'getAllChannels'> | null;
+    channelManager: Pick<IChannelManager, 'getLastLoadOutcome'> | null;
     shouldRunAudioSetup: () => boolean;
-    shouldRunChannelSetup: () => boolean;
-    switchToChannel: (id: string) => Promise<ChannelSwitchOutcome>;
     openServerSelect: () => void;
 }
 
@@ -113,73 +111,31 @@ function createSavedServerRestoreError(restoreResult: PlexSavedServerRestoreResu
 
 export async function applyPostReadyRoutingPolicy(inputs: PostReadyRoutingInputs): Promise<void> {
     throwIfStartupAborted(inputs.signal);
+    const load = inputs.channelManager?.getLastLoadOutcome();
+    if (!load || load.kind === 'unloaded' || load.kind === 'read-failed'
+        || load.kind === 'unreadable' || load.kind === 'unsupported') {
+        throwIfStartupAborted(inputs.signal);
+        if (load) throw new StartupRestoreBlockedError(load);
+        inputs.openServerSelect();
+        return;
+    }
     const shouldRunAudioSetup = inputs.shouldRunAudioSetup();
-    const shouldRunSetup = inputs.shouldRunChannelSetup();
     throwIfStartupAborted(inputs.signal);
 
-    if (shouldRunAudioSetup && shouldRunSetup) {
+    if (shouldRunAudioSetup) {
         throwIfStartupAborted(inputs.signal);
         inputs.navigation.replaceScreen('audio-setup');
         return;
     }
 
-    if (shouldRunSetup) {
+    if (load.kind === 'absent' || load.kind === 'valid-empty') {
         throwIfStartupAborted(inputs.signal);
         inputs.navigation.replaceScreen('channel-setup');
         return;
     }
 
-    if (!inputs.channelManager) {
-        throwIfStartupAborted(inputs.signal);
-        inputs.openServerSelect();
-        return;
-    }
-
-    let channelToPlay = inputs.channelManager.getCurrentChannel();
-
-    if (!channelToPlay) {
-        const allChannels = inputs.channelManager.getAllChannels();
-        const firstChannel = allChannels[0];
-        if (firstChannel) {
-            channelToPlay = firstChannel;
-        }
-    }
-
-    if (channelToPlay) {
-        throwIfStartupAborted(inputs.signal);
-        const outcome = await inputs.switchToChannel(channelToPlay.id);
-        throwIfStartupAborted(inputs.signal);
-        switch (outcome.kind) {
-            case 'switched':
-                inputs.navigation.replaceScreen('player');
-                return;
-            case 'aborted':
-                throw new Error(`Initial channel switch aborted for ${channelToPlay.id}.`);
-            case 'failed': {
-                const reason = outcome.reason;
-                switch (reason) {
-                    case 'missing_channel':
-                        inputs.navigation.replaceScreen('channel-setup');
-                        return;
-                    case 'missing_dependencies':
-                    case 'content_unavailable':
-                    case 'playback_start_failed':
-                        throw new Error(`Initial channel switch failed for ${channelToPlay.id}: ${reason}.`);
-                    default:
-                        return assertUnhandledChannelSwitchOutcome(reason);
-                }
-            }
-            default:
-                return assertUnhandledChannelSwitchOutcome(outcome);
-        }
-    }
-
     throwIfStartupAborted(inputs.signal);
-    inputs.openServerSelect();
-}
-
-function assertUnhandledChannelSwitchOutcome(value: never): never {
-    throw new Error(`Unhandled initial channel switch outcome: ${String(value)}`);
+    inputs.navigation.replaceScreen('guide');
 }
 
 function assertAuthCurrent(
@@ -219,7 +175,7 @@ function routeToPendingAuth(
     assertAuthCurrent(inputs, guard);
     inputs.handlers.registerAuthResume();
     assertAuthCurrent(inputs, guard);
-    inputs.navigation.goTo('auth');
+    inputs.navigation.resetToAuth();
     return { kind: 'stop' };
 }
 

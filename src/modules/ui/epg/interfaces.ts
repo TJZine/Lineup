@@ -1,4 +1,3 @@
-import type { EpgLayoutMode } from '../../settings/EpgPreferencesStore';
 import type {
     ScheduledProgram,
     ScheduleWindow,
@@ -27,9 +26,9 @@ export interface IEPGComponent {
 
     loadChannels(channels: ChannelConfig[]): void;
 
-    setLayoutMode(mode: EpgLayoutMode): void;
-
     setVisibleHours(hours: number): void;
+
+    setSourceLabelsEnabled(enabled: boolean): void;
 
     setNowWatchingBannerEnabled(enabled: boolean): void;
 
@@ -78,6 +77,8 @@ export interface IEPGComponent {
 
     handleBack(): boolean;
 
+    openLineupMenu(): void;
+
     getState(): EPGState;
 
     getFocusedProgram(): ScheduledProgram | null;
@@ -101,10 +102,6 @@ export interface IEPGReadinessPort {
 }
 
 export interface IEPGInfoPanel {
-    setPresentationMode(mode: EpgLayoutMode): void;
-
-    getPresentationMode(): EpgLayoutMode;
-
     show(program: ScheduledProgram): void;
 
     hide(): void;

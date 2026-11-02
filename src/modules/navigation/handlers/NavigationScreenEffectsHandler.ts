@@ -6,7 +6,6 @@ import type {
     NavigationChannelSwitchingPort,
     NavigationEpgPort,
     NavigationMiniGuidePort,
-    NavigationNowPlayingInfoPort,
     NavigationPlaybackPort,
 } from '../contracts/NavigationFeaturePorts';
 import type { INavigationManager, Screen } from '../contracts/interfaces';
@@ -23,7 +22,6 @@ export interface NavigationScreenEffectsPort {
     closeEpg: () => void;
     playback: NavigationPlaybackPort;
     miniGuide: NavigationMiniGuidePort;
-    nowPlayingInfo: NavigationNowPlayingInfoPort;
     channelSwitching: NavigationChannelSwitchingPort;
     uiGuards: NavigationUiGuardsPort;
     readKeepPlayingInSettings: () => boolean;
@@ -40,7 +38,6 @@ export class NavigationScreenEffectsHandler implements NavigationScreenEffectsRu
         this.repeats.stopEpgRepeat('screenChange');
         this.repeats.stopMiniGuideRepeat('screenChange');
         const epg = this.deps.epg;
-        const navigation = this.deps.navigation;
 
         // Hide EPG when leaving guide.
         if (from === 'guide' && to !== 'guide') {
@@ -52,11 +49,7 @@ export class NavigationScreenEffectsHandler implements NavigationScreenEffectsRu
             return;
         }
 
-        // Close Now Playing Info overlay when leaving player.
         if (from === 'player' && to !== 'player') {
-            if (navigation.isModalOpen(this.deps.nowPlayingInfo.modalId)) {
-                navigation.closeModal(this.deps.nowPlayingInfo.modalId);
-            }
             this.deps.miniGuide.requestMiniGuideIntent({ type: 'hide' });
             this.deps.playback.requestPlayerOsdIntent({ type: 'hide' });
             this.deps.uiGuards.hideChannelTransition();
@@ -75,15 +68,18 @@ export class NavigationScreenEffectsHandler implements NavigationScreenEffectsRu
             this.deps.closeEpg();
         }
 
-        // Pause playback when leaving player for settings/channel-edit.
-        if (from === 'player' && (to === 'settings' || to === 'channel-edit')) {
+        // The route block belongs to the destination lifetime, including Guide PiP.
+        const authoringOrSettings = (screen: Screen): boolean =>
+            screen === 'settings' || screen === 'channels' || screen === 'channel-studio';
+        if (authoringOrSettings(to) && !authoringOrSettings(from)) {
             if (!this.deps.readKeepPlayingInSettings()) {
                 this.deps.playback.pauseForScreenChange();
             }
         }
 
-        // Resume playback when returning to player.
-        if (to === 'player' && from !== 'player') {
+        // Intermediate setup, account, and server routes must not uncover retained playback.
+        // The route hold is independent of lifecycle holds and explicit playback intent.
+        if ((to === 'guide' || to === 'player') && from !== to) {
             const resumeRequest = this.deps.playback.resumeForScreenChange();
             if (resumeRequest) {
                 this.fireAndReport(

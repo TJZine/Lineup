@@ -28,6 +28,19 @@ import {
 import { PlaybackStartController, type PlaybackStartControllerDeps } from './PlaybackStartController';
 import type { PriorityOneAssemblyInput } from './PriorityOneAssemblyInput';
 
+const managerScopeIds = new WeakMap<object, number>();
+let nextManagerScopeId = 0;
+
+function getManagerScopeKey(manager: PriorityOneAssemblyInput['surfaces']['channelManager']): string {
+    if (!manager) return 'unavailable';
+    let id = managerScopeIds.get(manager);
+    if (id === undefined) {
+        id = ++nextManagerScopeId;
+        managerScopeIds.set(manager, id);
+    }
+    return `manager:${id}:${manager.getStructuralBase().generation}`;
+}
+
 function getCurrentChannelSnapshot(
     surfaces: PriorityOneAssemblyInput['surfaces']
 ): { number: number; name: string } | null {
@@ -44,15 +57,10 @@ function markProgramStarting(
 ): {
     programAtStart: ScheduledProgram;
     programIdentityAtStart: ScheduledProgramIdentity | null;
-    shouldResetAutoShowInfoBannerOnAbort: boolean;
 } {
     playbackState.setCurrentProgramForPlayback(program);
     const schedulerState = scheduler.getState();
-    const shouldResetAutoShowInfoBannerOnAbort =
-        playbackState.getPendingNowPlayingChannelId() !== null;
-
-    if (shouldResetAutoShowInfoBannerOnAbort) {
-        playbackState.setShouldAutoShowInfoBannerOnNextPlay(true);
+    if (playbackState.getPendingNowPlayingChannelId() !== null) {
         playbackState.setPendingNowPlayingChannelId(null);
     }
 
@@ -61,7 +69,6 @@ function markProgramStarting(
         programIdentityAtStart: schedulerState.isActive
             ? buildScheduledProgramIdentity(schedulerState.channelId, program)
             : null,
-        shouldResetAutoShowInfoBannerOnAbort,
     };
 }
 
@@ -90,10 +97,8 @@ function createOverlayRuntimePolicyDeps(
     input: PriorityOneAssemblyInput
 ): OverlayRuntimePolicyControllerDeps {
     return {
-        nowPlayingModalId: input.nowPlayingModalId,
         hasChannelBadgeOverlay: (): boolean => input.surfaces.channelBadgeOverlay !== null,
         getPlayerOsdVisible: (): boolean => input.surfaces.playerOsd?.isVisible() ?? false,
-        getNowPlayingInfoVisible: (): boolean => input.surfaces.nowPlayingInfo?.isVisible() ?? false,
         getEpgVisible: (): boolean => input.surfaces.epg?.isVisible() ?? false,
         isChannelTransitionActive: (): boolean =>
             input.surfaces.channelTransitionActivity?.isActive() ?? false,
@@ -105,25 +110,14 @@ function createOverlayRuntimePolicyDeps(
         hideChannelBadge: (): void => {
             input.surfaces.channelBadgeOverlay?.hide();
         },
-        hasNavigation: (): boolean => input.surfaces.navigation !== null,
-        hasNowPlayingInfoOverlay: (): boolean => input.surfaces.nowPlayingInfo !== null,
-        getCurrentScreen: (): string | null => input.surfaces.navigation?.getCurrentScreen() ?? null,
-        hasCurrentProgramForPlayback: (): boolean =>
-            input.playback.playbackState.getCurrentProgramForPlayback() !== null,
-        isModalOpen: (modalId?: string): boolean =>
-            input.surfaces.navigation?.isModalOpen(modalId) ?? false,
-        openModal: (modalId: string): void => {
-            input.surfaces.navigation?.openModal(modalId);
-        },
-        closeModal: (modalId: string): void => {
-            input.surfaces.navigation?.closeModal(modalId);
-        },
     };
 }
 
-function createPlaybackStartDeps(input: PriorityOneAssemblyInput): PlaybackStartControllerDeps {
+function createPlaybackStartDeps(input: PriorityOneAssemblyInput, runtime: PlaybackRuntimeController): PlaybackStartControllerDeps {
     return {
         getVideoPlayer: (): IVideoPlayer | null => input.modules.videoPlayer,
+        captureAdmission: (): number | null => runtime.captureAdmission(),
+        isAdmissionCurrent: (generation): boolean => runtime.isAdmissionCurrent(generation),
         resolveStreamForProgram: (program): Promise<PreparedPlaybackStream> =>
             input.playback.playbackRecovery.resolveStreamForProgram(program),
         discardPreparedStream: (prepared): Promise<void> =>
@@ -161,6 +155,7 @@ function createPlaybackStartDeps(input: PriorityOneAssemblyInput): PlaybackStart
         commitPreparedStream: (prepared): void => {
             input.playback.playbackState.setCurrentStreamDecision(prepared.decision);
             input.playback.playbackState.setCurrentStreamDescriptor(prepared.descriptor);
+            runtime.acceptCommittedSession(prepared.descriptor);
         },
         handleStreamResolved: (prepared): void => {
             input.uiRuntime.onStreamResolved(prepared.descriptor);
@@ -172,19 +167,36 @@ function createPlaybackStartDeps(input: PriorityOneAssemblyInput): PlaybackStart
                 error
             );
         },
-        clearAutoShowInfoBannerAfterAbortedStart: (): void => {
-            input.playback.playbackState.setShouldAutoShowInfoBannerOnNextPlay(false);
-        },
     };
 }
 
-function createPlaybackRuntimeDeps(input: PriorityOneAssemblyInput): PlaybackRuntimeControllerDeps {
+function createPlaybackRuntimeDeps(
+    input: PriorityOneAssemblyInput,
+    requestCurrentProgramStart: PlaybackRuntimeControllerDeps['requestCurrentProgramStart']
+): PlaybackRuntimeControllerDeps {
     return {
         playback: input.playback,
         schedulerRuntime: input.schedulerRuntime,
         playerEvents: input.playerEvents,
         uiRuntime: input.uiRuntime,
         saveLifecycleState: (): Promise<void> => input.modules.lifecycle.saveState(),
+        reconcileSleepExpiration: input.playback.reconcileSleepExpiration,
+        stopPlayback: input.playback.stopPlayback,
+        hasSelectedChannel: (): boolean => {
+            const state = input.modules.scheduler.getState();
+            return state.isActive && state.currentProgram !== null;
+        },
+        getScheduledChannelId: (): string | null => input.modules.scheduler.getState().channelId,
+        getScheduledProgramIdentity: (): ScheduledProgramIdentity | null =>
+            buildScheduledProgramIdentityFromState(input.modules.scheduler.getState()),
+        getCommittedDescriptor: () => input.playback.playbackState.getCurrentStreamDescriptor(),
+        getPlayerStatus: () => input.modules.videoPlayer.getState().status,
+        getCurrentDescriptor: (): object | null => input.modules.videoPlayer.getCurrentDescriptor?.() ?? null,
+        getDirectoryScopeKey: (): string => getManagerScopeKey(input.surfaces.channelManager),
+        unloadCurrentChannel: (): void => input.modules.scheduler.unloadChannel(),
+        cancelChannelReplacement: (): void => input.modules.scheduler.cancelChannelReplacement(),
+        hasPendingChannelReplacement: (): boolean => input.modules.scheduler.hasPendingChannelReplacement(),
+        requestCurrentProgramStart,
         reportRecoverableAsyncFailure: input.events.reportRecoverableAsyncFailure,
     };
 }
@@ -216,8 +228,12 @@ function createEventBinderDeps(
         wireEpgCoordinatorEvents: (): Array<() => void> =>
             input.events.wireEpgCoordinatorEvents(),
         handleProgramStartTracked: (program): ReturnType<PlaybackStartController['handleProgramStart']> => {
+            const schedulerState = input.modules.scheduler.getState();
+            const identity = schedulerState.isActive
+                ? buildScheduledProgramIdentity(schedulerState.channelId, program)
+                : null;
             const promise = playbackStartController.handleProgramStart(program);
-            return playbackRuntimeController.trackProgramStart(promise);
+            return playbackRuntimeController.trackProgramStart(promise, identity);
         },
         handleScheduleDayRollover: (): Promise<void> =>
             input.events.handleScheduleDayRollover(),
@@ -265,15 +281,17 @@ export function createOverlayRuntimePolicyController(
 }
 
 export function createPlaybackStartController(
-    input: PriorityOneAssemblyInput
+    input: PriorityOneAssemblyInput,
+    runtime: PlaybackRuntimeController
 ): PlaybackStartController {
-    return new PlaybackStartController(createPlaybackStartDeps(input));
+    return new PlaybackStartController(createPlaybackStartDeps(input, runtime));
 }
 
 export function createPlaybackRuntimeController(
-    input: PriorityOneAssemblyInput
+    input: PriorityOneAssemblyInput,
+    requestCurrentProgramStart: PlaybackRuntimeControllerDeps['requestCurrentProgramStart']
 ): PlaybackRuntimeController {
-    return new PlaybackRuntimeController(createPlaybackRuntimeDeps(input));
+    return new PlaybackRuntimeController(createPlaybackRuntimeDeps(input, requestCurrentProgramStart));
 }
 
 export function createProfileSwitchCleanupController(
