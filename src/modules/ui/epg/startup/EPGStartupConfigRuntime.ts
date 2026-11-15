@@ -2,8 +2,9 @@ import type { IPlexLibrary } from '../../../plex/library';
 import type { IChannelManager } from '../../../scheduler/channel-manager';
 import type { IChannelScheduler } from '../../../scheduler/scheduler';
 import type { IVideoPlayer } from '../../../player';
-import type { EpgLayoutMode } from '../../../settings/EpgPreferencesStore';
 import { APP_SHELL_CONTAINER_IDS } from '../../common/appShellContainerIds';
+import type { IDisposable } from '../../../../utils/interfaces';
+import type { EpgPreferencesStore } from '../../../settings/EpgPreferencesStore';
 import type { IEPGDebugRuntime } from '../debug/EPGDebugRuntime';
 import { toEpgItemDetails } from '../model/adapters';
 import type { EPGConfig } from '../types';
@@ -21,7 +22,8 @@ export interface EPGStartupConfigInputs {
     channelManager: IChannelManager | null;
     scheduler: IChannelScheduler | null;
     buildPlexResourceUrl: (pathOrUrl: string | null) => string | null;
-    readEpgLayoutMode: () => EpgLayoutMode;
+    hasUsableRetainedSession: () => boolean;
+    epgPreferencesStore: EpgPreferencesStore;
     readShowNowWatchingBanner: () => boolean;
     debugRuntime: IEPGDebugRuntime | null;
 }
@@ -32,7 +34,8 @@ export interface EPGStartupConfigRuntimeDependencies {
     channelManager: IChannelManager | null;
     scheduler: IChannelScheduler | null;
     buildPlexResourceUrl: (pathOrUrl: string | null) => string | null;
-    previousOnLayoutModeChange: ((mode: EpgLayoutMode) => void) | null;
+    hasUsableRetainedSession: () => boolean;
+    previousOnPictureOperation: ((operation: 'guide-pip' | 'fullscreen') => void) | null;
 }
 
 export class EPGStartupConfigRuntime {
@@ -70,8 +73,23 @@ export class EPGStartupConfigRuntime {
         return this.deps.buildPlexResourceUrl(pathOrUrl);
     }
 
-    public isVideoPlaying(): boolean {
-        return this.deps.videoPlayer?.isPlaying?.() ?? false;
+    public getPictureStatus(): 'untuned' | 'playing' | 'paused' | 'buffering' | 'seeking' | 'error' {
+        const player = this.deps.videoPlayer;
+        if (!player) return 'untuned';
+        const state = player.getState();
+        let status: 'untuned' | 'playing' | 'paused' | 'buffering' | 'seeking' | 'error';
+        if (state.status === 'error') status = 'error';
+        else if (!player.getCurrentDescriptor?.() || !this.deps.hasUsableRetainedSession()) status = 'untuned';
+        else status = state.status === 'playing' || state.status === 'paused' ||
+            state.status === 'buffering' || state.status === 'seeking'
+            ? state.status : 'untuned';
+        const videoContainer = document.getElementById(APP_SHELL_CONTAINER_IDS.VIDEO);
+        if (videoContainer) videoContainer.dataset.guidePictureStatus = status;
+        return status;
+    }
+
+    public subscribePictureStatus(listener: () => void): IDisposable {
+        return this.deps.videoPlayer?.on('stateChange', listener) ?? { dispose(): void {} };
     }
 
     public getCurrentChannelInfo(): EpgCurrentChannelInfo {
@@ -108,20 +126,21 @@ export class EPGStartupConfigRuntime {
         };
     }
 
-    public onLayoutModeChange(mode: EpgLayoutMode): void {
-        this.deps.previousOnLayoutModeChange?.(mode);
+    public onPictureOperation(operation: 'guide-pip' | 'fullscreen'): void {
+        this.deps.previousOnPictureOperation?.(operation);
 
         const videoContainer = document.getElementById(APP_SHELL_CONTAINER_IDS.VIDEO);
         if (!videoContainer) {
             return;
         }
 
-        if (mode === 'classic') {
+        if (operation === 'guide-pip') {
             videoContainer.classList.add(CLASSIC_EPG_PIP_CLASS);
             return;
         }
 
         videoContainer.classList.remove(CLASSIC_EPG_PIP_CLASS);
+        delete videoContainer.dataset.guidePictureStatus;
     }
 }
 
@@ -132,18 +151,20 @@ export function buildEPGStartupConfig(inputs: EPGStartupConfigInputs): EPGConfig
         channelManager: inputs.channelManager,
         scheduler: inputs.scheduler,
         buildPlexResourceUrl: inputs.buildPlexResourceUrl,
-        previousOnLayoutModeChange: inputs.epgConfig.onLayoutModeChange ?? null,
+        hasUsableRetainedSession: inputs.hasUsableRetainedSession,
+        previousOnPictureOperation: inputs.epgConfig.onPictureOperation ?? null,
     });
 
     return {
         ...inputs.epgConfig,
-        layoutMode: inputs.readEpgLayoutMode(),
         showNowWatchingBanner: inputs.readShowNowWatchingBanner(),
         debugRuntime: inputs.debugRuntime,
         fetchItemDetails: runtime.fetchItemDetails.bind(runtime),
         resolveThumbUrl: runtime.resolveThumbUrl.bind(runtime),
-        isVideoPlaying: runtime.isVideoPlaying.bind(runtime),
+        getPictureStatus: runtime.getPictureStatus.bind(runtime),
+        subscribePictureStatus: runtime.subscribePictureStatus.bind(runtime),
         getCurrentChannelInfo: runtime.getCurrentChannelInfo.bind(runtime),
-        onLayoutModeChange: runtime.onLayoutModeChange.bind(runtime),
+        onPictureOperation: runtime.onPictureOperation.bind(runtime),
+        onGuideHoursChange: (hours): boolean => inputs.epgPreferencesStore.writeGuideHours(hours).ok,
     };
 }

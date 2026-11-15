@@ -2,7 +2,6 @@ import type { PlexServer } from '../../plex/discovery/types';
 import type { ServerSelectScreenNavigationPort } from '../../navigation';
 import { buildDeterministicButtonIds } from '../../../utils/domIds';
 import { createScreenShell } from '../common/ScreenShell';
-import { createLineupBrandGlyph } from '../common/brandGlyph';
 import type { ScreenStatus, ScreenTone } from '../types/screen-shell';
 import { renderServerSelectList } from './ServerSelectListView';
 import {
@@ -48,17 +47,12 @@ export class ServerSelectScreen implements ServerSelectRuntimeScreenAdapter {
     constructor(container: HTMLElement, ports: ServerSelectScreenPorts) {
         this._container = container;
         this._ports = ports;
-        this._container.classList.add('screen');
-
-        const heroGlyph = createLineupBrandGlyph({
-            variant: 'color',
-            className: 'server-select-glyph',
-        });
+        this._container.classList.add('screen', 'onboarding-screen', 'server-selection-screen');
 
         const shell = createScreenShell(this._container, {
+            variant: 'onboarding',
             title: 'Select Plex Server',
             subtitle: 'Choose a server to continue startup.',
-            heroSlot: heroGlyph,
             status: {
                 title: 'Ready to discover servers.',
                 tone: 'neutral',
@@ -152,7 +146,7 @@ export class ServerSelectScreen implements ServerSelectRuntimeScreenAdapter {
 
         const list = document.createElement('div');
         list.className = 'server-list';
-        shell.panelEl.appendChild(list);
+        shell.contentEl.appendChild(list);
         this._listEl = list;
 
         this._runtime = new ServerSelectRuntimeCoordinator({

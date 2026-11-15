@@ -11,12 +11,12 @@ export interface NavigationEpgPort {
     handleSelect: () => boolean;
     handleBack: () => boolean;
     focusNow: () => void;
+    openLineupMenu: () => void;
 }
 
 export type NavigationPlayerOsdIntent =
     | { type: 'poke'; reason: 'play' | 'pause' | 'seek' }
-    | { type: 'toggle' }
-    | { type: 'hide' };
+    | { type: 'reveal' | 'down' | 'toggleExpanded' | 'back' | 'hide' };
 
 export interface NavigationPlaybackPort {
     isAuthenticatedForServerSelection: () => boolean;
@@ -28,7 +28,8 @@ export interface NavigationPlaybackPort {
     stopPlayback: () => void;
     getSeekIncrementMs: () => number;
     isPlayerOsdVisible: () => boolean;
-    requestPlayerOsdIntent: (intent: NavigationPlayerOsdIntent) => void;
+    isPlayerTransportContext: () => boolean;
+    requestPlayerOsdIntent: (intent: NavigationPlayerOsdIntent) => boolean;
 }
 
 export type NavigationMiniGuideIntent =
@@ -41,32 +42,6 @@ export type NavigationMiniGuideIntent =
 export interface NavigationMiniGuidePort {
     isVisible: () => boolean;
     requestMiniGuideIntent: (intent: NavigationMiniGuideIntent) => boolean;
-}
-
-export interface NavigationNowPlayingInfoPort {
-    modalId: string;
-    isModalOpen: () => boolean;
-    resetAutoHideTimer: () => void;
-    toggleOverlay: () => void;
-    showOverlay: () => void;
-    hideOverlay: () => void;
-}
-
-export interface NavigationModalsPort {
-    playbackOptions: {
-        modalId: string;
-        prepare: (
-            preferredSection?: NavigationPlaybackOptionsSectionId
-        ) => { focusableIds: string[]; preferredFocusId: string | null };
-        show: () => void;
-        hide: () => void;
-    };
-    exitConfirm: {
-        modalId: string;
-        prepare: () => { focusableIds: string[] };
-        show: () => void;
-        hide: () => void;
-    };
 }
 
 export interface NavigationChannelSwitchingPort {

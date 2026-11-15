@@ -101,3 +101,36 @@
         transform: none;
     }
 }
+
+#channel-setup-container .setup-grid-2col {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+}
+#channel-setup-container .setup-toggle.library-toggle {
+    grid-template-columns: 40px minmax(0, 1fr) auto;
+    min-height: 84px;
+    border: 0;
+    border-bottom: 1px solid var(--color-border-subtle);
+    border-left: 3px solid transparent;
+    border-radius: 0;
+    padding: 16px 24px;
+    background: transparent;
+}
+#channel-setup-container .setup-toggle.library-toggle.selected {
+    transform: none;
+    box-shadow: none;
+    border-left-color: var(--onboarding-accent);
+    background: var(--onboarding-accent-alpha-20);
+}
+#channel-setup-container .setup-toggle.library-toggle .setup-toggle-label {
+    overflow-wrap: break-word;
+    overflow-wrap: anywhere;
+}
+#channel-setup-container .setup-toggle.library-toggle .setup-toggle-meta {
+    font-variant-numeric: tabular-nums;
+}
+
+/* Flex gap fallback for engines that support grid gap but not flex gap. */
+.no-flex-gap .setup-bulk-actions > :not([hidden]) ~ :not([hidden]) {
+  margin-left: var(--channel-setup-space-10);
+}

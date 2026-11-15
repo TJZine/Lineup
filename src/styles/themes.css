@@ -1,285 +1,427 @@
 /**
- * Theme overrides for Slate & Pine, Swiss Minimal, DirecTV Classic, Glass, and Ember & Steel.
- */
-
-/* Notes:
- * - Use fallback-first progressive enhancement for alpha colors: legacy rgba() then modern rgb(... / ...).
- * - Keep `--focus-color-rgb` comma-separated (used by rgba(var(--focus-color-rgb), a)).
- * - Keep `--color-primary-rgb` space-separated (used by rgb(var(--color-primary-rgb) / a)).
- * - Keep `--color-primary-rgb-legacy` comma-separated (used by rgba(var(--color-primary-rgb-legacy), a)).
- * - Keep `--scrim-tint-rgb` space-separated (used by rgb(var(--scrim-tint-rgb) / a)).
- * - Keep `--scrim-tint-rgb-legacy` comma-separated (used by rgba(var(--scrim-tint-rgb-legacy), a)).
+ * Shared theme palettes translated from LineupDesktop at 54dd4667.
+ *
+ * `--focus-color-rgb` and `--color-primary-rgb-legacy` stay comma-separated for
+ * rgba(); their non-legacy companions stay space-separated for rgb() slash-alpha.
  */
 
 :root {
-  --runtime-overlay-tint-rgb: var(--scrim-tint-rgb, 6 8 10);
-  --runtime-overlay-tint-rgb-legacy: var(--scrim-tint-rgb-legacy, 6, 8, 10);
-  --runtime-overlay-start-alpha: 30%;
-  --runtime-overlay-start-alpha-legacy: 0.30;
-  --runtime-overlay-end-alpha: 40%;
-  --runtime-overlay-end-alpha-legacy: 0.40;
-}
-
-.theme-slate-pine {
-  --focus-color: #809a79;
-  --focus-color-rgb: 128, 154, 121;
-  --color-primary: #809a79;
-  --color-primary-rgb: 128 154 121;
-  --color-primary-rgb-legacy: 128, 154, 121;
-  --color-primary-dark: #607a58;
-  --color-primary-light: #a4bea0;
-  --color-bg-deep: #161917;
-  --color-bg-surface: rgba(26, 29, 27, 0.92);
-  --color-bg-surface: rgb(26 29 27 / 92%);
-  --color-bg-elevated: rgba(34, 38, 35, 0.94);
-  --color-bg-elevated: rgb(34 38 35 / 94%);
-  --color-bg-overlay: rgba(18, 20, 19, 0.86);
-  --color-bg-overlay: rgb(18 20 19 / 86%);
-  --panel-surface: rgba(26, 29, 27, 0.92);
-  --panel-surface: rgb(26 29 27 / 92%);
-  --panel-surface-2: rgba(34, 38, 35, 0.94);
-  --panel-surface-2: rgb(34 38 35 / 94%);
-  --panel-border: 1px solid rgba(255, 255, 255, 0.08);
-  --panel-border: 1px solid rgb(255 255 255 / 8%);
-  --panel-radius: 8px;
-  --panel-inner-glow: linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent);
-  --panel-inner-glow: linear-gradient(180deg, rgb(255 255 255 / 2.5%), transparent);
-  --transition-normal: 200ms ease;
-  --epg-info-panel-fade-to: var(--panel-surface-2);
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.40);
-  --shadow-md: 0 4px 10px rgba(0, 0, 0, 0.50);
-  --shadow-lg: 0 10px 28px rgba(0, 0, 0, 0.60);
-  --scrim-tint-rgb: 22 24 22;
-  --scrim-tint-rgb-legacy: 22, 24, 22;
-  --runtime-overlay-start-alpha: 34%;
-  --runtime-overlay-start-alpha-legacy: 0.34;
-  --runtime-overlay-end-alpha: 46%;
-  --runtime-overlay-end-alpha-legacy: 0.46;
-}
-
-.theme-swiss {
-  --focus-color: #34d399;
-  --focus-color-rgb: 52, 211, 153;
-  --color-primary: #34d399;
-  --color-primary-rgb: 52 211 153;
-  --color-primary-rgb-legacy: 52, 211, 153;
-  --color-primary-dark: #10b981;
-  --color-primary-light: #6ee7b7;
-  --color-bg-deep: #020202;
-  --color-bg-surface: rgba(10, 10, 10, 0.95);
-  --color-bg-surface: rgb(10 10 10 / 95%);
-  --color-bg-elevated: rgba(18, 18, 18, 0.98);
-  --color-bg-elevated: rgb(18 18 18 / 98%);
-  --color-bg-overlay: rgba(0, 0, 0, 0.90);
-  --color-bg-overlay: rgb(0 0 0 / 90%);
-  --panel-surface: rgba(10, 10, 10, 0.95);
-  --panel-surface: rgb(10 10 10 / 95%);
-  --panel-surface-2: rgba(18, 18, 18, 0.98);
-  --panel-surface-2: rgb(18 18 18 / 98%);
-  --panel-border: 1px solid rgba(255, 255, 255, 0.04);
-  --panel-border: 1px solid rgb(255 255 255 / 4%);
-  --panel-radius: 0px;
-  --transition-normal: 150ms ease-out;
-  --epg-info-panel-fade-to: var(--panel-surface-2);
-  --shadow-sm: none;
-  --shadow-md: none;
-  --shadow-lg: none;
-  --panel-inner-glow: none;
-  --scrim-tint-rgb: 0 0 0;
-  --scrim-tint-rgb-legacy: 0, 0, 0;
-  --runtime-overlay-start-alpha: 34%;
-  --runtime-overlay-start-alpha-legacy: 0.34;
-  --runtime-overlay-end-alpha: 46%;
-  --runtime-overlay-end-alpha-legacy: 0.46;
-  --font-family-display: "Helvetica Neue", helvetica, "Avenir Next", arial, sans-serif;
-  --theme-swiss-title-size-hero: 34px;
-}
-
-.theme-directv {
-  --focus-color: #00a6d6;
-  --focus-color-rgb: 0, 166, 214;
-
-  --color-primary: #00a6d6;
-  --color-primary-rgb: 0 166 214;
-  --color-primary-rgb-legacy: 0, 166, 214;
-  --color-primary-dark: #0087af;
-  --color-primary-light: #61d9ff;
-
-  --color-bg-deep: #001020;
-  --color-bg-surface: rgba(0, 32, 64, 0.94);
-  --color-bg-surface: rgb(0 32 64 / 94%);
-  --color-bg-elevated: rgba(0, 42, 82, 0.96);
-  --color-bg-elevated: rgb(0 42 82 / 96%);
-  --color-bg-overlay: rgba(0, 18, 36, 0.90);
-  --color-bg-overlay: rgb(0 18 36 / 90%);
-
-  --panel-surface: rgba(0, 28, 56, 0.94);
-  --panel-surface: rgb(0 28 56 / 94%);
-  --panel-surface-2: rgba(0, 40, 78, 0.96);
-  --panel-surface-2: rgb(0 40 78 / 96%);
-  --panel-border: 1px solid rgba(0, 166, 214, 0.72);
-  --panel-border: 1px solid rgb(0 166 214 / 72%);
-  --panel-radius: 2px;
-
-  --transition-normal: 120ms linear;
-  --epg-info-panel-fade-to: var(--panel-surface-2);
-  --panel-inner-glow: linear-gradient(180deg, rgba(255, 255, 255, 0.14), transparent);
-  --panel-inner-glow: linear-gradient(180deg, rgb(255 255 255 / 14%), transparent);
-
-  --shadow-sm: inset 0 1px 0 rgba(255, 255, 255, 0.16);
-  --shadow-md: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 3px 10px rgba(0, 8, 16, 0.55);
-  --shadow-lg: 0 12px 32px rgba(0, 5, 10, 0.82);
-
-  --scrim-tint-rgb: 0 24 48;
-  --scrim-tint-rgb-legacy: 0, 24, 48;
-  --runtime-overlay-start-alpha: 42%;
-  --runtime-overlay-start-alpha-legacy: 0.42;
-  --runtime-overlay-end-alpha: 56%;
-  --runtime-overlay-end-alpha-legacy: 0.56;
-  --font-family-display: "Helvetica Neue", helvetica, "Avenir Next", arial, sans-serif;
-
-  --directv-panel-gradient-start: #001020;
-  --directv-panel-gradient-end: #00305f;
-  --directv-panel-gradient-strong-end: #00437f;
-  --directv-grid-border: #00a6d6;
-  --directv-focus-fill: #ffcc00;
-  --directv-focus-border: #e5a00d;
-  --directv-focus-text: #000000;
-  --color-text-on-focus: var(--directv-focus-text);
-  --directv-copy-secondary: #bdd8f2;
-}
-
-.theme-swiss .now-playing-info-title {
-  font-size: calc(var(--text-2xl) + 4px);
-}
-
-.theme-swiss .now-playing-info-subtitle {
-  font-size: var(--text-lg);
-}
-
-.theme-swiss .now-playing-info-context,
-.theme-swiss .now-playing-info-progress-meta,
-.theme-swiss .now-playing-info-up-next {
-  font-size: var(--text-sm);
-}
-
-.theme-swiss .epg-info-title {
-  font-size: var(--theme-swiss-title-size-hero);
-}
-
-.theme-swiss .epg-info-meta,
-.theme-swiss .epg-info-genres {
-  font-size: var(--text-sm);
-}
-
-.theme-glass {
-  --focus-color: #00e5ff;
-  --focus-color-rgb: 0, 229, 255;
-
-  --color-primary: #00e5ff;
-  --color-primary-rgb: 0 229 255;
-  --color-primary-rgb-legacy: 0, 229, 255;
-  --color-primary-dark: #009fb4;
-  --color-primary-light: #7af1ff;
-
-  --color-bg-deep: #05080b;
-  --color-bg-surface: rgba(9, 12, 16, 0.72);
-  --color-bg-surface: rgb(9 12 16 / 72%);
-  --color-bg-elevated: rgba(12, 16, 21, 0.82);
-  --color-bg-elevated: rgb(12 16 21 / 82%);
-  --color-bg-overlay: rgba(4, 6, 9, 0.78);
-  --color-bg-overlay: rgb(4 6 9 / 78%);
-
-  --panel-surface: rgba(8, 11, 15, 0.72);
-  --panel-surface: rgb(8 11 15 / 72%);
-  --panel-surface-2: rgba(12, 16, 21, 0.84);
-  --panel-surface-2: rgb(12 16 21 / 84%);
-  --panel-border: 1px solid rgba(255, 255, 255, 0.08);
-  --panel-border: 1px solid rgb(255 255 255 / 8%);
-  --panel-radius: 16px;
-
-  --transition-normal: 180ms ease-out;
-  --epg-info-panel-fade-to: rgb(var(--scrim-tint-rgb) / 92%);
-  --panel-inner-glow: linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 42%);
-  --panel-inner-glow: linear-gradient(180deg, rgb(255 255 255 / 8%), transparent 42%);
-
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.32);
-  --shadow-sm: 0 1px 2px rgb(0 0 0 / 32%);
-  --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.36);
-  --shadow-md: 0 6px 18px rgb(0 0 0 / 36%);
-  --shadow-lg: 0 14px 32px rgba(0, 0, 0, 0.40);
-  --shadow-lg: 0 14px 32px rgb(0 0 0 / 40%);
-
-  --font-family-display: "Avenir Next", "Segoe UI", "Noto Sans", sans-serif;
-  --glass-panel-strong: rgba(6, 9, 13, 0.82);
-  --glass-panel-strong: rgb(6 9 13 / 82%);
-  --glass-panel-soft: rgba(255, 255, 255, 0.06);
-  --glass-panel-soft: rgb(255 255 255 / 6%);
-  --glass-border-strong: rgba(255, 255, 255, 0.08);
-  --glass-border-strong: rgb(255 255 255 / 8%);
-  --glass-border-soft: rgba(255, 255, 255, 0.05);
-  --glass-border-soft: rgb(255 255 255 / 5%);
-  --glass-highlight: rgba(255, 255, 255, 0.10);
-  --glass-highlight: rgb(255 255 255 / 10%);
-  --glass-shadow-deep: none;
-  --glass-panel-soft-hover: rgba(0, 229, 255, 0.12);
-  --glass-panel-soft-hover: rgb(0 229 255 / 12%);
-  --glass-backdrop-filter: none;
-  --glass-backdrop-filter-strong: none;
-  --glass-scrim-gradient: linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.03) 0%,
-    rgba(255, 255, 255, 0.01) 32%,
-    rgba(0, 0, 0, 0.30) 100%
-  );
-  --glass-scrim-gradient: linear-gradient(
-    135deg,
-    rgb(255 255 255 / 3%) 0%,
-    rgb(255 255 255 / 1%) 32%,
-    rgb(0 0 0 / 30%) 100%
-  );
-  --scrim-tint-rgb: 8 11 15;
-  --scrim-tint-rgb-legacy: 8, 11, 15;
-  --runtime-overlay-start-alpha: 38%;
-  --runtime-overlay-start-alpha-legacy: 0.38;
-  --runtime-overlay-end-alpha: 52%;
-  --runtime-overlay-end-alpha-legacy: 0.52;
+    --runtime-overlay-tint-rgb: 10 9 7;
+    --runtime-overlay-tint-rgb-legacy: 10, 9, 7;
+    --runtime-overlay-start-alpha: 30%;
+    --runtime-overlay-start-alpha-legacy: 0.30;
+    --runtime-overlay-end-alpha: 40%;
+    --runtime-overlay-end-alpha-legacy: 0.40;
+    --runtime-overlay-start-alpha-more: 24%;
+    --runtime-overlay-start-alpha-more-legacy: 0.24;
+    --runtime-overlay-start-alpha-standard: 30%;
+    --runtime-overlay-start-alpha-standard-legacy: 0.30;
+    --runtime-overlay-start-alpha-reduced: 36%;
+    --runtime-overlay-start-alpha-reduced-legacy: 0.36;
+    --runtime-overlay-end-alpha-more: 32%;
+    --runtime-overlay-end-alpha-more-legacy: 0.32;
+    --runtime-overlay-end-alpha-standard: 40%;
+    --runtime-overlay-end-alpha-standard-legacy: 0.40;
+    --runtime-overlay-end-alpha-reduced: 48%;
+    --runtime-overlay-end-alpha-reduced-legacy: 0.48;
 }
 
 .theme-ember-steel {
-  --focus-color: #e0782a;
-  --focus-color-rgb: 224, 120, 42;
+    --focus-color: #f0d39a;
+    --focus-color-rgb: 240, 211, 154;
+    --focus-border-color: #f0d39a;
+    --focus-surface: #e9dcc3;
+    --focus-surface-rgb: 233 220 195;
+    --focus-surface-rgb-legacy: 233, 220, 195;
+    --focus-inset-surface: #d7c7a8;
+    --focus-text-primary: #090806;
+    --focus-text-secondary: #3b3226;
+    --focus-text-muted: #5b5141;
+    --color-text-on-focus: var(--focus-text-primary);
+    --focus-treatment: fill;
 
-  --color-primary: #e0782a;
-  --color-primary-rgb: 224 120 42;
-  --color-primary-rgb-legacy: 224, 120, 42;
-  --color-primary-dark: #c45f12;
-  --color-primary-light: #f0a060;
+    --color-primary: #cc9f5b;
+    --color-primary-rgb: 204 159 91;
+    --color-primary-rgb-legacy: 204, 159, 91;
+    --color-primary-dark: #9d7743;
+    --color-primary-light: #e5c58f;
+    --color-primary-alpha-08: rgba(var(--color-primary-rgb-legacy), 0.08);
+    --color-primary-alpha-12: rgba(var(--color-primary-rgb-legacy), 0.12);
+    --color-primary-alpha-15: rgba(var(--color-primary-rgb-legacy), 0.15);
+    --color-primary-alpha-16: rgba(var(--color-primary-rgb-legacy), 0.16);
+    --color-primary-alpha-20: rgba(var(--color-primary-rgb-legacy), 0.20);
+    --color-primary-alpha-45: rgba(var(--color-primary-rgb-legacy), 0.45);
+    --color-primary-alpha-60: rgba(var(--color-primary-rgb-legacy), 0.60);
+    --color-primary-alpha-90: rgba(var(--color-primary-rgb-legacy), 0.90);
+    --color-bg-deep: #090806;
+    --color-bg-surface: #12100d;
+    --color-bg-elevated: #1a1712;
+    --overlay-surface-rgb: 10 9 7;
+    --overlay-surface-rgb-legacy: 10, 9, 7;
+    --overlay-surface-alpha: 95%;
+    --overlay-surface-alpha-legacy: 0.95;
+    --color-bg-overlay: rgba(10, 9, 7, 0.95);
+    --panel-surface: #12100d;
+    --panel-surface-2: #1a1712;
+    --panel-border: 1px solid #494031;
+    --panel-radius: 8px;
 
-  --color-bg-deep: #141414;
-  --color-bg-surface: rgba(24, 24, 24, 0.92);
-  --color-bg-elevated: rgba(32, 32, 32, 0.94);
-  --color-bg-overlay: rgba(16, 16, 16, 0.86);
+    --color-text-primary: #f3e8d2;
+    --color-text-secondary: #c7b99f;
+    --color-text-muted: #978b76;
+    --color-text-disabled: rgba(243, 232, 210, 0.38);
+    --color-border-subtle: #2b261e;
+    --color-border-default: #494031;
+    --color-border-focus: var(--focus-border-color);
+    --color-success: #4ade80;
+    --color-warning: #fbbf24;
+    --color-error: #ff7768;
+    --color-error-text: #ffb4aa;
+    --color-live: #ff7768;
+    --color-live-warm: #ff7768;
 
-  --panel-surface: rgba(24, 24, 24, 0.92);
-  --panel-surface-2: rgba(32, 32, 32, 0.94);
-  --panel-border: 1px solid rgba(255, 255, 255, 0.10);
-  --panel-radius: 4px;
+    --selection-surface: #2b2419;
+    --selection-surface-rgb: 43 36 25;
+    --selection-surface-rgb-legacy: 43, 36, 25;
+    --selection-border: rgba(240, 211, 154, 0.24);
+    --tuned-surface: #3b3020;
+    --progress-track: rgba(243, 232, 210, 0.12);
+    --progress-fill: #cc9f5b;
+    --scrim-tint-rgb: 10 9 7;
+    --scrim-tint-rgb-legacy: 10, 9, 7;
+    --epg-info-panel-fade-to: var(--panel-surface-2);
+    --runtime-overlay-tint-rgb: 10 9 7;
+    --runtime-overlay-tint-rgb-legacy: 10, 9, 7;
+    --runtime-overlay-start-alpha: 38%;
+    --runtime-overlay-start-alpha-legacy: 0.38;
+    --runtime-overlay-end-alpha: 52%;
+    --runtime-overlay-end-alpha-legacy: 0.52;
+    --runtime-overlay-start-alpha-more: 30%;
+    --runtime-overlay-start-alpha-more-legacy: 0.30;
+    --runtime-overlay-start-alpha-standard: 38%;
+    --runtime-overlay-start-alpha-standard-legacy: 0.38;
+    --runtime-overlay-start-alpha-reduced: 46%;
+    --runtime-overlay-start-alpha-reduced-legacy: 0.46;
+    --runtime-overlay-end-alpha-more: 41%;
+    --runtime-overlay-end-alpha-more-legacy: 0.41;
+    --runtime-overlay-end-alpha-standard: 52%;
+    --runtime-overlay-end-alpha-standard-legacy: 0.52;
+    --runtime-overlay-end-alpha-reduced: 63%;
+    --runtime-overlay-end-alpha-reduced-legacy: 0.63;
+}
 
-  --transition-normal: 180ms ease-out;
-  --epg-info-panel-fade-to: var(--panel-surface-2);
-  --panel-inner-glow: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent);
+.theme-slate-pine {
+    --focus-color: #a8c49e;
+    --focus-color-rgb: 168, 196, 158;
+    --focus-border-color: #a8c49e;
+    --focus-surface: #d3decf;
+    --focus-surface-rgb: 211 222 207;
+    --focus-surface-rgb-legacy: 211, 222, 207;
+    --focus-inset-surface: #c1cfbc;
+    --focus-text-primary: #090806;
+    --focus-text-secondary: #2f3b30;
+    --focus-text-muted: #4a574b;
+    --color-text-on-focus: var(--focus-text-primary);
+    --focus-treatment: fill;
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.55);
-  --shadow-lg: 0 10px 28px rgba(0, 0, 0, 0.65);
-  --color-live: var(--color-live-warm);
-  --scrim-tint-rgb: 20 20 20;
-  --scrim-tint-rgb-legacy: 20, 20, 20;
-  --runtime-overlay-start-alpha: 38%;
-  --runtime-overlay-start-alpha-legacy: 0.38;
-  --runtime-overlay-end-alpha: 52%;
-  --runtime-overlay-end-alpha-legacy: 0.52;
+    --color-primary: #809a79;
+    --color-primary-rgb: 128 154 121;
+    --color-primary-rgb-legacy: 128, 154, 121;
+    --color-primary-dark: #607a58;
+    --color-primary-light: #a4bea0;
+    --color-primary-alpha-08: rgba(var(--color-primary-rgb-legacy), 0.08);
+    --color-primary-alpha-12: rgba(var(--color-primary-rgb-legacy), 0.12);
+    --color-primary-alpha-15: rgba(var(--color-primary-rgb-legacy), 0.15);
+    --color-primary-alpha-16: rgba(var(--color-primary-rgb-legacy), 0.16);
+    --color-primary-alpha-20: rgba(var(--color-primary-rgb-legacy), 0.20);
+    --color-primary-alpha-45: rgba(var(--color-primary-rgb-legacy), 0.45);
+    --color-primary-alpha-60: rgba(var(--color-primary-rgb-legacy), 0.60);
+    --color-primary-alpha-90: rgba(var(--color-primary-rgb-legacy), 0.90);
+    --color-bg-deep: #161917;
+    --color-bg-surface: rgba(26, 29, 27, 0.92);
+    --color-bg-elevated: rgba(34, 38, 35, 0.94);
+    --overlay-surface-rgb: 18 20 19;
+    --overlay-surface-rgb-legacy: 18, 20, 19;
+    --overlay-surface-alpha: 86%;
+    --overlay-surface-alpha-legacy: 0.86;
+    --color-bg-overlay: rgba(18, 20, 19, 0.86);
+    --panel-surface: rgba(26, 29, 27, 0.92);
+    --panel-surface-2: rgba(34, 38, 35, 0.94);
+    --panel-border: 1px solid rgba(255, 255, 255, 0.12);
+    --panel-radius: 8px;
 
-  --font-family-display: "Avenir Next", "Segoe UI", "Noto Sans", sans-serif;
+    --color-text-primary: #ffffff;
+    --color-text-secondary: rgba(255, 255, 255, 0.70);
+    --color-text-muted: rgba(255, 255, 255, 0.50);
+    --color-text-disabled: rgba(255, 255, 255, 0.35);
+    --color-border-subtle: rgba(255, 255, 255, 0.08);
+    --color-border-default: rgba(255, 255, 255, 0.12);
+    --color-border-focus: var(--focus-border-color);
+    --color-error: #ff4444;
+    --color-error-text: #ffb1b1;
+    --color-live: #ff4444;
+    --color-live-warm: #ff4444;
+
+    --selection-surface: rgba(128, 154, 121, 0.20);
+    --selection-surface-rgb: 128 154 121;
+    --selection-surface-rgb-legacy: 128, 154, 121;
+    --selection-border: rgba(168, 196, 158, 0.28);
+    --tuned-surface: #405b46;
+    --progress-track: rgba(255, 255, 255, 0.12);
+    --progress-fill: #809a79;
+    --panel-inner-glow: none;
+    --epg-info-panel-fade-to: var(--panel-surface-2);
+    --scrim-tint-rgb: 22 24 22;
+    --scrim-tint-rgb-legacy: 22, 24, 22;
+    --runtime-overlay-tint-rgb: 22 24 22;
+    --runtime-overlay-tint-rgb-legacy: 22, 24, 22;
+    --runtime-overlay-start-alpha: 34%;
+    --runtime-overlay-start-alpha-legacy: 0.34;
+    --runtime-overlay-end-alpha: 46%;
+    --runtime-overlay-end-alpha-legacy: 0.46;
+    --runtime-overlay-start-alpha-more: 27%;
+    --runtime-overlay-start-alpha-more-legacy: 0.27;
+    --runtime-overlay-start-alpha-standard: 34%;
+    --runtime-overlay-start-alpha-standard-legacy: 0.34;
+    --runtime-overlay-start-alpha-reduced: 41%;
+    --runtime-overlay-start-alpha-reduced-legacy: 0.41;
+    --runtime-overlay-end-alpha-more: 37%;
+    --runtime-overlay-end-alpha-more-legacy: 0.37;
+    --runtime-overlay-end-alpha-standard: 46%;
+    --runtime-overlay-end-alpha-standard-legacy: 0.46;
+    --runtime-overlay-end-alpha-reduced: 55%;
+    --runtime-overlay-end-alpha-reduced-legacy: 0.55;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.40);
+    --shadow-md: 0 4px 10px rgba(0, 0, 0, 0.50);
+    --shadow-lg: 0 10px 28px rgba(0, 0, 0, 0.60);
+}
+
+.theme-swiss {
+    --focus-color: #6ee7b7;
+    --focus-color-rgb: 110, 231, 183;
+    --focus-border-color: #6ee7b7;
+    --focus-surface: #c6eedb;
+    --focus-surface-rgb: 198 238 219;
+    --focus-surface-rgb-legacy: 198, 238, 219;
+    --focus-inset-surface: #b0e0c8;
+    --focus-text-primary: #090806;
+    --focus-text-secondary: #22372d;
+    --focus-text-muted: #41554b;
+    --color-text-on-focus: var(--focus-text-primary);
+    --focus-treatment: fill;
+
+    --color-primary: #34d399;
+    --color-primary-rgb: 52 211 153;
+    --color-primary-rgb-legacy: 52, 211, 153;
+    --color-primary-dark: #10b981;
+    --color-primary-light: #6ee7b7;
+    --color-primary-alpha-08: rgba(var(--color-primary-rgb-legacy), 0.08);
+    --color-primary-alpha-12: rgba(var(--color-primary-rgb-legacy), 0.12);
+    --color-primary-alpha-15: rgba(var(--color-primary-rgb-legacy), 0.15);
+    --color-primary-alpha-16: rgba(var(--color-primary-rgb-legacy), 0.16);
+    --color-primary-alpha-20: rgba(var(--color-primary-rgb-legacy), 0.20);
+    --color-primary-alpha-45: rgba(var(--color-primary-rgb-legacy), 0.45);
+    --color-primary-alpha-60: rgba(var(--color-primary-rgb-legacy), 0.60);
+    --color-primary-alpha-90: rgba(var(--color-primary-rgb-legacy), 0.90);
+    --color-bg-deep: #020202;
+    --color-bg-surface: rgba(10, 10, 10, 0.95);
+    --color-bg-elevated: rgba(18, 18, 18, 0.98);
+    --overlay-surface-rgb: 0 0 0;
+    --overlay-surface-rgb-legacy: 0, 0, 0;
+    --overlay-surface-alpha: 90%;
+    --overlay-surface-alpha-legacy: 0.90;
+    --color-bg-overlay: rgba(0, 0, 0, 0.90);
+    --panel-surface: rgba(10, 10, 10, 0.95);
+    --panel-surface-2: rgba(18, 18, 18, 0.98);
+    --panel-border: 1px solid rgba(255, 255, 255, 0.12);
+    --panel-radius: 0;
+
+    --color-text-primary: #ffffff;
+    --color-text-secondary: rgba(255, 255, 255, 0.70);
+    --color-text-muted: rgba(255, 255, 255, 0.50);
+    --color-text-disabled: rgba(255, 255, 255, 0.35);
+    --color-border-subtle: rgba(255, 255, 255, 0.08);
+    --color-border-default: rgba(255, 255, 255, 0.12);
+    --color-border-focus: var(--focus-border-color);
+    --color-error: #ff4444;
+    --color-error-text: #ffb1b1;
+    --color-live: #ff4444;
+    --color-live-warm: #ff4444;
+
+    --selection-surface: rgba(52, 211, 153, 0.20);
+    --selection-surface-rgb: 52 211 153;
+    --selection-surface-rgb-legacy: 52, 211, 153;
+    --selection-border: rgba(110, 231, 183, 0.28);
+    --tuned-surface: #164e3c;
+    --progress-track: rgba(255, 255, 255, 0.12);
+    --progress-fill: #34d399;
+    --panel-inner-glow: none;
+    --epg-info-panel-fade-to: var(--panel-surface-2);
+    --scrim-tint-rgb: 0 0 0;
+    --scrim-tint-rgb-legacy: 0, 0, 0;
+    --runtime-overlay-tint-rgb: 0 0 0;
+    --runtime-overlay-tint-rgb-legacy: 0, 0, 0;
+    --runtime-overlay-start-alpha: 34%;
+    --runtime-overlay-start-alpha-legacy: 0.34;
+    --runtime-overlay-end-alpha: 46%;
+    --runtime-overlay-end-alpha-legacy: 0.46;
+    --runtime-overlay-start-alpha-more: 27%;
+    --runtime-overlay-start-alpha-more-legacy: 0.27;
+    --runtime-overlay-start-alpha-standard: 34%;
+    --runtime-overlay-start-alpha-standard-legacy: 0.34;
+    --runtime-overlay-start-alpha-reduced: 41%;
+    --runtime-overlay-start-alpha-reduced-legacy: 0.41;
+    --runtime-overlay-end-alpha-more: 37%;
+    --runtime-overlay-end-alpha-more-legacy: 0.37;
+    --runtime-overlay-end-alpha-standard: 46%;
+    --runtime-overlay-end-alpha-standard-legacy: 0.46;
+    --runtime-overlay-end-alpha-reduced: 55%;
+    --runtime-overlay-end-alpha-reduced-legacy: 0.55;
+    --shadow-sm: none;
+    --shadow-md: none;
+    --shadow-lg: none;
+}
+
+.theme-directv {
+    --focus-color: #ffcc00;
+    --focus-color-rgb: 255, 204, 0;
+    --focus-border-color: #ffcc00;
+    --focus-surface: #ffcc00;
+    --focus-surface-rgb: 255 204 0;
+    --focus-surface-rgb-legacy: 255, 204, 0;
+    --focus-inset-surface: #d7c7a8;
+    --focus-text-primary: #090806;
+    --focus-text-secondary: #3b3226;
+    --focus-text-muted: #5b5141;
+    --color-text-on-focus: var(--focus-text-primary);
+    --focus-treatment: fill;
+
+    --color-primary: #00a6d6;
+    --color-primary-rgb: 0 166 214;
+    --color-primary-rgb-legacy: 0, 166, 214;
+    --color-primary-dark: #0087af;
+    --color-primary-light: #61d9ff;
+    --color-primary-alpha-08: rgba(var(--color-primary-rgb-legacy), 0.08);
+    --color-primary-alpha-12: rgba(var(--color-primary-rgb-legacy), 0.12);
+    --color-primary-alpha-15: rgba(var(--color-primary-rgb-legacy), 0.15);
+    --color-primary-alpha-16: rgba(var(--color-primary-rgb-legacy), 0.16);
+    --color-primary-alpha-20: rgba(var(--color-primary-rgb-legacy), 0.20);
+    --color-primary-alpha-45: rgba(var(--color-primary-rgb-legacy), 0.45);
+    --color-primary-alpha-60: rgba(var(--color-primary-rgb-legacy), 0.60);
+    --color-primary-alpha-90: rgba(var(--color-primary-rgb-legacy), 0.90);
+    --color-bg-deep: #001020;
+    --color-bg-surface: rgba(0, 32, 64, 0.94);
+    --color-bg-elevated: rgba(0, 42, 82, 0.96);
+    --overlay-surface-rgb: 0 18 36;
+    --overlay-surface-rgb-legacy: 0, 18, 36;
+    --overlay-surface-alpha: 90%;
+    --overlay-surface-alpha-legacy: 0.90;
+    --color-bg-overlay: rgba(0, 18, 36, 0.90);
+    --panel-surface: rgba(0, 32, 64, 0.94);
+    --panel-surface-2: rgba(0, 42, 82, 0.96);
+    --panel-border: 1px solid rgba(255, 255, 255, 0.12);
+    --panel-radius: 2px;
+
+    --color-text-primary: #ffffff;
+    --color-text-secondary: rgba(255, 255, 255, 0.70);
+    --color-text-muted: rgba(255, 255, 255, 0.50);
+    --color-text-disabled: rgba(255, 255, 255, 0.35);
+    --color-border-subtle: rgba(255, 255, 255, 0.08);
+    --color-border-default: rgba(255, 255, 255, 0.12);
+    --color-border-focus: var(--focus-border-color);
+    --color-error: #ff4444;
+    --color-error-text: #ffb1b1;
+    --color-live: #ff4444;
+    --color-live-warm: #ff4444;
+
+    --selection-surface: rgba(0, 166, 214, 0.20);
+    --selection-surface-rgb: 0 166 214;
+    --selection-surface-rgb-legacy: 0, 166, 214;
+    --selection-border: rgba(255, 204, 0, 0.28);
+    --tuned-surface: #00437f;
+    --progress-track: rgba(255, 255, 255, 0.12);
+    --progress-fill: #00a6d6;
+    --panel-inner-glow: none;
+    --epg-info-panel-fade-to: var(--panel-surface-2);
+    --scrim-tint-rgb: 0 24 48;
+    --scrim-tint-rgb-legacy: 0, 24, 48;
+    --runtime-overlay-tint-rgb: 0 24 48;
+    --runtime-overlay-tint-rgb-legacy: 0, 24, 48;
+    --runtime-overlay-start-alpha: 42%;
+    --runtime-overlay-start-alpha-legacy: 0.42;
+    --runtime-overlay-end-alpha: 56%;
+    --runtime-overlay-end-alpha-legacy: 0.56;
+    --runtime-overlay-start-alpha-more: 33%;
+    --runtime-overlay-start-alpha-more-legacy: 0.33;
+    --runtime-overlay-start-alpha-standard: 42%;
+    --runtime-overlay-start-alpha-standard-legacy: 0.42;
+    --runtime-overlay-start-alpha-reduced: 51%;
+    --runtime-overlay-start-alpha-reduced-legacy: 0.51;
+    --runtime-overlay-end-alpha-more: 45%;
+    --runtime-overlay-end-alpha-more-legacy: 0.45;
+    --runtime-overlay-end-alpha-standard: 56%;
+    --runtime-overlay-end-alpha-standard-legacy: 0.56;
+    --runtime-overlay-end-alpha-reduced: 67%;
+    --runtime-overlay-end-alpha-reduced-legacy: 0.67;
+
+    --directv-panel-gradient-start: #001020;
+    --directv-panel-gradient-end: #00305f;
+    --directv-panel-gradient-strong-end: #00437f;
+    --directv-grid-border: #00a6d6;
+    --directv-focus-fill: var(--focus-surface);
+    --directv-focus-border: var(--focus-border-color);
+    --directv-focus-text: var(--focus-text-primary);
+    --directv-copy-secondary: rgba(255, 255, 255, 0.70);
+}
+
+/* These root preference aliases must follow theme classes on the same element. */
+[data-player-overlay-transparency='more-transparent'] {
+    --player-overlay-surface-alpha: var(--player-overlay-surface-alpha-more);
+    --player-overlay-surface-alpha-legacy: var(--player-overlay-surface-alpha-more-legacy);
+    --runtime-overlay-start-alpha: var(--runtime-overlay-start-alpha-more);
+    --runtime-overlay-start-alpha-legacy: var(--runtime-overlay-start-alpha-more-legacy);
+    --runtime-overlay-end-alpha: var(--runtime-overlay-end-alpha-more);
+    --runtime-overlay-end-alpha-legacy: var(--runtime-overlay-end-alpha-more-legacy);
+}
+
+[data-player-overlay-transparency='standard'] {
+    --player-overlay-surface-alpha: var(--player-overlay-surface-alpha-standard);
+    --player-overlay-surface-alpha-legacy: var(--player-overlay-surface-alpha-standard-legacy);
+    --runtime-overlay-start-alpha: var(--runtime-overlay-start-alpha-standard);
+    --runtime-overlay-start-alpha-legacy: var(--runtime-overlay-start-alpha-standard-legacy);
+    --runtime-overlay-end-alpha: var(--runtime-overlay-end-alpha-standard);
+    --runtime-overlay-end-alpha-legacy: var(--runtime-overlay-end-alpha-standard-legacy);
+}
+
+[data-player-overlay-transparency='reduced'] {
+    --player-overlay-surface-alpha: var(--player-overlay-surface-alpha-reduced);
+    --player-overlay-surface-alpha-legacy: var(--player-overlay-surface-alpha-reduced-legacy);
+    --runtime-overlay-start-alpha: var(--runtime-overlay-start-alpha-reduced);
+    --runtime-overlay-start-alpha-legacy: var(--runtime-overlay-start-alpha-reduced-legacy);
+    --runtime-overlay-end-alpha: var(--runtime-overlay-end-alpha-reduced);
+    --runtime-overlay-end-alpha-legacy: var(--runtime-overlay-end-alpha-reduced-legacy);
+}
+
+@media (forced-colors: active) {
+    .theme-ember-steel,
+    .theme-slate-pine,
+    .theme-swiss,
+    .theme-directv {
+        --focus-color: Highlight;
+        --focus-border-color: Highlight;
+        --focus-surface: Canvas;
+        --focus-inset-surface: Canvas;
+        --focus-text-primary: CanvasText;
+        --focus-text-secondary: CanvasText;
+        --focus-text-muted: CanvasText;
+        --color-text-on-focus: CanvasText;
+        --color-border-focus: Highlight;
+        --selection-surface: Canvas;
+        --selection-border: Highlight;
+        --tuned-surface: Canvas;
+        --color-text-primary: CanvasText;
+        --color-text-secondary: CanvasText;
+        --color-text-muted: GrayText;
+        --color-text-disabled: GrayText;
+    }
 }

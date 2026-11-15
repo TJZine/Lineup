@@ -240,7 +240,7 @@
   letter-spacing: 0.2px;
 }
 
-.settings-screen .setup-toggle.selected:not(.focused):not(:focus):not(:focus-visible) {
+.settings-screen .setup-toggle.selected:not(.focused):not(:focus) {
   background: rgba(255, 255, 255, 0.08);
   border-color: rgba(255, 255, 255, 0.08);
 }
@@ -303,5 +303,40 @@
   .settings-category-button,
   .settings-profile-row {
     transition: none;
+  }
+}
+
+/* Flex gap fallback for engines that support grid gap but not flex gap. */
+.no-flex-gap .settings-categories > :not([hidden]) ~ :not([hidden]) {
+  margin-top: var(--settings-space-10);
+}
+
+.no-flex-gap .settings-header > :not([hidden]) ~ :not([hidden]) {
+  margin-top: var(--space-1);
+}
+
+.no-flex-gap .settings-detail-items > :not([hidden]) ~ :not([hidden]) {
+  margin-top: var(--space-3);
+}
+
+.no-flex-gap .settings-profile-text > :not([hidden]) ~ :not([hidden]) {
+  margin-top: var(--settings-space-2);
+}
+
+.no-flex-gap .setup-toggle-state > :not([hidden]) ~ :not([hidden]) {
+  margin-left: var(--space-2);
+}
+
+@media (max-width: 980px) {
+  .no-flex-gap .settings-categories {
+    margin-right: calc(-1 * var(--space-2));
+    margin-bottom: calc(-1 * var(--space-2));
+  }
+  .no-flex-gap .settings-categories > :not([hidden]) {
+    margin-right: var(--space-2);
+    margin-bottom: var(--space-2);
+  }
+  .no-flex-gap .settings-categories > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 0;
   }
 }

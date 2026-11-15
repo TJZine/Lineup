@@ -10,7 +10,7 @@ describe('getRecoveryActions', () => {
         goToChannelEdit: jest.fn(),
         goToSettings: jest.fn(),
         retryStart: jest.fn().mockResolvedValue(undefined),
-        retryPlayback: jest.fn(),
+        retryPlayback: jest.fn().mockResolvedValue(undefined),
         exitApp: jest.fn().mockResolvedValue(undefined),
         skipToNext: jest.fn(),
     });
@@ -164,6 +164,15 @@ describe('getRecoveryActions', () => {
         actions[1]!.action();
         expect(deps.retryPlayback).toHaveBeenCalledTimes(1);
         expect(deps.skipToNext).toHaveBeenCalledTimes(1);
+    });
+
+    it('propagates a failed playback retry to the awaiting error presenter', async () => {
+        const failure = new Error('retry was superseded');
+        const deps = createDeps();
+        (deps.retryPlayback as jest.Mock).mockRejectedValueOnce(failure);
+        const retry = getRecoveryActions(AppErrorCode.PLAYBACK_FAILED, deps)[0];
+
+        await expect(retry?.action()).rejects.toBe(failure);
     });
 
     it.each([

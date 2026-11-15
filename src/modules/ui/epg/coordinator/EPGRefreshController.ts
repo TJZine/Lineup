@@ -38,6 +38,7 @@ import type {
     EpgUiStatus,
 } from './EPGCoordinatorContracts';
 import { createSkippedEpgScheduleRefreshResult } from '../../../../shared/epgRefresh';
+import { SupportReportStore } from '../../../support/SupportReportStore';
 
 const EPG_SCHEDULE_CACHE_MIN_ENTRIES = 60;
 const EPG_SCHEDULE_CACHE_MAX_ENTRIES = 240;
@@ -67,6 +68,7 @@ export interface EPGRefreshControllerDeps {
 type EPGScheduleRefreshRuntimeModule = typeof import('../runtime/EPGScheduleRefreshRuntime');
 
 export class EPGRefreshController {
+    private readonly _supportReport = new SupportReportStore();
     private readonly _visibleRangeRefreshQueue: EPGVisibleRangeRefreshQueue;
     private _scheduleRefreshRuntime: EPGScheduleRefreshRuntime | null = null;
     private _scheduleRefreshRuntimeLoad: Promise<EPGScheduleRefreshRuntime | null> | null = null;
@@ -513,9 +515,18 @@ export class EPGRefreshController {
     }
 
     handleGuideSettingRefreshChange(change: GuideSettingChange): void {
+        if (change.key === 'guideHours') {
+            // A viewport-width change does not change the scheduled programs.
+            // Keep loaded rows and focus while cancelling stale visible-range work.
+            this.cancelScheduledRefreshWork('guide-hours');
+            const epg = this._deps.getEpg();
+            if (!epg?.isVisible()) return;
+            this._deps.primeEpgChannels();
+            this.refreshEpgSchedulesBestEffort({ reason: 'guide-settings', debounceMs: 0 });
+            return;
+        }
         const shouldInvalidateSchedules =
             change.key === 'libraryTabs' ||
-            change.key === 'guideDensity' ||
             change.key === 'aggressivePreload' ||
             change.key === 'pastItemsWindow';
 
@@ -586,8 +597,23 @@ export class EPGRefreshController {
             ...(signal ? { signal } : {}),
             ...(operationContext ? { operationContext } : {}),
         };
-        return signal || operationContext
-            ? runtime.refreshForRange(range, reason, runtimeOptions)
-            : runtime.refreshForRange(range, reason);
+        this._supportReport.record({ code: 'guide-load', at: Date.now(), outcome: 'started' });
+        try {
+            const result = signal || operationContext
+                ? await runtime.refreshForRange(range, reason, runtimeOptions)
+                : await runtime.refreshForRange(range, reason);
+            const outcome = result.readiness === 'ready' || result.readiness === 'partial'
+                ? 'succeeded'
+                : result.readiness === 'superseded' || result.readiness === 'skipped'
+                    ? 'cancelled' : 'failed';
+            this._supportReport.record({ code: 'guide-load', at: Date.now(), outcome });
+            return result;
+        } catch (error) {
+            this._supportReport.record({
+                code: 'guide-load', at: Date.now(),
+                outcome: isAbortLikeError(error) || signal?.aborted ? 'cancelled' : 'failed',
+            });
+            throw error;
+        }
     }
 }

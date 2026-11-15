@@ -885,6 +885,25 @@ describe('NavigationManager', () => {
     });
 
     describe('input blocking', () => {
+        it('resets Auth history only when navigation is allowed', () => {
+            nav.goTo('guide');
+            nav.goTo('settings');
+            nav.blockInput();
+            nav.resetToAuth();
+            expect(nav.getCurrentScreen()).toBe('settings');
+            nav.unblockInput();
+
+            nav.openModal('protected', [], { dismissOnBack: false, blocksBackgroundCommands: true });
+            nav.resetToAuth();
+            expect(nav.getCurrentScreen()).toBe('settings');
+            nav.closeModal('protected');
+
+            nav.resetToAuth();
+            expect(nav.getCurrentScreen()).toBe('auth');
+            expect(nav.getState().screenStack).toEqual([]);
+            expect(nav.goBack()).toBe(false);
+        });
+
         it('should block navigation when input blocked', () => {
             const el1 = createMockElement('btn1');
             const el2 = createMockElement('btn2');
@@ -1009,49 +1028,24 @@ describe('NavigationManager', () => {
     });
 
     describe('root screen Back behavior', () => {
-        it('should exit to Home on splash root', () => {
-            const closeSpy = jest.spyOn(window, 'close').mockImplementation(() => undefined);
-
-            try {
-                nav.replaceScreen('splash');
-
-                // Press Back
-                dispatchKeyEvent(461);
-
-                expect(closeSpy).toHaveBeenCalledTimes(1);
-            } finally {
-                closeSpy.mockRestore();
-            }
+        const platformBack = jest.fn();
+        beforeEach(() => {
+            platformBack.mockClear();
+            Object.defineProperty(window, 'webOS', {
+                configurable: true, value: { platformBack },
+            });
+        });
+        afterEach(() => {
+            Reflect.deleteProperty(window, 'webOS');
         });
 
-        it('should exit to Home on player root (fallback)', () => {
-            const closeSpy = jest.spyOn(window, 'close').mockImplementation(() => undefined);
-
-            try {
-                nav.replaceScreen('player');
-
-                // Press Back
+        it.each(['splash', 'player', 'auth', 'guide'] as const)(
+            'calls native platform Back once at %s root', (screen) => {
+                nav.replaceScreen(screen);
                 dispatchKeyEvent(461);
-
-                expect(closeSpy).toHaveBeenCalledTimes(1);
-            } finally {
-                closeSpy.mockRestore();
+                expect(platformBack).toHaveBeenCalledTimes(1);
             }
-        });
-
-        it('should exit to Home on auth root', () => {
-            const closeSpy = jest.spyOn(window, 'close').mockImplementation(() => undefined);
-
-            try {
-                nav.replaceScreen('auth');
-
-                dispatchKeyEvent(461);
-
-                expect(closeSpy).toHaveBeenCalledTimes(1);
-            } finally {
-                closeSpy.mockRestore();
-            }
-        });
+        );
 
         it('should navigate to auth from server-select root', () => {
             const handler = jest.fn();
@@ -1068,7 +1062,7 @@ describe('NavigationManager', () => {
             expect(nav.getCurrentScreen()).toBe('auth');
         });
 
-        it('should navigate to player from settings root', () => {
+        it('should navigate to Guide from settings root', () => {
             const handler = jest.fn();
             nav.on('screenChange', handler);
             nav.replaceScreen('settings');
@@ -1078,9 +1072,9 @@ describe('NavigationManager', () => {
 
             expect(handler).toHaveBeenCalledWith({
                 from: 'settings',
-                to: 'player',
+                to: 'guide',
             });
-            expect(nav.getCurrentScreen()).toBe('player');
+            expect(nav.getCurrentScreen()).toBe('guide');
         });
 
         it.each([

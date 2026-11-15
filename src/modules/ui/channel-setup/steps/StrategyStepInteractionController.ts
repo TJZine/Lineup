@@ -380,7 +380,7 @@ export class StrategyStepInteractionController {
 
     registerStep2Focusables(
         categoryButtons: HTMLButtonElement[],
-        detailButtons: HTMLButtonElement[],
+        detailButtons: HTMLElement[],
         backButton: HTMLButtonElement,
         nextButton: HTMLButtonElement,
         adapters: Pick<
@@ -393,7 +393,9 @@ export class StrategyStepInteractionController {
         } = {}
     ): void {
         const activeCategoryButtonId = this.categoryButtonId(this._activeStrategyCategory);
-        const detailIds = detailButtons.filter((button) => !button.disabled).map((button) => button.id);
+        const detailIds = detailButtons.filter((element) =>
+            !(element instanceof HTMLButtonElement || element instanceof HTMLInputElement) || !element.disabled
+        ).map((element) => element.id);
         const detailFocusTarget = this._resolveDetailFocusTarget(
             this._activeStrategyCategory,
             detailIds,

@@ -5,6 +5,7 @@ export type {
     PlexPublicJwk,
     PlexDeviceKey,
     PlexPinRequest,
+    PlexPinCancellationResult,
     PlexAuthToken,
     PlexAuthData,
     PlexAuthDataV2,

@@ -106,8 +106,7 @@ describe('EPGGridRuntimeController', () => {
             setGridAnchorTime: jest.Mock;
         };
         updateNowWatchingBanner: jest.Mock;
-        syncPeekMode: jest.Mock;
-        applyLayoutMode: jest.Mock;
+        syncPicture: jest.Mock;
         visibleRanges: unknown[];
     } => {
         const program = createProgram();
@@ -169,8 +168,7 @@ describe('EPGGridRuntimeController', () => {
             setGridAnchorTime: jest.fn(),
         };
         const updateNowWatchingBanner = jest.fn();
-        const syncPeekMode = jest.fn();
-        const applyLayoutMode = jest.fn();
+        const syncPicture = jest.fn();
 
         const controller = new EPGGridRuntimeController({
             getConfig: (): EPGConfig => config,
@@ -184,8 +182,7 @@ describe('EPGGridRuntimeController', () => {
             getFocusKey: (): string => 'ch0-1',
             setHasRenderedOnce: jest.fn(),
             updateNowWatchingBanner,
-            syncPeekMode,
-            applyLayoutMode,
+            syncPicture,
             appendDebugLog: jest.fn(),
             isDebugEnabled: (): boolean => false,
         });
@@ -200,8 +197,7 @@ describe('EPGGridRuntimeController', () => {
             virtualizer,
             timeHeader,
             updateNowWatchingBanner,
-            syncPeekMode,
-            applyLayoutMode,
+            syncPicture,
             visibleRanges,
         };
     };
@@ -244,7 +240,7 @@ describe('EPGGridRuntimeController', () => {
     });
 
     it('starts one interval, refreshes runtime collaborators, and stops cleanly', () => {
-        const { controller, updateNowWatchingBanner, syncPeekMode, applyLayoutMode } = createHarness();
+        const { controller, updateNowWatchingBanner, syncPicture } = createHarness();
         const setIntervalSpy = jest.spyOn(global, 'setInterval');
         const clearIntervalSpy = jest.spyOn(global, 'clearInterval');
 
@@ -254,8 +250,7 @@ describe('EPGGridRuntimeController', () => {
 
         jest.advanceTimersByTime(60_000);
         expect(updateNowWatchingBanner).toHaveBeenCalled();
-        expect(syncPeekMode).toHaveBeenCalled();
-        expect(applyLayoutMode).toHaveBeenCalled();
+        expect(syncPicture).toHaveBeenCalled();
 
         controller.stopTimeUpdateInterval();
         controller.stopTimeUpdateInterval();

@@ -99,6 +99,7 @@ export type EpgChannel = Pick<
     | 'blockSize'
     | 'phaseSeed'
     | 'startTimeAnchor'
+    | 'scheduleAnchorMode'
     | 'contentFilters'
     | 'sortOrder'
     | 'skipIntros'

@@ -58,10 +58,11 @@ export class ChannelSetupScreen {
             getSelectedServerId: (): string | null => this._getSelectedServerId(),
         });
 
-        this._container.classList.add('screen');
+        this._container.classList.add('screen', 'onboarding-screen');
 
         const shell = createScreenShell(this._container, {
-            title: 'Channel Setup',
+            variant: 'onboarding',
+            title: 'Choose your libraries',
             subtitle: 'Build a clean, remote-first channel lineup for this server.',
             status: {
                 title: '',
@@ -70,6 +71,20 @@ export class ChannelSetupScreen {
             error: null,
             actions: [],
         });
+        const topbar = shell.panelEl.querySelector('.screen-shell-topbar');
+        if (topbar) {
+            const stages = document.createElement('nav');
+            stages.className = 'setup-stagebar';
+            stages.setAttribute('aria-label', 'Channel setup progress');
+            for (const [index, label] of ['Libraries', 'Configure', 'Review'].entries()) {
+                const item = document.createElement('span');
+                item.className = 'setup-stagebar-item';
+                item.dataset.setupStage = String(index + 1);
+                item.textContent = `${index + 1} ${label}`;
+                stages.appendChild(item);
+            }
+            topbar.appendChild(stages);
+        }
         this._destroyScreenShell = shell.destroy;
         shell.panelEl.classList.add('setup-panel');
         this._panelEl = shell.panelEl;
@@ -106,14 +121,6 @@ export class ChannelSetupScreen {
                 this._resetStep2ScrollContainers();
             },
             toDomId: (raw): string => raw.replace(/[^a-zA-Z0-9_-]/g, '_'),
-            revealPlayerProvisionally: (): void => {
-                this._container.style.display = 'none';
-                this._container.classList.remove('visible');
-            },
-            restoreSetupAfterProvisionalReveal: (): void => {
-                this._container.style.display = 'flex';
-                this._container.classList.add('visible');
-            },
         });
         this._libraryStepPresenter = new LibraryStepPresenter({
             session: this._session,
@@ -156,13 +163,15 @@ export class ChannelSetupScreen {
         if (nav && !this._navKeyHandler) {
             this._navKeyHandler = (event: KeyEvent): void => {
                 const session = this._session.getSnapshot();
-                if (event.handled || session.step !== 2) return;
-                this._workflowPresenter.handleStrategyKeyPress(event, nav);
+                if (event.handled) return;
+                if (session.step === 2) this._workflowPresenter.handleStrategyKeyPress(event, nav);
+                if (session.step === 3) this._workflowPresenter.handleReviewKeyPress(event, nav);
             };
             nav.on('keyPress', this._navKeyHandler);
         }
         this._session.beginSession();
         this._workflowPresenter.resetStrategyInteraction();
+        this._workflowPresenter.resetBuildStep();
         this._session.loadLibraries().then(() => {
             if (token !== this._visibilityToken) {
                 return;
@@ -187,9 +196,9 @@ export class ChannelSetupScreen {
     }
 
     hide(): void {
-        this._workflowPresenter.cancelDoneTransition();
         this._visibilityToken += 1;
         this._resetStepUi('');
+        this._workflowPresenter.resetBuildStep();
         this._session.endSession();
         if (this._navKeyHandler) {
             const nav = this._screenPorts.getNavigation();
@@ -227,6 +236,23 @@ export class ChannelSetupScreen {
         this._contentEl.replaceChildren();
 
         const session = this._session.getSnapshot();
+        this._panelEl.classList.toggle('setup-panel--configure', session.step === 2);
+        this._contentEl.classList.toggle('setup-body--configure', session.step === 2);
+        const title = this._panelEl.querySelector('.screen-title');
+        if (title) title.textContent = session.step === 1 ? 'Choose libraries'
+            : session.step === 2 ? 'Configure your lineup'
+                : session.setupContext === 'first-time' ? 'Review your first lineup' : 'Review your lineup';
+        const subtitle = this._panelEl.querySelector('.screen-subtitle');
+        if (subtitle) subtitle.textContent = session.step === 1
+            ? 'Select the Plex libraries to scan for channel ideas.'
+            : session.step === 2 ? 'Choose how generated channels play, then review every change.'
+                : 'Check what changes and what stays before applying.';
+        for (const stage of this._panelEl.querySelectorAll<HTMLElement>('[data-setup-stage]')) {
+            const active = stage.dataset.setupStage === String(session.step);
+            stage.classList.toggle('active', active);
+            if (active) stage.setAttribute('aria-current', 'step');
+            else stage.removeAttribute('aria-current');
+        }
         if (session.step === 1) {
             this._renderLibraryStep();
         } else if (session.step === 2) {

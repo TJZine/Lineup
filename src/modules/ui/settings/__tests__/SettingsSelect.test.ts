@@ -60,11 +60,13 @@ describe('createSettingsSelect', () => {
         expect(select.setValue(2)).toBe(true);
         expect(select.getValue()).toBe(1);
         expect(select.element.querySelector('.setup-toggle-value')?.textContent).toBe('One');
-        expect(select.element.querySelector('.setup-toggle-meta')?.textContent).toBe('Storage failed.');
+        expect(select.element.querySelector('.setup-toggle-meta')?.textContent).toBe('Normal metadata.');
+        expect(select.feedbackElement.textContent).toContain('Storage failed.');
 
         expect(select.setValue(2)).toBe(true);
         expect(select.getValue()).toBe(2);
         expect(select.element.querySelector('.setup-toggle-meta')?.textContent).toBe('Normal metadata.');
+        expect(select.feedbackElement.textContent).toBe('');
     });
 
     it('does not persist from a direct element click before a chooser is opened', () => {

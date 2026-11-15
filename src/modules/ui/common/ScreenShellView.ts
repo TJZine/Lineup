@@ -6,6 +6,7 @@ import type {
     ScreenStatus,
     ScreenTone,
 } from '../types/screen-shell';
+import { createLineupBrandGlyph } from './brandGlyph';
 
 export type ScreenShellView = {
     panelEl: HTMLElement;
@@ -150,7 +151,34 @@ function setErrorContent(errorEl: HTMLElement, error: ScreenError | null): void 
 
 function createScreenShellElements(props: ScreenShellProps): ScreenShellElements {
     const panelEl = document.createElement('div');
-    panelEl.className = 'screen-panel';
+    panelEl.className = props.variant === 'onboarding'
+        ? 'screen-panel screen-panel--onboarding'
+        : 'screen-panel';
+
+    let contentParent: HTMLElement = panelEl;
+    if (props.variant === 'onboarding') {
+        const topbar = document.createElement('header');
+        topbar.className = 'screen-shell-topbar';
+
+        const brand = document.createElement('div');
+        brand.className = 'screen-shell-brand';
+
+        const glyph = createLineupBrandGlyph({
+            variant: 'color',
+            className: 'screen-shell-brand-glyph',
+        });
+        const wordmark = document.createElement('span');
+        wordmark.className = 'screen-shell-wordmark';
+        wordmark.textContent = 'LINEUP';
+
+        brand.append(glyph, wordmark);
+        topbar.appendChild(brand);
+
+        const stage = document.createElement('main');
+        stage.className = 'screen-shell-stage';
+        panelEl.append(topbar, stage);
+        contentParent = stage;
+    }
 
     const titleEl = document.createElement('h1');
     titleEl.className = 'screen-title';
@@ -163,13 +191,13 @@ function createScreenShellElements(props: ScreenShellProps): ScreenShellElements
     }
     heroEl.hidden = !props.heroSlot;
 
-    panelEl.appendChild(heroEl);
-    panelEl.appendChild(titleEl);
-    appendOptionalTextElement(panelEl, 'screen-subtitle', props.subtitle, 'p');
+    contentParent.appendChild(heroEl);
+    contentParent.appendChild(titleEl);
+    appendOptionalTextElement(contentParent, 'screen-subtitle', props.subtitle, 'p');
 
     const contentEl = document.createElement('div');
     contentEl.className = 'screen-content';
-    panelEl.appendChild(contentEl);
+    contentParent.appendChild(contentEl);
 
     const statusEl = document.createElement('div');
     statusEl.className = 'screen-status';
@@ -185,9 +213,9 @@ function createScreenShellElements(props: ScreenShellProps): ScreenShellElements
 
     const actionsEl = document.createElement('div');
     actionsEl.className = 'button-row';
-    panelEl.appendChild(actionsEl);
+    contentParent.appendChild(actionsEl);
 
-    appendOptionalTextElement(panelEl, 'screen-footer-hint', props.footerHint, 'div');
+    appendOptionalTextElement(contentParent, 'screen-footer-hint', props.footerHint, 'div');
 
     return {
         panelEl,

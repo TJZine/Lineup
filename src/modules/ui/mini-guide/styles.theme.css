@@ -1,32 +1,8 @@
-/*
- * Glass theme uses darker scrims than base surfaces, no blur, and the display font.
- * It must not reintroduce borders, box shadows, or top border radius.
- */
-.theme-glass .mini-guide-panel {
-  --mini-guide-scrim-fallback-rgb: 8, 11, 15;
-  --mini-guide-stop-1: 72%;
-  --mini-guide-stop-2: 56%;
-  --mini-guide-stop-3: 22%;
-  --mini-guide-border-alpha: 6%;
-  border: none;
-  box-shadow: none;
-}
-
-.theme-glass .mini-guide-row.focused {
-  background: linear-gradient(
-    90deg,
-    rgba(var(--focus-color-rgb), 0.18),
-    rgba(var(--focus-color-rgb), 0.04)
-  );
-  border-left: 3px solid var(--focus-color);
-}
-
 .theme-slate-pine .mini-guide-panel {
   --mini-guide-scrim-fallback-rgb: 22, 24, 22;
-  --mini-guide-stop-1: 54%;
-  --mini-guide-stop-2: 42%;
-  --mini-guide-stop-3: 20%;
-  --mini-guide-border-alpha: 8%;
+  --mini-guide-stop-1: 88%;
+  --mini-guide-stop-2: 66%;
+  --mini-guide-stop-3: 0%;
 }
 
 .theme-slate-pine .mini-guide-row.focused {
@@ -40,10 +16,9 @@
 
 .theme-swiss .mini-guide-panel {
   --mini-guide-scrim-fallback-rgb: 0, 0, 0;
-  --mini-guide-stop-1: 56%;
-  --mini-guide-stop-2: 44%;
-  --mini-guide-stop-3: 20%;
-  --mini-guide-border-alpha: 4%;
+  --mini-guide-stop-1: 90%;
+  --mini-guide-stop-2: 68%;
+  --mini-guide-stop-3: 0%;
 }
 
 .theme-swiss .mini-guide-row.focused {
@@ -57,10 +32,9 @@
 
 .theme-directv .mini-guide-panel {
   --mini-guide-scrim-fallback-rgb: 0, 24, 48;
-  --mini-guide-stop-1: 66%;
-  --mini-guide-stop-2: 54%;
-  --mini-guide-stop-3: 26%;
-  --mini-guide-border-alpha: 8%;
+  --mini-guide-stop-1: 90%;
+  --mini-guide-stop-2: 72%;
+  --mini-guide-stop-3: 0%;
 }
 
 .theme-directv .mini-guide-row.focused {
@@ -73,16 +47,16 @@
 .theme-directv .mini-guide-row.focused .mini-guide-channel-name,
 .theme-directv .mini-guide-row.focused .mini-guide-now,
 .theme-directv .mini-guide-row.focused .mini-guide-next,
-.theme-directv .mini-guide-row.focused .mini-guide-start-time {
+.theme-directv .mini-guide-row.focused .mini-guide-time,
+.theme-directv .mini-guide-row.focused .mini-guide-watching {
   color: var(--directv-focus-text);
 }
 
 .theme-ember-steel .mini-guide-panel {
   --mini-guide-scrim-fallback-rgb: 20, 20, 20;
-  --mini-guide-stop-1: 60%;
-  --mini-guide-stop-2: 48%;
-  --mini-guide-stop-3: 24%;
-  --mini-guide-border-alpha: 8%;
+  --mini-guide-stop-1: 88%;
+  --mini-guide-stop-2: 66%;
+  --mini-guide-stop-3: 0%;
 }
 
 .theme-ember-steel .mini-guide-row.focused {

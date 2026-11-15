@@ -13,8 +13,6 @@ import type {
     NavigationEpgPort,
     NavigationFourWayDirection,
     NavigationMiniGuidePort,
-    NavigationModalsPort,
-    NavigationNowPlayingInfoPort,
     NavigationPlaybackPort,
 } from '../contracts/NavigationFeaturePorts';
 
@@ -24,8 +22,6 @@ export interface NavigationKeyModeRouterPort {
     closeEpg: () => void;
     playback: NavigationPlaybackPort;
     miniGuide: NavigationMiniGuidePort;
-    nowPlayingInfo: NavigationNowPlayingInfoPort;
-    modals: NavigationModalsPort;
     channelSwitching: NavigationChannelSwitchingPort;
 }
 
@@ -37,6 +33,8 @@ type KeyPressRoutingState = {
 };
 
 export class NavigationKeyModeRouter implements NavigationKeyModeRouterRuntime {
+    private _latestTransportCommand = 0;
+
     constructor(
         private readonly deps: NavigationKeyModeRouterPort,
         private readonly repeats: NavigationRepeatRuntime,
@@ -46,23 +44,12 @@ export class NavigationKeyModeRouter implements NavigationKeyModeRouterRuntime {
     ) { }
 
     handleLongPressBack(): void {
-        const navigation = this.deps.navigation;
-        if (navigation.isInputBlocked()) return;
-        if (navigation.getActiveModalPolicy?.()?.blocksBackgroundCommands === true) return;
-
-        this.deps.closeEpg();
-        while (navigation.isModalOpen()) {
-            navigation.closeModal();
-        }
-        navigation.replaceScreen('player');
+        // Long Back belongs to the webOS system.
     }
 
     handleKeyPress(event: KeyEvent): void {
         this.repeats.stopForNonDirectionalInput(event);
-
-        if (this._handleNowPlayingModalKeyPress(event)) {
-            return;
-        }
+        if (this._isTransportButton(event.button)) this._latestTransportCommand += 1;
 
         const routingState = this._getKeyPressRoutingState();
         if (routingState.modalOpen && this._isDirectionalButton(event.button)) {
@@ -97,29 +84,6 @@ export class NavigationKeyModeRouter implements NavigationKeyModeRouterRuntime {
         }
 
         this._handleDefaultKeyPress(event, routingState);
-    }
-
-    private _handleNowPlayingModalKeyPress(event: KeyEvent): boolean {
-        const isNowPlayingModalOpen = this.deps.nowPlayingInfo.isModalOpen();
-        if (isNowPlayingModalOpen && event.button === 'back') {
-            this.logInputNotHandled('modal_open', event);
-            return true;
-        }
-        if (isNowPlayingModalOpen && event.button === 'ok') {
-            const navigation = this.deps.navigation;
-            if (!navigation.isModalOpen(this.deps.modals.playbackOptions.modalId)) {
-                const prep = this.deps.modals.playbackOptions.prepare('subtitles');
-                this.deps.nowPlayingInfo.resetAutoHideTimer();
-                navigation.closeModal(this.deps.nowPlayingInfo.modalId);
-                navigation.openModal(this.deps.modals.playbackOptions.modalId, prep.focusableIds);
-                if (prep.preferredFocusId) {
-                    navigation.setFocus(prep.preferredFocusId);
-                }
-            }
-            this._consumeKeyEvent(event);
-            return true;
-        }
-        return false;
     }
 
     private _getKeyPressRoutingState(): KeyPressRoutingState {
@@ -181,9 +145,11 @@ export class NavigationKeyModeRouter implements NavigationKeyModeRouterRuntime {
                 return true;
             case 'back':
                 this.repeats.stopEpgRepeat('back');
-                epg.handleBack();
-                this._consumeKeyEvent(event);
-                return true;
+                if (epg.handleBack()) {
+                    this._consumeKeyEvent(event);
+                    return true;
+                }
+                return false;
             case 'channelUp':
             case 'channelDown':
                 this._consumeKeyEvent(event);
@@ -225,6 +191,7 @@ export class NavigationKeyModeRouter implements NavigationKeyModeRouterRuntime {
             case 'channelDown':
                 this._consumeKeyEvent(event);
                 this.repeats.stopMiniGuideRepeat('page');
+                if (event.isRepeat) return true;
                 this.deps.miniGuide.requestMiniGuideIntent({
                     type: 'page',
                     direction: event.button === 'channelUp' ? 'up' : 'down',
@@ -234,7 +201,7 @@ export class NavigationKeyModeRouter implements NavigationKeyModeRouterRuntime {
                 this._consumeKeyEvent(event);
                 this.repeats.stopMiniGuideRepeat('right');
                 this.deps.miniGuide.requestMiniGuideIntent({ type: 'hide' });
-                this.deps.channelSwitching.toggleEpg();
+                this.deps.navigation.goTo('guide');
                 return true;
             case 'ok':
                 this._consumeKeyEvent(event);
@@ -287,9 +254,20 @@ export class NavigationKeyModeRouter implements NavigationKeyModeRouterRuntime {
             && !this.deps.playback.isPlayerOsdVisible()
             && !routingState.miniGuideVisible
         ) {
-            this.deps.playback.requestPlayerOsdIntent({ type: 'toggle' });
             this._consumeKeyEvent(event);
+            if (!event.isRepeat) this.deps.playback.requestPlayerOsdIntent({ type: 'reveal' });
             return true;
+        }
+
+        if (event.button === 'down' && routingState.currentScreen === 'player'
+            && !routingState.modalOpen && !routingState.shouldRouteToEpg
+            && !routingState.miniGuideVisible && this.deps.playback.isPlayerOsdVisible()) {
+            if (event.isRepeat) return false;
+            if (this.deps.playback.requestPlayerOsdIntent({ type: 'down' })) {
+                this._consumeKeyEvent(event);
+                return true;
+            }
+            return false;
         }
 
         return false;
@@ -306,30 +284,46 @@ export class NavigationKeyModeRouter implements NavigationKeyModeRouterRuntime {
         }
 
         if (this.deps.playback.isPlayerOsdVisible()) {
-            this.deps.playback.requestPlayerOsdIntent({ type: 'hide' });
+            if (!event.isRepeat) this.deps.playback.requestPlayerOsdIntent({ type: 'back' });
             this._consumeKeyEvent(event);
             return true;
         }
 
-        const prep = this.deps.modals.exitConfirm.prepare();
-        navigation.openModal(this.deps.modals.exitConfirm.modalId, prep.focusableIds);
+        navigation.goTo('guide');
         this._consumeKeyEvent(event);
         return true;
     }
 
     private _handleDefaultKeyPress(event: KeyEvent, routingState: KeyPressRoutingState): void {
+        if (this._isTransportButton(event.button) && !this._canControlPlayback(routingState)) {
+            this._consumeKeyEvent(event);
+            return;
+        }
         switch (event.button) {
             case 'red':
+            case 'info':
                 if (event.isRepeat) {
                     break;
                 }
-                this.deps.nowPlayingInfo.toggleOverlay();
+                if (routingState.currentScreen === 'player' && !routingState.modalOpen
+                    && !routingState.shouldRouteToEpg && !routingState.miniGuideVisible) {
+                    this.deps.playback.requestPlayerOsdIntent({ type: 'toggleExpanded' });
+                    this._consumeKeyEvent(event);
+                }
+                break;
+            case 'blue':
+                if (!event.isRepeat && !routingState.modalOpen
+                    && (routingState.currentScreen === 'player' || routingState.currentScreen === 'guide')) {
+                    if (routingState.currentScreen === 'player') this.deps.navigation.goTo('guide');
+                    this.deps.epg?.openLineupMenu();
+                    this._consumeKeyEvent(event);
+                }
                 break;
             case 'channelUp':
                 if (
                     routingState.currentScreen === 'player'
                     && !routingState.modalOpen
-                    && !routingState.shouldRouteToEpg
+                    && !routingState.shouldRouteToEpg && !event.isRepeat
                 ) {
                     this.deps.channelSwitching.setLastChannelChangeSourceRemote();
                     // Treat channel-up as decrement (reverse wrap) to match user expectation.
@@ -340,28 +334,16 @@ export class NavigationKeyModeRouter implements NavigationKeyModeRouterRuntime {
                 if (
                     routingState.currentScreen === 'player'
                     && !routingState.modalOpen
-                    && !routingState.shouldRouteToEpg
+                    && !routingState.shouldRouteToEpg && !event.isRepeat
                 ) {
                     this.deps.channelSwitching.setLastChannelChangeSourceRemote();
                     // Treat channel-down as increment (forward wrap) to match user expectation.
                     this.deps.channelSwitching.switchToNextChannel();
                 }
                 break;
-            case 'info':
-            case 'blue': {
-                if (event.isRepeat) {
-                    break;
-                }
-                const navigation = this.deps.navigation;
-                if (!this.deps.playback.isAuthenticatedForServerSelection()) {
-                    navigation.goTo('auth');
-                } else {
-                    navigation.goTo('server-select', { allowAutoConnect: false });
-                }
-                break;
-            }
             case 'play':
                 {
+                    const command = this._latestTransportCommand;
                     const playRequest = this.deps.playback.playFromRemote();
                     if (!playRequest) {
                         break;
@@ -374,6 +356,8 @@ export class NavigationKeyModeRouter implements NavigationKeyModeRouterRuntime {
                     );
                     void playPromise?.then(
                         () => {
+                            if (command !== this._latestTransportCommand
+                                || !this._canControlPlayback(this._getKeyPressRoutingState())) return;
                             this.deps.playback.requestPlayerOsdIntent({ type: 'poke', reason: 'play' });
                         },
                         () => undefined
@@ -423,6 +407,17 @@ export class NavigationKeyModeRouter implements NavigationKeyModeRouterRuntime {
     private _consumeKeyEvent(event: KeyEvent): void {
         event.handled = true;
         event.originalEvent.preventDefault();
+    }
+
+    private _canControlPlayback(state: KeyPressRoutingState): boolean {
+        return state.currentScreen === 'player' && !state.modalOpen && !state.miniGuideVisible
+            && !state.shouldRouteToEpg && !this.deps.navigation.isInputBlocked()
+            && this.deps.playback.isPlayerTransportContext();
+    }
+
+    private _isTransportButton(button: KeyEvent['button']): boolean {
+        return button === 'play' || button === 'pause' || button === 'rewind'
+            || button === 'fastforward' || button === 'stop';
     }
 
     private _isDirectionalButton(button: KeyEvent['button']): button is NavigationFourWayDirection {

@@ -18,7 +18,7 @@ type RecoveryActionFactory = (deps: RecoveryActionDeps) => ErrorRecoveryAction[]
 
 function buildAction(
     label: string,
-    action: () => void,
+    action: () => void | Promise<void>,
     options: { isPrimary: boolean; requiresNetwork: boolean }
 ): ErrorRecoveryAction {
     return {
@@ -59,9 +59,7 @@ const RECOVERY_ACTION_FACTORIES: Record<RecoveryActionGroupId, RecoveryActionFac
         buildAction('Retry', () => deps.retryStart(), { isPrimary: false, requiresNetwork: true }),
     ],
     playback: (deps) => [
-        buildAction('Retry', () => {
-            deps.retryPlayback();
-        }, { isPrimary: true, requiresNetwork: true }),
+        buildAction('Retry', () => deps.retryPlayback(), { isPrimary: true, requiresNetwork: true }),
         buildAction('Skip', () => {
             deps.skipToNext();
         }, { isPrimary: false, requiresNetwork: false }),

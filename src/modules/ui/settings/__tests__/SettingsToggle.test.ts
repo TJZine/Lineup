@@ -90,7 +90,9 @@ describe('createSettingsToggle', () => {
 
         const meta = toggle.element.querySelector('.setup-toggle-meta');
         expect(toggle.element.querySelector('.setup-toggle-state')?.textContent).toBe('Off');
-        expect(meta?.textContent).toBe('Storage failed.');
+        expect(meta?.textContent).toBe('Enable the theme.');
+        expect(toggle.feedbackElement.textContent).toContain('Storage failed.');
+        expect(toggle.feedbackElement.getAttribute('aria-live')).toBe('polite');
         expect(meta?.getAttribute('role')).toBe('status');
         expect(meta?.getAttribute('aria-live')).toBe('polite');
 
@@ -98,5 +100,6 @@ describe('createSettingsToggle', () => {
 
         expect(toggle.element.querySelector('.setup-toggle-state')?.textContent).toBe('On');
         expect(meta?.textContent).toBe('Enable the theme.');
+        expect(toggle.feedbackElement.textContent).toBe('');
     });
 });

@@ -3,7 +3,6 @@ import {
     type PlexAuthValidationGuard,
 } from '../../../modules/plex/auth';
 import { AppErrorCode } from '../../../types/app-errors';
-import { ChannelInitialTuneAuthority } from '../../channel-tuning/ChannelInitialTuneAuthority';
 import {
     InitializationSelectedServerTransaction,
     type InitializationSelectedServerTransactionDeps,
@@ -28,7 +27,7 @@ interface TransactionHarness {
     authController: AbortController;
     validateStoredCredentials: jest.Mock;
     navigation: { replaceScreen: jest.Mock };
-    channelManager: { getCurrentChannel: jest.Mock; getAllChannels: jest.Mock };
+    channelManager: { getLastLoadOutcome: jest.Mock };
 }
 
 function createHarness(): TransactionHarness {
@@ -42,19 +41,17 @@ function createHarness(): TransactionHarness {
     const validateStoredCredentials = jest.fn().mockResolvedValue({ kind: 'active_valid', guard });
     const navigation = { replaceScreen: jest.fn() };
     const channelManager = {
-        getCurrentChannel: jest.fn(() => null),
-        getAllChannels: jest.fn(() => []),
+        getLastLoadOutcome: jest.fn(() => ({ kind: 'absent' as const, generation: 1, revision: 1 })),
     };
     const deps: jest.Mocked<InitializationSelectedServerTransactionDeps> = {
         getPlexAuth: jest.fn(() => ({ validateStoredCredentials })),
         isSelectedServerConnected: jest.fn(() => true),
         initializePlaybackRuntime: jest.fn().mockResolvedValue(undefined),
-        ensureCorePlayerUiInitialized: jest.fn().mockResolvedValue(undefined),
         initializeEpg: jest.fn().mockResolvedValue(undefined),
+        isEpgReady: jest.fn(() => true),
         getNavigation: jest.fn(() => navigation),
         getChannelManager: jest.fn(() => channelManager),
         shouldRunAudioSetup: jest.fn(() => false),
-        shouldRunChannelSetup: jest.fn(() => true),
         openServerSelect: jest.fn(),
         publishCommitStart: jest.fn(),
         setupEventWiring: jest.fn(() => true),
@@ -65,10 +62,7 @@ function createHarness(): TransactionHarness {
     };
     const transactionController = new AbortController();
     const commitController = new AbortController();
-    const tuneAuthority = new ChannelInitialTuneAuthority();
-    const lineage = tuneAuthority.beginLineage([]);
     const request: SelectedServerInitializationRequest = {
-        lineage,
         signal: transactionController.signal,
         assertCurrent: (): void => {
             if (transactionController.signal.aborted) throw transactionController.signal.reason;
@@ -80,7 +74,6 @@ function createHarness(): TransactionHarness {
             },
         },
         beforeCommit: jest.fn().mockResolvedValue(READY_REFRESH),
-        initialTune: jest.fn().mockResolvedValue({ kind: 'switched' }),
     };
     return {
         deps,
@@ -144,6 +137,17 @@ describe('InitializationSelectedServerTransaction', () => {
 
         expect(deps.setReady).not.toHaveBeenCalledWith(true);
         expect(deps.publishLifecycleReady).not.toHaveBeenCalled();
+    });
+
+    it('reports restore phases after each authority check', async () => {
+        const { deps, request } = createHarness();
+        const phases: string[] = [];
+        request.publishRestorePhase = (phase): void => { phases.push(phase); };
+
+        await expect(new InitializationSelectedServerTransaction(deps).run(request))
+            .resolves.toMatchObject({ kind: 'completed' });
+
+        expect(phases).toEqual(['server', 'read-lineup', 'prepare-guide']);
     });
 
     it('still rejects auth invalidation when successful routing also hides the caller', async () => {
@@ -247,20 +251,21 @@ describe('InitializationSelectedServerTransaction', () => {
         expect(serverHarness.deps.publishCommitStart).not.toHaveBeenCalled();
     });
 
-    it('uses the supplied lineage for the one initial tune during commit routing', async () => {
+    it('opens a readable selected-server lineup in Guide without tuning', async () => {
         const { deps, request, channelManager } = createHarness();
-        deps.shouldRunChannelSetup.mockReturnValue(false);
-        (channelManager.getCurrentChannel as jest.Mock).mockReturnValue({ id: 'channel-1' });
+        channelManager.getLastLoadOutcome.mockReturnValue({
+            kind: 'readable', generation: 1, revision: 1, channelCount: 1,
+        });
 
         await new InitializationSelectedServerTransaction(deps).run(request);
 
-        expect(request.initialTune).toHaveBeenCalledWith('channel-1', request.lineage);
+        expect(deps.getNavigation()?.replaceScreen).toHaveBeenCalledWith('guide');
     });
 
     it('disposes wiring newly established by the transaction when routing fails', async () => {
-        const { deps, request } = createHarness();
+        const { deps, request, navigation } = createHarness();
         const error = new Error('routing failed');
-        deps.shouldRunChannelSetup.mockImplementation(() => { throw error; });
+        navigation.replaceScreen.mockImplementation(() => { throw error; });
 
         await expect(new InitializationSelectedServerTransaction(deps).run(request))
             .resolves.toEqual({ kind: 'failed', error });
@@ -271,10 +276,10 @@ describe('InitializationSelectedServerTransaction', () => {
     });
 
     it('preserves pre-existing wiring when routing fails', async () => {
-        const { deps, request } = createHarness();
+        const { deps, request, navigation } = createHarness();
         const error = new Error('routing failed');
         deps.setupEventWiring.mockReturnValue(false);
-        deps.shouldRunChannelSetup.mockImplementation(() => { throw error; });
+        navigation.replaceScreen.mockImplementation(() => { throw error; });
 
         await expect(new InitializationSelectedServerTransaction(deps).run(request))
             .resolves.toEqual({ kind: 'failed', error });
@@ -297,9 +302,9 @@ describe('InitializationSelectedServerTransaction', () => {
     });
 
     it('does not let event-wiring compensation failure mask routing failure', async () => {
-        const { deps, request } = createHarness();
+        const { deps, request, navigation } = createHarness();
         const error = new Error('routing failed');
-        deps.shouldRunChannelSetup.mockImplementation(() => { throw error; });
+        navigation.replaceScreen.mockImplementation(() => { throw error; });
         deps.disposeEventWiring.mockImplementation(() => { throw new Error('cleanup failed'); });
 
         await expect(new InitializationSelectedServerTransaction(deps).run(request))

@@ -101,4 +101,24 @@ describe('normalizeChannelSetupConfig', () => {
             baseBlockSize: 3,
         });
     });
+
+    it('keeps valid programming choices and removes malformed optional overrides', () => {
+        const choices = normalizeChannelSetupConfig(createConfig({ seriesOrdering: {
+            basePlaybackMode: 'random', baseBlockSize: 4, lineupSeed: 73,
+            startTimeAnchor: 1_700_000_000_000, includeSpecials: false,
+        } }));
+        expect(choices.seriesOrdering).toEqual({
+            basePlaybackMode: 'random', baseBlockSize: 4, lineupSeed: 73,
+            startTimeAnchor: 1_700_000_000_000, includeSpecials: false,
+        });
+
+        const malformed = normalizeChannelSetupConfig(createConfig({ seriesOrdering: {
+            basePlaybackMode: 'block', baseBlockSize: 3, lineupSeed: Number.NaN,
+            startTimeAnchor: Number.POSITIVE_INFINITY, includeSpecials: 'no' as never,
+        } }));
+        expect(malformed.seriesOrdering).toEqual({ basePlaybackMode: 'block', baseBlockSize: 3 });
+        expect(normalizeChannelSetupConfig(createConfig({ seriesOrdering: {
+            basePlaybackMode: 'block', baseBlockSize: 3, includeSpecials: true,
+        } })).seriesOrdering).toEqual({ basePlaybackMode: 'block', baseBlockSize: 3 });
+    });
 });

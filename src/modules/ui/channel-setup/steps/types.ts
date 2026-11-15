@@ -3,6 +3,7 @@ import type {
     ChannelSetupContext,
     ChannelSetupReview,
 } from '../../../../core/channel-setup/types';
+import type { ChannelSetupInventory } from '../../../../core/channel-setup/planning/ChannelSetupInventory';
 import type { PlexLibrarySection } from '../../../plex/library';
 import type {
     StrategyStepMutableState,
@@ -12,6 +13,12 @@ import type { SetupStrategyKey, StrategyCategoryKey } from '../strategyConstants
 export interface LibraryStepDeps {
     libraries: PlexLibrarySection[];
     selectedLibraryIds: Set<string>;
+    inventory: ChannelSetupInventory | null;
+    isInventoryLoading: boolean;
+    inventoryError: string | null;
+    acceptedReadyLibraryIds: Set<string>;
+    knownReadyLibraryIds: Set<string>;
+    confirmedDeselectedLibraryIds: Set<string>;
     formatCount: (value: number) => string;
     movieSvg: string;
     showSvg: string;
@@ -21,6 +28,11 @@ export interface LibraryStepDeps {
     onClearAll: (focusId: string | null) => void;
     onBack: () => void;
     onNext: () => void;
+    onScan: () => void;
+    onCancelScan: () => void;
+    onRetry: (libraryId: string, focusId: string) => void;
+    onToggleReady: (libraryId: string, focusId: string) => void;
+    onToggleDeselectedConsent: (libraryId: string, focusId: string) => void;
     registerStepFocusables: (
         selectAllButton: HTMLButtonElement,
         clearAllButton: HTMLButtonElement,
@@ -55,7 +67,7 @@ export interface StrategyStepDeps {
     onNext: () => void;
     registerStep2Focusables: (
         categoryButtons: HTMLButtonElement[],
-        detailButtons: HTMLButtonElement[],
+        detailButtons: HTMLElement[],
         backButton: HTMLButtonElement,
         nextButton: HTMLButtonElement,
         options?: {
@@ -72,6 +84,8 @@ export interface BuildReviewStateSnapshot {
     reviewError: string | null;
     isReviewLoading: boolean;
     replaceConfirm: boolean;
+    wholeLineupReplacementConfirm: boolean;
+    isStale: boolean;
     isBuilding: boolean;
     recordApplied: boolean;
 }
@@ -81,6 +95,10 @@ export interface BuildReviewDeps {
     onBackToStrategy: () => void;
     onConfirmBuild: () => void;
     onToggleReplaceConfirm: (focusId: string) => void;
+    onToggleWholeLineupReplacementConfirm: (focusId: string) => void;
+    onRefreshReview: () => void;
+    renderStep: () => void;
+    setPreferredFocusId: (focusId: string | null) => void;
     renderCappedWarnings: (warnings: string[], container: HTMLElement) => void;
     registerLinearFocusables: (buttons: HTMLElement[]) => void;
 }
@@ -88,6 +106,7 @@ export interface BuildReviewDeps {
 export interface BuildProgressUiRefs {
     cancelButton: HTMLButtonElement;
     doneButton: HTMLButtonElement;
+    addCustomButton: HTMLButtonElement;
     barFill: HTMLElement;
     taskLabel: HTMLElement;
     detailLabel: HTMLElement;
@@ -102,5 +121,6 @@ export interface BuildProgressDeps {
     registerLinearFocusables: (buttons: HTMLElement[]) => void;
     onCancelOrBack: (button: HTMLButtonElement) => void;
     onDone: (button: HTMLButtonElement) => void;
+    onAddCustom: (button: HTMLButtonElement) => void;
     startBuild: (ui: BuildProgressUiRefs) => Promise<void>;
 }

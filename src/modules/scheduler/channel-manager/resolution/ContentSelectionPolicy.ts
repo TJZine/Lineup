@@ -1,4 +1,5 @@
 import type {
+    ChannelConfig,
     ContentFilter,
     PlaybackMode,
     ResolvedContentItem,
@@ -8,6 +9,22 @@ import { shuffleWithSeed } from '../../shared/prng';
 import { applyPlaybackOrdering } from '../../shared/playbackOrdering';
 
 export class ContentSelectionPolicy {
+    selectChannelItems(channel: ChannelConfig, rawItems: ResolvedContentItem[]): ResolvedContentItem[] {
+        let items = rawItems;
+        if (channel.playbackMode === 'block' && channel.includeSpecials === false) {
+            items = items.filter((item) => !(item.type === 'episode' && item.seasonNumber === 0));
+        }
+        if (channel.contentFilters?.length) items = this.applyFilters(items, channel.contentFilters);
+        if (channel.sortOrder) items = this.applySort(items, channel.sortOrder);
+        items = items.filter((item) => item.durationMs > 0);
+        if (channel.minEpisodeRunTimeMs || channel.maxEpisodeRunTimeMs) {
+            items = items.filter((item) =>
+                (!channel.minEpisodeRunTimeMs || item.durationMs >= channel.minEpisodeRunTimeMs)
+                && (!channel.maxEpisodeRunTimeMs || item.durationMs <= channel.maxEpisodeRunTimeMs));
+        }
+        return items;
+    }
+
     interleave(arrays: ResolvedContentItem[][]): ResolvedContentItem[] {
         const result: ResolvedContentItem[] = [];
         const maxLength = Math.max(...arrays.map((items) => items.length));

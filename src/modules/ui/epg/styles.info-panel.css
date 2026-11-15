@@ -291,3 +291,47 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* Flex gap fallback for engines that support grid gap but not flex gap. */
+.no-flex-gap .epg-info-panel > :not([hidden]) ~ :not([hidden]) {
+  margin-left: var(--space-6);
+}
+
+.no-flex-gap .epg-info-content > :not([hidden]) ~ :not([hidden]) {
+  margin-top: var(--epg-info-gap-10);
+}
+
+.no-flex-gap .epg-info-heading > :not([hidden]) ~ :not([hidden]) {
+  margin-top: var(--space-local-6);
+}
+
+.no-flex-gap .epg-info-meta-cluster > :not([hidden]) ~ :not([hidden]) {
+  margin-left: 0;
+}
+
+.no-flex-gap .epg-info-meta {
+  margin-right: calc(-1 * var(--space-4));
+  margin-bottom: calc(-1 * var(--space-4));
+}
+.no-flex-gap .epg-info-meta > :not([hidden]) {
+  margin-right: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.no-flex-gap .epg-info-tags {
+  margin-right: calc(-1 * var(--epg-info-gap-10));
+  margin-bottom: calc(-1 * var(--epg-info-gap-10));
+}
+.no-flex-gap .epg-info-tags > :not([hidden]) {
+  margin-right: var(--epg-info-gap-10);
+  margin-bottom: var(--epg-info-gap-10);
+}
+
+.no-flex-gap .epg-info-quality {
+  margin-right: calc(-1 * var(--epg-info-gap-10));
+  margin-bottom: calc(-1 * var(--epg-info-gap-10));
+}
+.no-flex-gap .epg-info-quality > :not([hidden]) {
+  margin-right: var(--epg-info-gap-10);
+  margin-bottom: var(--epg-info-gap-10);
+}

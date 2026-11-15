@@ -17,7 +17,7 @@ export interface RecoveryActionDeps {
     goToChannelEdit: () => void; // must internally no-op if navigation missing
     goToSettings: () => void; // must internally no-op if navigation missing
     retryStart: () => Promise<void>;
-    retryPlayback: () => void; // must retry the current loaded program and internally no-op if unavailable
+    retryPlayback: () => Promise<void>;
     exitApp: () => Promise<void>;
     skipToNext: () => void; // must internally no-op if scheduler missing
 }

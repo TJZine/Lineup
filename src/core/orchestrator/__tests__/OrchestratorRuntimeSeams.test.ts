@@ -24,6 +24,7 @@ describe('OrchestratorRuntimeSeams', () => {
             lifecycle: {} as PriorityOneRequiredRuntimeModules['lifecycle'],
         };
         const playbackRuntime: PriorityOnePlaybackRuntimePort = {
+            reconcileSleepExpiration: () => false,
             playbackState: {} as PriorityOnePlaybackRuntimePort['playbackState'],
             playbackRecovery,
             stopPlayback: () => undefined,
@@ -46,7 +47,6 @@ describe('OrchestratorRuntimeSeams', () => {
         };
         const uiRuntime: PriorityOneUiRuntimePort = {
             handleGlobalError: () => undefined,
-            showInfoBanner: () => undefined,
             onProgramStartUiSideEffects: () => undefined,
             onStreamResolved: () => undefined,
             onPlaybackStartFailure: () => undefined,
@@ -71,6 +71,6 @@ describe('OrchestratorRuntimeSeams', () => {
         expect(modules.scheduler).toBeDefined();
         expect(schedulerRuntime.syncSchedulerToCurrentTime).toBeDefined();
         expect(playerEvents.onPlayerStateChange).toBeDefined();
-        expect(uiRuntime.showInfoBanner).toBeDefined();
+        expect(uiRuntime.onProgramStartUiSideEffects).toBeDefined();
     });
 });

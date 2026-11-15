@@ -13,11 +13,12 @@ describe('createOrchestratorModules wiring', () => {
         jest.restoreAllMocks();
     });
 
-    it('wires sleep timer sleep + tick callbacks to pause playback and onSleepTimerTick', () => {
+    it('wires sleep expiry and tick callbacks to runtime owners', () => {
         jest.useFakeTimers();
         jest.setSystemTime(new Date('2020-01-01T00:00:00Z'));
 
         const onSleepTimerTick = jest.fn();
+        const onSleepTimerExpired = jest.fn();
         const platformServices = createWebOsPlatformServices();
         const modules = createOrchestratorModules({
             config: {
@@ -27,18 +28,16 @@ describe('createOrchestratorModules wiring', () => {
             debugOverridesStore: new DebugOverridesStore(),
             developerSettingsStore: new DeveloperSettingsStore(),
             onSleepTimerTick,
+            onSleepTimerExpired,
         });
-
-        const pauseSpy = jest.spyOn(modules.videoPlayer, 'pause').mockImplementation(() => undefined);
 
         modules.sleepTimer.start(1);
         jest.advanceTimersByTime(60_000);
 
-        expect(pauseSpy).toHaveBeenCalled();
+        expect(onSleepTimerExpired).toHaveBeenCalledTimes(1);
         expect(onSleepTimerTick).toHaveBeenCalled();
         expect(modules.epgReadinessPort).toBe(modules.epg);
 
-        pauseSpy.mockRestore();
         modules.sleepTimer.destroy();
     });
 
@@ -62,6 +61,7 @@ describe('createOrchestratorModules wiring', () => {
             debugOverridesStore: new DebugOverridesStore(),
             developerSettingsStore: new DeveloperSettingsStore(),
             onSleepTimerTick: jest.fn(),
+            onSleepTimerExpired: jest.fn(),
         });
         const accountToken = {
             token: cloudToken,

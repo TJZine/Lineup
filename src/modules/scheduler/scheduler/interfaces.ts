@@ -18,6 +18,12 @@ export interface IShuffleGenerator {
 export interface IChannelScheduler {
     loadChannel(config: ScheduleConfig): void;
 
+    /** Retain the current program until its end, then activate the saved schedule. */
+    stageChannelReplacement(config: ScheduleConfig): void;
+
+    cancelChannelReplacement(): void;
+    hasPendingChannelReplacement(): boolean;
+
     unloadChannel(): void;
 
     /**

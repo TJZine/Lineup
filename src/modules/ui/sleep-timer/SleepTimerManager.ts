@@ -27,7 +27,17 @@ export class SleepTimerManager {
         return nextPresetMin;
     }
 
+    /** The selected deadline is authoritative; focus in a picker never changes it. */
+    getSelectedPresetMinutes(): number {
+        return this.endTimeMs > Date.now() ? (SLEEP_TIMER_PRESETS_MIN[this.presetIndex] ?? 0) : 0;
+    }
+
+    getDeadlineMs(): number | null {
+        return this.endTimeMs > Date.now() ? this.endTimeMs : null;
+    }
+
     start(minutes: number): void {
+        this.reconcileExpiration();
         const normalizedMinutes = Math.max(0, Math.floor(minutes));
         if (normalizedMinutes <= 0) {
             this.cancel();
@@ -51,6 +61,7 @@ export class SleepTimerManager {
     }
 
     cancel(): void {
+        this.reconcileExpiration();
         const wasActive = this.isActive();
         this._clearInterval();
         this.endTimeMs = 0;
@@ -64,14 +75,29 @@ export class SleepTimerManager {
     }
 
     getRemainingMs(): number {
-        if (!this.isActive()) {
+        if (this.endTimeMs === 0) {
             return 0;
         }
         return this._computeRemainingMs();
     }
 
     isActive(): boolean {
-        return this.intervalId !== null && this.endTimeMs > Date.now();
+        this.reconcileExpiration();
+        return this.endTimeMs > 0;
+    }
+
+    /** Reconcile a deadline before any playback admission, even if interval ticks were suspended. */
+    reconcileExpiration(): boolean {
+        if (this.endTimeMs === 0 || this.endTimeMs > Date.now()) {
+            return false;
+        }
+        this._clearInterval();
+        this.endTimeMs = 0;
+        this.remainingMs = 0;
+        this.presetIndex = 0;
+        this.callbacks.onTick(0);
+        this.callbacks.onSleep();
+        return true;
     }
 
     destroy(): void {
@@ -83,6 +109,7 @@ export class SleepTimerManager {
     }
 
     private _tick(): void {
+        if (this.reconcileExpiration()) return;
         this.remainingMs = this._computeRemainingMs();
 
         if (!this.warningEmitted && this.remainingMs > 0 && this.remainingMs <= SLEEP_TIMER_WARNING_MS) {
@@ -92,12 +119,6 @@ export class SleepTimerManager {
 
         this.callbacks.onTick(this.remainingMs);
 
-        if (this.remainingMs <= 0) {
-            this._clearInterval();
-            this.endTimeMs = 0;
-            this.presetIndex = 0;
-            this.callbacks.onSleep();
-        }
     }
 
     private _computeRemainingMs(): number {

@@ -19,11 +19,6 @@
   cursor: pointer;
 }
 
-.epg-cell:focus,
-.epg-cell:focus-visible {
-  outline: none;
-}
-
 .epg-cell.loading {
   background: rgba(255, 255, 255, 0.08);
 }
@@ -81,6 +76,12 @@
   outline: none;
 }
 
+/* Native focus remains visible when it is not represented by the remote-focus class. */
+.epg-cell:focus:not(.focused) {
+  outline: var(--focus-ring-width) solid var(--focus-border-color);
+  outline-offset: var(--focus-ring-offset);
+}
+
 /* Windows High Contrast Mode support */
 @media (forced-colors: active) {
 
@@ -88,6 +89,11 @@
     background: Canvas;
     outline: 3px solid CanvasText;
     outline-offset: 2px;
+  }
+
+  .epg-cell:focus:not(.focused) {
+    outline: var(--focus-ring-width) solid CanvasText;
+    outline-offset: var(--focus-ring-offset);
   }
 
   .epg-cell.unavailable {
@@ -197,7 +203,10 @@
 .epg-cell-episode::after {
   content: '';
   position: absolute;
-  inset: -60% -80%;
+  top: -60%;
+  right: -80%;
+  bottom: -60%;
+  left: -80%;
   background: linear-gradient(120deg,
       transparent 42%,
       rgba(255, 255, 255, 0.18) 50%,
@@ -423,4 +432,17 @@
   transform-origin: center;
   animation: live-pulse 1.5s ease-in-out infinite;
   flex-shrink: 0;
+}
+
+/* Flex gap fallback for engines that support grid gap but not flex gap. */
+.no-flex-gap .epg-cell-meta > :not([hidden]) ~ :not([hidden]) {
+  margin-left: var(--space-2);
+}
+
+.no-flex-gap .epg-live-badge > :not([hidden]) ~ :not([hidden]) {
+  margin-left: var(--space-1);
+}
+
+.no-flex-gap .epg-live-badge.epg-live-badge-compact > :not([hidden]) ~ :not([hidden]) {
+  margin-left: 0;
 }

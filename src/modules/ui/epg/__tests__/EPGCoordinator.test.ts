@@ -175,7 +175,7 @@ const makeDeps = (
         isVisible: jest.fn().mockReturnValue(false),
         focusNow: jest.fn(),
         loadChannels: jest.fn(),
-        setLayoutMode: jest.fn(),
+        setSourceLabelsEnabled: jest.fn(),
         setVisibleHours: jest.fn(),
         setNowWatchingBannerEnabled: jest.fn(),
         setLibraryTabs: jest.fn(),
@@ -260,6 +260,7 @@ const makeDeps = (
         reportEpgInitWarning: jest.fn(),
         epgPreferencesStore,
         appendIssueDiagnostic: jest.fn(),
+        navigateFromGuide: jest.fn(),
         ...overrides,
     };
     return { deps, epg, channelManager, scheduler };
@@ -473,9 +474,9 @@ describe('EPGCoordinator', () => {
         );
     });
 
-    it('openEPG handles promise rejection by hiding EPG and reporting warning', async () => {
+    it('openEPG hides and reports initialization failure, then allows retry', async () => {
         const error = new Error('Init failed');
-        const ensure = jest.fn().mockRejectedValue(error);
+        const ensure = jest.fn().mockRejectedValueOnce(error).mockResolvedValueOnce(undefined);
         const { deps, epg } = makeDeps({
             getEpgUiStatus: () => 'pending',
             ensureEpgInitialized: ensure,
@@ -505,6 +506,13 @@ describe('EPGCoordinator', () => {
                 errorKind: 'non-abort',
             })
         );
+        expect(visible).toBe(false);
+
+        coordinator.openEPG();
+        await flushPromises();
+
+        expect(ensure).toHaveBeenCalledTimes(2);
+        expect(visible).toBe(true);
     });
 
     it('openEPG reports logical visibility immediately during deferred load and rolls it back on init failure', async () => {
@@ -739,7 +747,7 @@ describe('EPGCoordinator', () => {
         expect(epg.loadChannels).toHaveBeenCalledWith([allChannels[0], allChannels[2]]);
     });
 
-    it('primeEpgChannels sets 2h as default guide density when no library filter is active', () => {
+    it('primeEpgChannels uses the default guide hours when no library filter is active', () => {
         const { deps, epg } = makeDeps();
         const coordinator = new EPGCoordinator(deps);
 
@@ -748,7 +756,7 @@ describe('EPGCoordinator', () => {
         expect(epg.setVisibleHours).toHaveBeenCalledWith(2);
     });
 
-    it('primeEpgChannels forces 3h for movie library filters even when default density is detailed', () => {
+    it('primeEpgChannels preserves default guide hours for movie library filters', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
         localStorage.setItem(EPG_LIBRARY_FILTER_TEST_KEY, 'movie-lib');
 
@@ -788,10 +796,10 @@ describe('EPGCoordinator', () => {
 
         coordinator.primeEpgChannels();
 
-        expect(epg.setVisibleHours).toHaveBeenCalledWith(3);
+        expect(epg.setVisibleHours).toHaveBeenCalledWith(2);
     });
 
-    it('primeEpgChannels forces 2h for show library filters even when density is wide', () => {
+    it('primeEpgChannels migrates legacy wide hours across show library filters', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY, 'wide');
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
         localStorage.setItem(EPG_LIBRARY_FILTER_TEST_KEY, 'show-lib');
@@ -832,7 +840,7 @@ describe('EPGCoordinator', () => {
 
         coordinator.primeEpgChannels();
 
-        expect(epg.setVisibleHours).toHaveBeenCalledWith(2);
+        expect(epg.setVisibleHours).toHaveBeenCalledWith(3);
     });
 
     it('uses auto past-window = 0m for show library filter', () => {
@@ -1250,8 +1258,8 @@ describe('EPGCoordinator', () => {
         expect(localStorage.getItem(EPG_LIBRARY_FILTER_TEST_KEY)).toBe('lib1');
     });
 
-    it('primeEpgChannels applies layout mode and now watching settings from storage', () => {
-        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE, 'classic');
+    it('primeEpgChannels applies source labels and now watching settings from storage', () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_SOURCE_LABELS_ENABLED, '1');
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED, '0');
 
         const { deps, epg } = makeDeps();
@@ -1259,17 +1267,17 @@ describe('EPGCoordinator', () => {
 
         coordinator.primeEpgChannels();
 
-        expect(epg.setLayoutMode).toHaveBeenCalledWith('classic');
+        expect(epg.setSourceLabelsEnabled).toHaveBeenCalledWith(true);
         expect(epg.setNowWatchingBannerEnabled).toHaveBeenCalledWith(false);
     });
 
-    it('primeEpgChannels defaults to classic layout when no layout is stored', () => {
+    it('primeEpgChannels defaults to hidden source labels when no setting is stored', () => {
         const { deps, epg } = makeDeps();
         const coordinator = new EPGCoordinator(deps);
 
         coordinator.primeEpgChannels();
 
-        expect(epg.setLayoutMode).toHaveBeenCalledWith('classic');
+        expect(epg.setSourceLabelsEnabled).toHaveBeenCalledWith(false);
     });
 
     it('openEPG shows immediately when not ready then initializes and shows again', async () => {
@@ -2116,7 +2124,7 @@ describe('EPGCoordinator', () => {
         const firstResolveCount = resolveChannelContent.mock.calls.length;
         expect(firstResolveCount).toBeGreaterThan(0);
 
-        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE, 'classic');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_SOURCE_LABELS_ENABLED, '1');
         (epg.loadScheduleForChannel as jest.Mock).mockClear();
         (deps.appendIssueDiagnostic as jest.Mock).mockClear();
         await coordinator.refreshEpgSchedulesForRange(range, { debounceMs: 0, reason: 'visible-range' });
@@ -2224,7 +2232,7 @@ describe('EPGCoordinator', () => {
         await flushPromises();
 
         expect(setSource).toHaveBeenCalled();
-        expect(hide).toHaveBeenCalled();
+        expect(hide).not.toHaveBeenCalled();
         expect(switchToChannel).toHaveBeenCalledWith(
             'c1',
             expect.objectContaining({
@@ -2315,7 +2323,7 @@ describe('EPGCoordinator', () => {
         );
     });
 
-    it('keeps the guide closed and reports failed guide switch outcomes', async () => {
+    it('keeps the Guide open and reports failed guide switch outcomes', async () => {
         const epg: IEPGComponent = {
             on: jest.fn(),
             off: jest.fn(),
@@ -2362,7 +2370,7 @@ describe('EPGCoordinator', () => {
         await flushPromises();
         await flushPromises();
 
-        expect(epg.hide).toHaveBeenCalled();
+        expect(epg.hide).not.toHaveBeenCalled();
         expect(epg.show).not.toHaveBeenCalled();
         expect(epg.focusNow).not.toHaveBeenCalled();
         expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
@@ -2374,7 +2382,7 @@ describe('EPGCoordinator', () => {
         );
     });
 
-    it('keeps the guide closed without diagnostics for aborted guide switch outcomes', async () => {
+    it('keeps the Guide open without diagnostics for aborted guide switch outcomes', async () => {
         const epg: IEPGComponent = {
             on: jest.fn(),
             off: jest.fn(),
@@ -2421,7 +2429,7 @@ describe('EPGCoordinator', () => {
         await flushPromises();
         await flushPromises();
 
-        expect(epg.hide).toHaveBeenCalled();
+        expect(epg.hide).not.toHaveBeenCalled();
         expect(epg.show).not.toHaveBeenCalled();
         expect(epg.focusNow).not.toHaveBeenCalled();
         expect(deps.appendIssueDiagnostic).not.toHaveBeenCalledWith(
@@ -2522,20 +2530,11 @@ describe('EPGCoordinator', () => {
         const overlayDeps: jest.Mocked<OverlayRuntimePolicyControllerDeps> = {
             hasChannelBadgeOverlay: jest.fn().mockReturnValue(true),
             getPlayerOsdVisible: jest.fn().mockReturnValue(true),
-            getNowPlayingInfoVisible: jest.fn().mockReturnValue(false),
             getEpgVisible: jest.fn().mockImplementation(() => epgVisible),
             isChannelTransitionActive: jest.fn().mockReturnValue(false),
             getCurrentChannel: jest.fn().mockReturnValue({ number: 55, name: 'Drama' }),
             showChannelBadge: jest.fn(),
             hideChannelBadge: jest.fn(),
-            hasNavigation: jest.fn().mockReturnValue(true),
-            hasNowPlayingInfoOverlay: jest.fn().mockReturnValue(true),
-            getCurrentScreen: jest.fn().mockReturnValue('player'),
-            hasCurrentProgramForPlayback: jest.fn().mockReturnValue(true),
-            isModalOpen: jest.fn().mockReturnValue(false),
-            openModal: jest.fn(),
-            closeModal: jest.fn(),
-            nowPlayingModalId: 'now-playing-info',
         };
         const overlayController = new OverlayRuntimePolicyController(overlayDeps);
         const deps = makeDeps({
@@ -2784,8 +2783,13 @@ describe('EPGCoordinator', () => {
                 signal: expect.objectContaining({ aborted: false }),
             })
         );
-        expect(epg.hide).toHaveBeenCalled();
-        expect(switchToChannel).toHaveBeenCalledWith('c0', undefined);
+        expect(epg.hide).not.toHaveBeenCalled();
+        expect(switchToChannel).toHaveBeenCalledWith('c0', expect.objectContaining({
+            fromGuideSelection: true,
+            selectedProgram: expect.objectContaining({
+                channelId: 'c0', itemKey: 'c0-0', scheduleIndex: 0, loopNumber: 0,
+            }),
+        }));
     });
 
     it('ignores stale guide selection work after a newer selection starts', async () => {
@@ -2907,7 +2911,7 @@ describe('EPGCoordinator', () => {
         });
         await flushPromises();
 
-        coordinator.handleGuideSettingChange({ key: 'guideDensity', density: 'wide' });
+        coordinator.handleGuideSettingChange({ key: 'guideHours', hours: 4 });
         resolveSelection(makeResolvedItems('c0'));
         await flushPromises();
 
@@ -3084,9 +3088,9 @@ describe('EPGCoordinator', () => {
 
     it.each([
         {
-            change: { key: 'layoutMode', mode: 'overlay' } as const,
-            method: 'setLayoutMode' as const,
-            value: 'overlay',
+            change: { key: 'sourceLabels', enabled: true } as const,
+            method: 'setSourceLabelsEnabled' as const,
+            value: true,
         },
         {
             change: { key: 'nowWatchingBanner', enabled: false } as const,
@@ -3112,10 +3116,10 @@ describe('EPGCoordinator', () => {
         (epg.isVisible as jest.Mock).mockReturnValue(false);
         const coordinator = new EPGCoordinator(deps);
 
-        coordinator.handleGuideSettingChange({ key: 'layoutMode', mode: 'overlay' });
+        coordinator.handleGuideSettingChange({ key: 'sourceLabels', enabled: true });
         coordinator.handleGuideSettingChange({ key: 'nowWatchingBanner', enabled: false });
 
-        expect(epg.setLayoutMode).not.toHaveBeenCalled();
+        expect(epg.setSourceLabelsEnabled).not.toHaveBeenCalled();
         expect(epg.setNowWatchingBannerEnabled).not.toHaveBeenCalled();
     });
 
@@ -3126,12 +3130,12 @@ describe('EPGCoordinator', () => {
 
         coordinator.handleGuideSettingChange({ key: 'infoBackgroundMode', mode: 0 });
 
-        expect(epg.setLayoutMode).not.toHaveBeenCalled();
+        expect(epg.setSourceLabelsEnabled).not.toHaveBeenCalled();
         expect(epg.setNowWatchingBannerEnabled).not.toHaveBeenCalled();
         expect(epg.clearSchedules).not.toHaveBeenCalled();
     });
 
-    it('toggles a visible guide closed through the public lifecycle', () => {
+    it('keeps an already visible Guide open through repeated commands', () => {
         const { deps, epg } = makeDeps();
         let visible = true;
         (epg.isVisible as jest.Mock).mockImplementation(() => visible);
@@ -3142,8 +3146,9 @@ describe('EPGCoordinator', () => {
 
         coordinator.toggleEPG();
 
-        expect(epg.hide).toHaveBeenCalledTimes(1);
-        expect(deps.onVisibilityChange).toHaveBeenCalledWith(false);
+        expect(epg.hide).not.toHaveBeenCalled();
+        expect(epg.show).not.toHaveBeenCalled();
+        expect(deps.onVisibilityChange).not.toHaveBeenCalledWith(false);
     });
 
     it('toggles a hidden guide open through the public lifecycle', async () => {
@@ -3175,15 +3180,15 @@ describe('EPGCoordinator', () => {
         expect(epg.loadScheduleForChannel).toHaveBeenCalled();
     });
 
-    it('handleGuideSettingChange invalidates guideDensity changes before visible refresh', async () => {
+    it('handleGuideSettingChange refreshes guideHours without clearing schedules', async () => {
         const { deps, epg } = makeDeps();
         const coordinator = new EPGCoordinator(deps);
         (epg.isVisible as jest.Mock).mockReturnValue(true);
 
-        coordinator.handleGuideSettingChange({ key: 'guideDensity', density: 'wide' });
+        coordinator.handleGuideSettingChange({ key: 'guideHours', hours: 4 });
         await flushPromises();
 
-        expect(epg.clearSchedules).toHaveBeenCalledTimes(1);
+        expect(epg.clearSchedules).not.toHaveBeenCalled();
         expect(epg.loadChannels).toHaveBeenCalled();
         expect(epg.loadScheduleForChannel).toHaveBeenCalled();
     });

@@ -23,6 +23,8 @@ export const LINEUP_STORAGE_KEYS = {
     // Display / HDR / Dolby Vision
     SMART_HDR10_FALLBACK: 'lineup_smart_hdr10_fallback',
     FORCE_HDR10_FALLBACK: 'lineup_force_hdr10_fallback',
+    OVERLAY_TRANSPARENCY: 'lineup_overlay_transparency',
+    COMPACT_CONTROLS_TIMEOUT_SECONDS: 'lineup_compact_controls_timeout_seconds',
 
     // Setup / Onboarding
     AUDIO_SETUP_COMPLETE: 'lineup_audio_setup_complete',
@@ -31,9 +33,7 @@ export const LINEUP_STORAGE_KEYS = {
 
     // Display
     THEME: 'lineup_theme',
-    CINEMATIC_NOW_PLAYING: 'lineup_cinematic_now_playing',
     PREFER_CLEAR_LOGOS: 'lineup_prefer_clear_logos',
-    NOW_PLAYING_INFO_AUTO_HIDE_MS: 'lineup_now_playing_info_auto_hide_ms',
     NOW_PLAYING_STREAM_DEBUG: 'lineup_now_playing_stream_debug',
     NOW_PLAYING_STREAM_DEBUG_AUTO_SHOW: 'lineup_now_playing_stream_debug_auto_show',
     /**
@@ -53,6 +53,8 @@ export const LINEUP_STORAGE_KEYS = {
     EPG_LIBRARY_FILTER: 'lineup_epg_library_filter',
     EPG_LAYOUT_MODE: 'lineup_epg_layout_mode',
     EPG_GUIDE_DENSITY: 'lineup_epg_guide_density',
+    EPG_GUIDE_HOURS: 'lineup_epg_guide_hours',
+    EPG_SOURCE_LABELS_ENABLED: 'lineup_epg_source_labels_enabled',
     EPG_PAST_ITEMS_WINDOW: 'lineup_epg_past_items_window',
     EPG_INFO_BACKGROUND_MODE: 'lineup_epg_info_background_mode',
     EPG_NOW_WATCHING_ENABLED: 'lineup_epg_now_watching_enabled',
@@ -63,6 +65,10 @@ export const LINEUP_STORAGE_KEYS = {
     DEBUG_LOGGING: 'lineup_debug_logging',
     ISSUE_DIAGNOSTICS_LOG: 'lineup_debug_issue_log',
     SUBTITLE_DEBUG_LOGGING: 'lineup_subtitle_debug_logging',
+    ACCESSIBILITY_REDUCE_MOTION: 'lineup_accessibility_reduce_motion',
+    ACCESSIBILITY_LARGE_FOCUS: 'lineup_accessibility_large_focus',
+    SUPPORT_REPORT_OPT_IN: 'lineup_support_report_opt_in',
+    SUPPORT_REPORT: 'lineup_support_report_v1',
     SHOW_FPS: 'lineup_show_fps',
 
     // Dev menu overrides (transcode)

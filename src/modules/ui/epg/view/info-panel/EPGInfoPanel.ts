@@ -40,7 +40,7 @@ type TitleDisplayState = {
 
 /**
  * EPG Info Panel class.
- * Displays program details in an overlay at the bottom of the EPG.
+ * Displays focused program details beside the Guide picture.
  */
 export class EPGInfoPanel implements IEPGInfoPanel {
     private readonly epgPreferencesStore = new EpgPreferencesStore();
@@ -72,7 +72,6 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         onSettled: (): void => this.resolveIdleIfSettled(),
         isCurrentRequest: (program, token): boolean => this.isDynamicColorRequestCurrent(program, token),
     });
-    private presentationMode: 'classic' | 'overlay' = 'overlay';
     private idlePromise: Promise<void> = Promise.resolve();
     private resolveIdlePromise: (() => void) | null = null;
 
@@ -97,20 +96,12 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         this.detailsLoader.setFetchItemDetails(fetcher);
     }
 
-    setPresentationMode(mode: 'classic' | 'overlay'): void {
-        this.presentationMode = mode;
-    }
-
     async whenIdle(): Promise<void> {
         while (this.hasPendingAsyncWork()) {
             this.ensureIdlePromise();
             const idle = this.idlePromise;
             await idle;
         }
-    }
-
-    getPresentationMode(): 'classic' | 'overlay' {
-        return this.presentationMode;
     }
 
     getDynamicBackgroundCacheStats(): ReturnType<EPGInfoPanelDynamicBackground['getCacheStats']> {
@@ -728,7 +719,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         if (!poster) return;
 
         const infoBackgroundMode = infoBackgroundModeOverride ?? this.resolveInfoBackgroundMode();
-        const shouldShowVisiblePoster = this.presentationMode === 'overlay';
+        const shouldShowVisiblePoster = false;
         const preserveBleedDuringFastPath = mode !== 'full' && infoBackgroundMode === 0;
 
         this.applyBackdrop(program, mode, infoBackgroundMode);

@@ -131,9 +131,6 @@ const makeDeps = (
             epg: {} as OrchestratorCoordinatorAssemblyInput['modules']['epg'],
         },
         overlays: {
-            nowPlayingInfo: {
-                resetAutoHideTimer: jest.fn(),
-            } as unknown as OrchestratorCoordinatorAssemblyInput['overlays']['nowPlayingInfo'],
             playerOsd: {
                 isVisible: jest.fn().mockReturnValue(false),
             } as unknown as OrchestratorCoordinatorAssemblyInput['overlays']['playerOsd'],
@@ -142,8 +139,6 @@ const makeDeps = (
                 isVisible: jest.fn().mockReturnValue(false),
             } as unknown as OrchestratorCoordinatorAssemblyInput['overlays']['miniGuide'],
             channelTransitionOverlay: {} as OrchestratorCoordinatorAssemblyInput['overlays']['channelTransitionOverlay'],
-            playbackOptionsModal: {} as OrchestratorCoordinatorAssemblyInput['overlays']['playbackOptionsModal'],
-            exitConfirmModal: {} as OrchestratorCoordinatorAssemblyInput['overlays']['exitConfirmModal'],
             sleepTimer: {
                 cyclePreset: jest.fn().mockReturnValue(15),
                 getRemainingMs: jest.fn().mockReturnValue(0),
@@ -162,10 +157,20 @@ const makeDeps = (
             reportRecoverableAsyncFailure: jest.fn(),
         },
         playback: {
+            getWatchingChannelId: jest.fn().mockReturnValue(null),
             state: playbackState,
             getPlaybackInfoSnapshot: jest.fn().mockReturnValue(null),
             refreshPlaybackInfoSnapshot: jest.fn().mockResolvedValue(null),
             stopPlayback: jest.fn(),
+            setPlaybackIntent: jest.fn().mockReturnValue(true),
+            setPlaybackRouteBlocking: jest.fn(),
+            capturePlaybackAdmission: jest.fn().mockReturnValue(1),
+            isPlaybackAdmissionCurrent: jest.fn().mockReturnValue(true),
+            canActivateRetainedSession: jest.fn().mockReturnValue(true),
+            captureRecoveryAdmission: jest.fn().mockReturnValue(1),
+            isRecoveryAdmissionCurrent: jest.fn().mockReturnValue(true),
+            canPlayForRecovery: jest.fn().mockReturnValue(true),
+            acceptCommittedSession: jest.fn(),
             stopActiveTranscodeSession: jest.fn(),
             getMimeType: jest.fn().mockReturnValue('video/mp4'),
             buildPlexResourceUrl: jest.fn().mockReturnValue('https://example.invalid/resource'),
@@ -189,7 +194,6 @@ const makeDeps = (
             toggleEPG: jest.fn(),
             onOverlayVisibilityChange: jest.fn(),
             onChannelTransitionActivityChange: jest.fn(),
-            toggleNowPlayingInfoOverlay: jest.fn(),
         },
         errors: {
             handleGlobalError: jest.fn(),
@@ -225,8 +229,6 @@ describe('createOrchestratorCoordinators playbackState wiring', () => {
             setCurrentStreamDecision: jest.fn(),
             getPendingNowPlayingChannelId: jest.fn().mockReturnValue(null),
             setPendingNowPlayingChannelId: jest.fn(),
-            getShouldAutoShowInfoBannerOnNextPlay: jest.fn().mockReturnValue(false),
-            setShouldAutoShowInfoBannerOnNextPlay: jest.fn(),
         };
 
         localStorage.setItem(LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG, '1');
@@ -249,8 +251,6 @@ describe('createOrchestratorCoordinators playbackState wiring', () => {
             setCurrentStreamDecision: jest.fn(),
             getPendingNowPlayingChannelId: jest.fn().mockReturnValue(null),
             setPendingNowPlayingChannelId: jest.fn(),
-            getShouldAutoShowInfoBannerOnNextPlay: jest.fn().mockReturnValue(false),
-            setShouldAutoShowInfoBannerOnNextPlay: jest.fn(),
         };
         const previousOnVisibleRangeChange = jest.fn();
         const originalEpgConfig: EPGConfig = {
@@ -298,8 +298,6 @@ describe('createOrchestratorCoordinators playbackState wiring', () => {
             setCurrentStreamDecision: jest.fn(),
             getPendingNowPlayingChannelId: jest.fn().mockReturnValue(null),
             setPendingNowPlayingChannelId: jest.fn(),
-            getShouldAutoShowInfoBannerOnNextPlay: jest.fn().mockReturnValue(false),
-            setShouldAutoShowInfoBannerOnNextPlay: jest.fn(),
         };
         const ensureEpgInitialized = jest.fn<Promise<void>, []>().mockResolvedValue(undefined);
         const show = jest.fn();
@@ -323,7 +321,7 @@ describe('createOrchestratorCoordinators playbackState wiring', () => {
             loadPrograms: jest.fn(),
             clearProgramsForChannel: jest.fn(),
             setLibraryTabs: jest.fn(),
-            setLayoutMode: jest.fn(),
+            setSourceLabelsEnabled: jest.fn(),
             setNowWatchingBannerEnabled: jest.fn(),
             setVisibleHours: jest.fn(),
         } as unknown as OrchestratorCoordinatorAssemblyInput['modules']['epg'];
@@ -337,7 +335,7 @@ describe('createOrchestratorCoordinators playbackState wiring', () => {
         expect(focusNow).toHaveBeenCalled();
     });
 
-    it.each(['guide exit', 'player overlay exit', 'long-press Back'] as const)(
+    it.each(['guide exit', 'player overlay exit'] as const)(
         'suppresses a pending real loader failure after %s and return to Player',
         async (dismissal) => {
             const playbackState: jest.Mocked<OrchestratorPlaybackStateAccessors> = {
@@ -349,13 +347,10 @@ describe('createOrchestratorCoordinators playbackState wiring', () => {
                 setCurrentStreamDecision: jest.fn(),
                 getPendingNowPlayingChannelId: jest.fn().mockReturnValue(null),
                 setPendingNowPlayingChannelId: jest.fn(),
-                getShouldAutoShowInfoBannerOnNextPlay: jest.fn().mockReturnValue(false),
-                setShouldAutoShowInfoBannerOnNextPlay: jest.fn(),
             };
             const deps = makeDeps(playbackState);
             const events = new EventEmitter<NavigationEventMap>();
             let screen: Screen = dismissal === 'guide exit' ? 'guide' : 'player';
-            let longPressBack = (): void => { throw new Error('Back handler not registered'); };
             const navigate = (to: Screen): void => {
                 const from = screen;
                 screen = to;
@@ -365,9 +360,6 @@ describe('createOrchestratorCoordinators playbackState wiring', () => {
                 getCurrentScreen: () => screen,
                 isInputBlocked: () => false,
                 on: events.on.bind(events),
-                handleLongPress: (_button: string, handler: () => void): void => {
-                    longPressBack = handler;
-                },
                 replaceScreen: navigate,
             });
             Object.assign(deps.modules.videoPlayer, { play: jest.fn().mockResolvedValue(undefined), pause: jest.fn() });
@@ -389,12 +381,8 @@ describe('createOrchestratorCoordinators playbackState wiring', () => {
             try {
                 coordinators.epgCoordinator.openEPG();
                 expect(deferredEpg.isVisible()).toBe(true);
-                if (dismissal === 'long-press Back') {
-                    longPressBack();
-                } else {
-                    navigate('settings');
-                    navigate('player');
-                }
+                navigate('settings');
+                navigate('player');
                 expect(screen).toBe('player');
                 expect(deferredEpg.isVisible()).toBe(false);
                 rejectLoad(new Error('Dismissed Guide load failed'));

@@ -27,10 +27,14 @@ type PlexCurrentCredentialValidity =
   | { kind: 'account_expired' }
   | { kind: 'superseded' };
 
+type PlexPinCancellationResult =
+  | { kind: 'canceled' }
+  | { kind: 'cleanup-failed' };
+
 interface IPlexAuth {
   requestPin(options?: { signal?: AbortSignal | null }): Promise<PlexPinRequest>;
   checkPinStatus(pinId: number, options?: { signal?: AbortSignal | null }): Promise<PlexPinRequest>;
-  cancelPin(pinId: number): Promise<void>;
+  cancelPin(pinId: number): Promise<PlexPinCancellationResult>;
   pollForPin(pinId: number, options?: { signal?: AbortSignal | null }): Promise<PlexPinRequest>;
   validateToken(token: string, options?: { signal?: AbortSignal | null }): Promise<boolean>;
   validateStoredCredentials(options?: {
@@ -61,6 +65,8 @@ Stored-credentials reads distinguish `missing`, `available`, and `corrupted`. Co
 PIN and credential-capable auth operations use a private monotonic authority owned by `PlexAuth`: the latest-started operation wins. Authority is acquired synchronously before caller-abort observation, so a newer pre-aborted or remotely failing invocation still permanently supersedes older work. `cancelPin()` invalidates only the matching PIN operation. Public `storeCredentials()` and `clearCredentials()` are synchronous authorities; `{ emitAuthChange: false }` suppresses notification only.
 
 `validateStoredCredentials()` owns the stored read, active/account fallback probes, validated credential reconstruction, and conditional commit as one transaction. Its tagged result includes an opaque guard whose `assertCurrent()` and read-only signal protect the remainder of that startup pass without exposing a counter or commit capability. Superseded work is a dedicated auth-local outcome, not invalid credentials and not recoverable pending-auth routing.
+
+`cancelPin()` retires only the matching local PIN operation and pending PIN immediately, regardless of the remote DELETE outcome. It returns `{ kind: 'canceled' }` only when the PIN DELETE receives an HTTP-success response; otherwise it returns `{ kind: 'cleanup-failed' }`. The API contract does not establish that a missing-PIN response confirms cancellation, so that response remains a cleanup failure. A cancellation result does not clear credentials, sign out, or change profile state; callers may ignore it for hidden or stale best-effort cleanup while explicit cancellation surfaces cleanup failure.
 
 Stored-token validation reuses the persisted username and email only when Plex omits
 those account-style fields from an otherwise valid managed-profile response. A

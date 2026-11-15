@@ -121,6 +121,7 @@ describe('EPGChannelList', () => {
         const config = createConfig({ visibleChannels: 1 });
 
         list.initialize(parent, config);
+        list.setSourceLabelsEnabled(true);
         list.updateChannels([
             {
                 ...createMockChannel(0),
@@ -151,6 +152,24 @@ describe('EPGChannelList', () => {
         expect(nameStack.getAttribute('aria-label')).toBe('Gary Oldman, Actor, Movies Home');
     });
 
+    it('hides source labels by default while retaining the channel category', () => {
+        const list = new EPGChannelList();
+        list.initialize(parent, createConfig({ visibleChannels: 1 }));
+        list.updateChannels([{
+            ...createMockChannel(0),
+            name: 'Gary Oldman - Movies Home',
+            sourceLibraryName: 'Movies Home',
+            buildStrategy: 'actors' as BuildStrategy,
+        }]);
+
+        const row = parent.querySelector('.epg-channel-row') as HTMLElement;
+        expect(row.querySelector('.epg-channel-name-category')?.textContent).toBe('Actor');
+        expect(row.querySelector('.epg-channel-name-source')?.textContent).toBe('');
+        expect(row.querySelector('.epg-channel-name')?.getAttribute('aria-label')).toBe('Gary Oldman, Actor');
+
+        list.destroy();
+    });
+
     it('clears stale provenance when virtualized rows are recycled', () => {
         const list = new EPGChannelList();
         const config = createConfig({ rowHeight: 50, visibleChannels: 1 });
@@ -163,6 +182,7 @@ describe('EPGChannelList', () => {
         };
 
         list.initialize(parent, config);
+        list.setSourceLabelsEnabled(true);
         list.updateChannels(channels);
 
         const firstRenderedRow = parent.querySelector('.epg-channel-row') as HTMLElement;
@@ -263,6 +283,7 @@ describe('EPGChannelList', () => {
 
         try {
             list.initialize(parent, createConfig({ visibleChannels: 2 }));
+            list.setSourceLabelsEnabled(true);
             list.updateChannels([
                 {
                     ...createMockChannel(0),

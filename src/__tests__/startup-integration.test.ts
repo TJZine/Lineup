@@ -8,17 +8,6 @@ import {
     setDocumentReadyStateForTest,
 } from './helpers';
 
-jest.mock('../modules/ui/splash', () => ({
-    SplashScreen: class SplashScreen {
-        show(): void {
-            return;
-        }
-        hide(): void {
-            return;
-        }
-    },
-}));
-
 type BootstrapModule = typeof import('../bootstrap');
 
 type DebugApi = {

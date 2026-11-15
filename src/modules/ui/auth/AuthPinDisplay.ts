@@ -1,9 +1,23 @@
 export interface AuthPinLayoutElements {
+    codePanelEl: HTMLElement;
+    manualHintEl: HTMLElement;
+    manualActionsEl: HTMLElement;
+    openBrowserButton: HTMLButtonElement;
+    copyCodeButton: HTMLButtonElement;
     qrWrapEl: HTMLElement;
     qrCardEl: HTMLElement;
     pinLiveEl: HTMLElement;
     pinBoxesEl: HTMLElement;
 }
+
+const createActionButton = (id: string, label: string): HTMLButtonElement => {
+    const button = document.createElement('button');
+    button.id = id;
+    button.type = 'button';
+    button.className = 'auth-link-action';
+    button.textContent = label;
+    return button;
+};
 
 export const createAuthPinLayout = (
     contentEl: HTMLElement,
@@ -13,6 +27,42 @@ export const createAuthPinLayout = (
     composition.className = 'auth-composition';
     contentEl.insertBefore(composition, beforeEl);
 
+    const codePanelEl = document.createElement('section');
+    codePanelEl.className = 'auth-code-card';
+    codePanelEl.setAttribute('aria-label', 'Plex sign-in code');
+    composition.appendChild(codePanelEl);
+
+    const pinLiveEl = document.createElement('div');
+    pinLiveEl.className = 'sr-only';
+    pinLiveEl.setAttribute('aria-live', 'polite');
+    pinLiveEl.setAttribute('aria-atomic', 'true');
+    codePanelEl.appendChild(pinLiveEl);
+
+    const codeLabel = document.createElement('div');
+    codeLabel.className = 'auth-code-label';
+    codeLabel.textContent = 'Sign-in code';
+    codePanelEl.appendChild(codeLabel);
+
+    const pinBoxesEl = document.createElement('div');
+    pinBoxesEl.className = 'auth-pin-container';
+    pinBoxesEl.setAttribute('aria-hidden', 'true');
+    codePanelEl.appendChild(pinBoxesEl);
+
+    const manualHintEl = document.createElement('p');
+    manualHintEl.className = 'auth-manual-hint';
+    manualHintEl.textContent = 'Visit plex.tv/link and enter this code.';
+    codePanelEl.appendChild(manualHintEl);
+
+    const manualActionsEl = document.createElement('div');
+    manualActionsEl.className = 'auth-link-actions';
+    manualActionsEl.hidden = true;
+    const openBrowserButton = createActionButton('btn-auth-open-browser', 'Open browser');
+    const copyCodeButton = createActionButton('btn-auth-copy-code', 'Copy code');
+    openBrowserButton.disabled = true;
+    copyCodeButton.disabled = true;
+    manualActionsEl.append(openBrowserButton, copyCodeButton);
+    codePanelEl.appendChild(manualActionsEl);
+
     const qrWrapEl = document.createElement('div');
     qrWrapEl.className = 'auth-qr';
     qrWrapEl.style.display = 'none';
@@ -20,20 +70,24 @@ export const createAuthPinLayout = (
     const qrCardEl = document.createElement('div');
     qrCardEl.className = 'auth-qr-card';
     qrWrapEl.appendChild(qrCardEl);
+
+    const qrLabel = document.createElement('p');
+    qrLabel.className = 'auth-qr-label';
+    qrLabel.textContent = 'Scan with your phone';
+    qrWrapEl.appendChild(qrLabel);
     composition.appendChild(qrWrapEl);
 
-    const pinLiveEl = document.createElement('div');
-    pinLiveEl.className = 'sr-only';
-    pinLiveEl.setAttribute('aria-live', 'polite');
-    pinLiveEl.setAttribute('aria-atomic', 'true');
-    composition.appendChild(pinLiveEl);
-
-    const pinBoxesEl = document.createElement('div');
-    pinBoxesEl.className = 'auth-pin-container';
-    pinBoxesEl.setAttribute('aria-hidden', 'true');
-    composition.appendChild(pinBoxesEl);
-
-    return { qrWrapEl, qrCardEl, pinLiveEl, pinBoxesEl };
+    return {
+        codePanelEl,
+        manualHintEl,
+        manualActionsEl,
+        openBrowserButton,
+        copyCodeButton,
+        qrWrapEl,
+        qrCardEl,
+        pinLiveEl,
+        pinBoxesEl,
+    };
 };
 
 export const setAuthPinWaiting = (pinContainer: HTMLElement, waiting: boolean): void => {

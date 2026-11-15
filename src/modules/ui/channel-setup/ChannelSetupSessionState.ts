@@ -31,6 +31,7 @@ import {
     type SetupStrategyKey,
 } from './strategyConstants';
 import type { PlexLibrarySection } from '../../plex/library';
+import type { ChannelSetupInventory } from '../../../core/channel-setup/planning/ChannelSetupInventory';
 
 export const strategySupportsMixedScope = (key: SetupStrategyKey): boolean =>
     MIXED_SCOPE_STRATEGY_KEYS.has(key);
@@ -96,6 +97,12 @@ const cloneReview = (review: ChannelSetupReview | null): ChannelSetupReview | nu
 
     return {
         preview,
+        ...(review.preparedId ? { preparedId: review.preparedId } : {}),
+        ...(review.rows ? { rows: review.rows.map((row) => ({ ...row })) } : {}),
+        ...(review.inventory ? { inventory: review.inventory } : {}),
+        ...(review.oldChannelCount !== undefined ? { oldChannelCount: review.oldChannelCount } : {}),
+        ...(review.requiresWholeLineupReplacement !== undefined
+            ? { requiresWholeLineupReplacement: review.requiresWholeLineupReplacement } : {}),
         diff: {
             summary: { ...review.diff.summary },
             samples: {
@@ -110,6 +117,12 @@ const cloneReview = (review: ChannelSetupReview | null): ChannelSetupReview | nu
 export class ChannelSetupSessionState {
     step: SetupStep = 1;
     libraries: PlexLibrarySection[] = [];
+    inventory: ChannelSetupInventory | null = null;
+    isInventoryLoading = false;
+    inventoryError: string | null = null;
+    acceptedReadyLibraryIds = new Set<string>();
+    confirmedDeselectedLibraryIds = new Set<string>();
+    knownReadyLibraryIds = new Set<string>();
     selectedLibraryIds: Set<string> = new Set();
     loadError: string | null = null;
     strategies: SetupStrategyState = createDefaultStrategyState();
@@ -125,6 +138,9 @@ export class ChannelSetupSessionState {
     isPreviewLoading = false;
     isReviewLoading = false;
     replaceConfirm = false;
+    replaceConfirmReviewId: string | null = null;
+    wholeLineupReplacementConfirm = false;
+    wholeLineupReplacementConfirmReviewId: string | null = null;
     preview: ChannelSetupPreview | null = null;
     previewError: string | null = null;
     previewStatus: ChannelSetupPreviewUiStatus = 'idle';
@@ -142,6 +158,12 @@ export class ChannelSetupSessionState {
         return {
             step: this.step,
             libraries: [...this.libraries],
+            inventory: this.inventory,
+            isInventoryLoading: this.isInventoryLoading,
+            inventoryError: this.inventoryError,
+            acceptedReadyLibraryIds: new Set(this.acceptedReadyLibraryIds),
+            confirmedDeselectedLibraryIds: new Set(this.confirmedDeselectedLibraryIds),
+            knownReadyLibraryIds: new Set(this.knownReadyLibraryIds),
             selectedLibraryIds: new Set(this.selectedLibraryIds),
             loadError: this.loadError,
             strategies: cloneStrategies(this.strategies),
@@ -157,6 +179,9 @@ export class ChannelSetupSessionState {
             isPreviewLoading: this.isPreviewLoading,
             isReviewLoading: this.isReviewLoading,
             replaceConfirm: this.replaceConfirm,
+            replaceConfirmReviewId: this.replaceConfirmReviewId,
+            wholeLineupReplacementConfirm: this.wholeLineupReplacementConfirm,
+            wholeLineupReplacementConfirmReviewId: this.wholeLineupReplacementConfirmReviewId,
             preview: clonePreview(this.preview),
             previewError: this.previewError,
             previewStatus: this.previewStatus,
@@ -221,6 +246,9 @@ export class ChannelSetupSessionState {
         this.review = null;
         this.reviewError = null;
         this.replaceConfirm = false;
+        this.replaceConfirmReviewId = null;
+        this.wholeLineupReplacementConfirm = false;
+        this.wholeLineupReplacementConfirmReviewId = null;
     }
 
     clearPreviewDeltas(): void {
@@ -264,6 +292,9 @@ export class ChannelSetupSessionState {
             seriesOrdering: {
                 basePlaybackMode: this.seriesOrdering.basePlaybackMode,
                 baseBlockSize: this.seriesOrdering.baseBlockSize,
+                ...(this.seriesOrdering.lineupSeed !== undefined ? { lineupSeed: this.seriesOrdering.lineupSeed } : {}),
+                ...(this.seriesOrdering.startTimeAnchor !== undefined ? { startTimeAnchor: this.seriesOrdering.startTimeAnchor } : {}),
+                ...(this.seriesOrdering.includeSpecials !== undefined ? { includeSpecials: this.seriesOrdering.includeSpecials } : {}),
             },
             actorStudioCombineMode: this.actorStudioCombineMode,
             minItemsPerChannel: this.minItems,
@@ -292,7 +323,16 @@ export class ChannelSetupSessionState {
         this.isPreviewLoading = false;
         this.isReviewLoading = false;
         this.replaceConfirm = false;
+        this.replaceConfirmReviewId = null;
+        this.wholeLineupReplacementConfirm = false;
+        this.wholeLineupReplacementConfirmReviewId = null;
         this.libraries = [];
+        this.inventory = null;
+        this.isInventoryLoading = false;
+        this.inventoryError = null;
+        this.acceptedReadyLibraryIds = new Set();
+        this.confirmedDeselectedLibraryIds = new Set();
+        this.knownReadyLibraryIds = new Set();
         this.selectedLibraryIds = new Set();
         this.loadError = null;
         this.maxChannels = DEFAULT_CHANNEL_SETUP_MAX;
@@ -344,6 +384,9 @@ export class ChannelSetupSessionState {
         this.seriesOrdering = {
             basePlaybackMode: normalized.seriesOrdering.basePlaybackMode,
             baseBlockSize: normalized.seriesOrdering.baseBlockSize,
+            ...(normalized.seriesOrdering.lineupSeed !== undefined ? { lineupSeed: normalized.seriesOrdering.lineupSeed } : {}),
+            ...(normalized.seriesOrdering.startTimeAnchor !== undefined ? { startTimeAnchor: normalized.seriesOrdering.startTimeAnchor } : {}),
+            ...(normalized.seriesOrdering.includeSpecials !== undefined ? { includeSpecials: normalized.seriesOrdering.includeSpecials } : {}),
         };
 
         this.maxChannels = normalized.maxChannels;

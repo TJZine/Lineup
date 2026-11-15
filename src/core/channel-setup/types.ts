@@ -1,4 +1,6 @@
 import type { EpgScheduleRefreshResult } from '../../shared/epgRefresh';
+import type { ChannelSetupCandidateRow } from './build/ChannelSetupPreparedCandidate';
+import type { ChannelSetupInventory } from './planning/ChannelSetupInventory';
 
 export type SetupStrategyKey =
     | 'collections'
@@ -25,8 +27,14 @@ export interface ChannelExpansionConfig {
 }
 
 export interface SeriesOrderingConfig {
-    basePlaybackMode: 'shuffle' | 'sequential' | 'block';
+    basePlaybackMode: 'shuffle' | 'sequential' | 'block' | 'random';
     baseBlockSize: number;
+    /** Optional lineup seed; each generated source derives its own stable seed from it. */
+    lineupSeed?: number;
+    /** Optional epoch milliseconds; omitted keeps the existing anchor policy. */
+    startTimeAnchor?: number;
+    /** Block playback only. Omitted retains legacy inclusion of specials. */
+    includeSpecials?: boolean;
 }
 
 export interface ChannelSetupConfig {
@@ -79,13 +87,21 @@ export interface ChannelBuildSummary {
     reachedMaxChannels: boolean;
     errorCount: number;
     canceled: boolean;
-    commitState?: 'committed';
-    blockedMessage?: string;
+    noChange?: boolean;
+    pointerWarning?: boolean;
     warnings?: string[];
     guideRefresh?: ChannelSetupGuideRefreshSummary;
     initialChannelNumber?: number;
     lastTask?: ChannelBuildProgress['task'] | 'init';
 }
+
+export type ChannelSetupApplyFailure = 'consent' | 'stale' | 'source' | 'invalid' | 'conflict' | 'storage-failure';
+
+export type ChannelSetupApplyResult =
+    | { kind: 'committed'; summary: ChannelBuildSummary }
+    | { kind: 'no-change'; summary: ChannelBuildSummary }
+    | { kind: 'blocked'; message: string; reason: ChannelSetupApplyFailure }
+    | { kind: 'canceled' };
 
 export interface ChannelBuildProgress {
     task: 'fetch_playlists' | 'fetch_collections' | 'scan_library_items' | 'build_pending' | 'create_channels' | 'apply_channels' | 'refresh_epg' | 'done';
@@ -145,6 +161,11 @@ interface ChannelSetupDiff {
 export interface ChannelSetupReview {
     preview: ChannelSetupPreview;
     diff: ChannelSetupDiff;
+    preparedId?: string;
+    rows?: readonly ChannelSetupCandidateRow[];
+    inventory?: ChannelSetupInventory;
+    oldChannelCount?: number | null;
+    requiresWholeLineupReplacement?: boolean;
 }
 
 export interface ChannelSetupRecord extends ChannelSetupConfig {
@@ -155,7 +176,8 @@ export interface ChannelSetupRecord extends ChannelSetupConfig {
 export type ChannelSetupCompletionFailureReason =
     | 'quota-exceeded'
     | 'unavailable'
-    | 'missing-active-user';
+    | 'missing-active-user'
+    | 'scope-changed';
 
 export type ChannelSetupCompletionResult =
     | { ok: true; record: ChannelSetupRecord }

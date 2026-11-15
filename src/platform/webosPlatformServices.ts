@@ -99,6 +99,14 @@ function createReadonlyKeyMap(
 const WEBOS_KEY_MAP: ReadonlyMap<number, PlatformRemoteButton> =
     createReadonlyKeyMap(WEBOS_KEY_MAP_ENTRIES);
 
+/** Ask webOS to perform its native root Back behavior. */
+export function requestPlatformBack(): boolean {
+    const webOS = (window as Window & { webOS?: { platformBack?: () => void } }).webOS;
+    if (typeof webOS?.platformBack !== 'function') return false;
+    webOS.platformBack();
+    return true;
+}
+
 // Heuristic fallback for environments where `webOSTV.platform.version` is unavailable.
 // Keep this mapping aligned with validated LG webOS Chromium baselines.
 const CHROME_TO_WEBOS_VERSION: readonly ChromeToWebOsVersion[] = [

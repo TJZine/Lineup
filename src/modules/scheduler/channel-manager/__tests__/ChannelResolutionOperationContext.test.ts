@@ -25,63 +25,16 @@ describe('ChannelResolutionOperationContext', () => {
         await expect(operations.supersedeAndDrain()).resolves.toBeUndefined();
     });
 
-    it('returns a rejected promise for an authorization invalidated before use', async () => {
+    it('blocks resolution while suspended and admits it after resume', async () => {
         const operations = new ChannelResolutionOperationContext();
-        const validator = new AbortController();
-        await operations.supersedeAndDrain();
-        const authorization = operations.createInitialTuneAuthorization('channel-1', {
-            signal: validator.signal,
-            assertCurrent: (): void => {
-                if (validator.signal.aborted) throw validator.signal.reason;
-            },
-        });
-        const reason = new DOMException('initial tune superseded', 'AbortError');
-        validator.abort(reason);
-
-        const resolution = operations.runInitialTune(
-            'channel-1',
-            authorization,
-            async () => 'unused'
-        );
-
-        expect(resolution).toBeInstanceOf(Promise);
-        await expect(resolution).rejects.toBe(reason);
-        await expect(operations.supersedeAndDrain()).resolves.toBeUndefined();
-    });
-
-    it('cleans up tracked scope work when the authorized callback throws synchronously', async () => {
-        const operations = new ChannelResolutionOperationContext();
-        await operations.supersedeAndDrain();
-        const authorization = operations.createInitialTuneAuthorization(
-            'channel-1',
-            { assertCurrent: (): void => undefined }
-        );
-        const reason = new Error('synchronous resolver failure');
-
-        const resolution = operations.runInitialTune(
-            'channel-1',
-            authorization,
-            () => { throw reason; }
-        );
-
-        await expect(resolution).rejects.toBe(reason);
-        await expect(operations.supersedeAndDrain()).resolves.toBeUndefined();
-    });
-
-    it('consumes an authorization once before deferred work begins', async () => {
-        const operations = new ChannelResolutionOperationContext();
-        await operations.supersedeAndDrain();
-        const authorization = operations.createInitialTuneAuthorization(
-            'channel-1',
-            { assertCurrent: (): void => undefined }
-        );
         const work = jest.fn(async () => 'resolved');
 
-        const first = operations.runInitialTune('channel-1', authorization, work);
-        const duplicate = operations.runInitialTune('channel-1', authorization, work);
+        await operations.supersedeAndDrain();
+        await expect(operations.run(null, work)).rejects.toMatchObject({ name: 'AbortError' });
+        expect(work).not.toHaveBeenCalled();
 
-        await expect(first).resolves.toBe('resolved');
-        await expect(duplicate).rejects.toMatchObject({ name: 'AbortError' });
+        operations.resume();
+        await expect(operations.run(null, work)).resolves.toBe('resolved');
         expect(work).toHaveBeenCalledTimes(1);
     });
 });

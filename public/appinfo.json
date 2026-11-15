@@ -7,7 +7,7 @@
     "title": "Lineup",
     "resolution": "1920x1080",
     "disableBackHistoryAPI": true,
-    "handlesRelaunch": true,
+    "handlesRelaunch": false,
     "icon": "icon.png",
     "largeIcon": "largeIcon.png",
     "splashBackground": "splashBackground.png"

@@ -34,6 +34,17 @@ describe('ChannelImportNormalizer error formatting', () => {
 });
 
 describe('ChannelImportNormalizer seed handling', () => {
+    it('imports fixed mode only with a finite authored timestamp', () => {
+        const normalizer = new ChannelImportNormalizer();
+        const base = { contentSource: { type: 'library', libraryId: 'library-1',
+            libraryType: 'movie', includeWatched: true } };
+        expect(normalizer.buildCreateInput({ ...base, scheduleAnchorMode: 'fixed', startTimeAnchor: 500 }))
+            .toMatchObject({ scheduleAnchorMode: 'fixed', startTimeAnchor: 500 });
+        expect(normalizer.buildCreateInput({ ...base, scheduleAnchorMode: 'fixed' }))
+            .not.toHaveProperty('scheduleAnchorMode');
+        expect(normalizer.buildCreateInput({ ...base, scheduleAnchorMode: 'invalid', startTimeAnchor: 500 }))
+            .not.toHaveProperty('scheduleAnchorMode');
+    });
     it('drops non-finite imported seeds while preserving valid finite values', () => {
         const normalizer = new ChannelImportNormalizer();
 
@@ -84,5 +95,64 @@ describe('ChannelImportNormalizer legacy color handling', () => {
                 includeWatched: true,
             },
         });
+    });
+});
+
+describe('ChannelImportNormalizer collection library metadata', () => {
+    it('retains valid nested picker scope and removes malformed optional metadata', () => {
+        const normalizer = new ChannelImportNormalizer();
+        const rawContentSource = {
+            type: 'mixed',
+            mixMode: 'sequential',
+            sources: [
+                {
+                    type: 'collection',
+                    collectionKey: 'movies',
+                    collectionName: 'Movie Collection',
+                    libraryId: 'movies-library',
+                    libraryType: 'movie',
+                    libraryName: 'Movies',
+                },
+                {
+                    type: 'mixed',
+                    mixMode: 'interleave',
+                    sources: [{
+                        type: 'collection',
+                        collectionKey: 'shows',
+                        collectionName: 'Show Collection',
+                        libraryId: 'shows-library',
+                        libraryType: 'unknown',
+                        libraryName: 'TV',
+                    }],
+                },
+            ],
+        };
+
+        const imported = normalizer.buildCreateInput({ contentSource: rawContentSource });
+
+        expect(imported?.contentSource).toEqual({
+            type: 'mixed',
+            mixMode: 'sequential',
+            sources: [
+                {
+                    type: 'collection',
+                    collectionKey: 'movies',
+                    collectionName: 'Movie Collection',
+                    libraryId: 'movies-library',
+                    libraryType: 'movie',
+                    libraryName: 'Movies',
+                },
+                {
+                    type: 'mixed',
+                    mixMode: 'interleave',
+                    sources: [{
+                        type: 'collection',
+                        collectionKey: 'shows',
+                        collectionName: 'Show Collection',
+                    }],
+                },
+            ],
+        });
+        expect(imported?.contentSource).not.toBe(rawContentSource);
     });
 });

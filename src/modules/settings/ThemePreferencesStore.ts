@@ -1,24 +1,21 @@
 import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
 import {
-    safeLocalStorageGet,
-    safeLocalStorageRemove,
-    safeLocalStorageSetWithResult,
+    safeLocalStorageGetWithResult,
     safeLocalStorageRemoveWithResult,
+    safeLocalStorageSetWithResult,
+    type SafeLocalStorageGetResult,
     type SafeLocalStorageMutationResult,
 } from '../../utils/storage';
 
 export class ThemePreferencesStore {
-    readThemeAndClean(): string | null {
-        const raw = safeLocalStorageGet(LINEUP_STORAGE_KEYS.THEME);
-        if (typeof raw !== 'string') {
-            return null;
+    readTheme(): SafeLocalStorageGetResult {
+        const result = safeLocalStorageGetWithResult(LINEUP_STORAGE_KEYS.THEME);
+        if (!result.ok) {
+            return result;
         }
-        const trimmed = raw.trim();
-        if (!trimmed) {
-            safeLocalStorageRemove(LINEUP_STORAGE_KEYS.THEME);
-            return null;
-        }
-        return trimmed;
+
+        const trimmed = result.value?.trim() ?? '';
+        return { ok: true, value: trimmed.length > 0 ? trimmed : null };
     }
 
     writeTheme(theme: string): SafeLocalStorageMutationResult {

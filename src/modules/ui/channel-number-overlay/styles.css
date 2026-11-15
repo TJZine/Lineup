@@ -38,6 +38,10 @@
   color: var(--color-text-primary);
 }
 
+.no-flex-gap .channel-number-panel > * + * {
+  margin-left: var(--runtime-overlay-space-10);
+}
+
 .channel-number-label {
   font-size: var(--text-sm);
   font-weight: 700;

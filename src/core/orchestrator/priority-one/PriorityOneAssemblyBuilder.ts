@@ -8,9 +8,8 @@ import type { IVideoPlayer, PlaybackState, TimeRange } from '../../../modules/pl
 import type { IPlexLibrary, PlexLibraryAuthorizationFailure } from '../../../modules/plex/library';
 import type { IPlexStreamResolver, StreamResolverError } from '../../../modules/plex/stream';
 import type { IChannelManager } from '../../../modules/scheduler/channel-manager';
-import type { IChannelScheduler, ScheduledProgram } from '../../../modules/scheduler/scheduler';
+import type { IChannelScheduler } from '../../../modules/scheduler/scheduler';
 import type { OrchestratorPlaybackStateAccessors } from '../runtime/OrchestratorPlaybackStateAccessors';
-import { NOW_PLAYING_INFO_MODAL_ID } from '../../../modules/ui/now-playing-info';
 import type { PriorityOneAssemblyInput } from './PriorityOneAssemblyInput';
 import {
     createPriorityOneControllersAndBinder,
@@ -41,7 +40,6 @@ export interface PriorityOneRuntimeAssemblyInput {
     runtimeSurfaces: {
         channelBadgeOverlay: PriorityOneOptionalRuntimeSurfaces['channelBadgeOverlay'];
         playerOsd: PriorityOneOptionalRuntimeSurfaces['playerOsd'];
-        nowPlayingInfo: PriorityOneOptionalRuntimeSurfaces['nowPlayingInfo'];
         epg: PriorityOneOptionalRuntimeSurfaces['epg'];
         channelManager: IChannelManager | null;
         navigation: INavigationManager | null;
@@ -51,6 +49,7 @@ export interface PriorityOneRuntimeAssemblyInput {
     playback: {
         playbackState: OrchestratorPlaybackStateAccessors;
         playbackRecovery: PriorityOnePlaybackRecoveryPort;
+        reconcileSleepExpiration: () => boolean;
     };
     runtimeControllers: {
         channelTransition: {
@@ -62,10 +61,7 @@ export interface PriorityOneRuntimeAssemblyInput {
             onPlayerStateChange: (state: PlaybackState) => void;
             onTimeUpdate: (payload: { currentTimeMs: number; durationMs: number }) => void;
             onBufferUpdate: (payload: { percent: number; bufferedRanges: TimeRange[] }) => void;
-            showInfoBanner: () => void;
-        } | null;
-        nowPlayingInfo: {
-            onProgramStart: (program: ScheduledProgram) => void;
+            onProgramChanged: () => void;
         } | null;
         epg: {
             refreshEpgScheduleForLiveChannel: () => void;
@@ -73,9 +69,6 @@ export interface PriorityOneRuntimeAssemblyInput {
         } | null;
         navigation: {
             wireNavigationEvents: () => Array<() => void>;
-        } | null;
-        playbackOptions: {
-            refreshIfOpen: () => void;
         } | null;
         scheduleDayRollover: {
             cancelPendingDayRollover: () => void;
@@ -121,7 +114,6 @@ function buildPriorityOneAssemblyInput(
         surfaces: {
             channelBadgeOverlay: runtimeSurfaces.channelBadgeOverlay,
             playerOsd: runtimeSurfaces.playerOsd,
-            nowPlayingInfo: runtimeSurfaces.nowPlayingInfo,
             epg: runtimeSurfaces.epg,
             channelTransitionActivity: {
                 isActive: (): boolean =>
@@ -135,6 +127,7 @@ function buildPriorityOneAssemblyInput(
         playback: {
             playbackState: playback.playbackState,
             playbackRecovery: playback.playbackRecovery,
+            reconcileSleepExpiration: playback.reconcileSleepExpiration,
             stopPlayback: orchestratorCallbacks.stopPlayback,
             unloadCurrentChannel: (): void => {
                 requiredModules.scheduler.unloadChannel();
@@ -186,11 +179,8 @@ function buildPriorityOneAssemblyInput(
         },
         uiRuntime: {
             handleGlobalError: orchestratorCallbacks.handleGlobalError,
-            showInfoBanner: (): void => {
-                runtimeControllers.playerOsd?.showInfoBanner();
-            },
-            onProgramStartUiSideEffects: (program): void => {
-                runtimeControllers.nowPlayingInfo?.onProgramStart(program);
+            onProgramStartUiSideEffects: (): void => {
+                runtimeControllers.playerOsd?.onProgramChanged();
                 runtime.syncChannelBadgeOverlay();
                 runtimeControllers.epg?.refreshEpgScheduleForLiveChannel();
             },
@@ -215,7 +205,6 @@ function buildPriorityOneAssemblyInput(
                 runtimeControllers.scheduleDayRollover?.handleScheduleDayRollover() ??
                 Promise.resolve(),
             handlePlayerTrackChange: (event): void => {
-                runtimeControllers.playbackOptions?.refreshIfOpen();
                 runtimeControllers.subtitleTrackRecovery?.handleTrackChange(event);
             },
             handlePlexLibraryAuthorizationFailure:
@@ -238,7 +227,6 @@ function buildPriorityOneAssemblyInput(
                 orchestratorCallbacks.reportRecoverableRuntimeError(event, message, error, data);
             },
         },
-        nowPlayingModalId: NOW_PLAYING_INFO_MODAL_ID,
     };
 }
 

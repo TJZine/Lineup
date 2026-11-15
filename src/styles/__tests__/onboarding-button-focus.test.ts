@@ -5,19 +5,19 @@
 import { blockFor, declarationValue, read } from './helpers/css-test-utils';
 
 describe('onboarding button focus styling', () => {
-    it('uses white text when the focused button fill changes to the dark focus surface', () => {
+    it('uses the semantic focus text and surface roles for focused buttons', () => {
         const css = read('src/styles/shell.onboarding.shared-shell.css');
         const focusedBlock = blockFor(css, '.screen-button.focused');
 
-        expect(declarationValue(focusedBlock, 'color')).toBe('#ffffff');
-        expect(declarationValue(focusedBlock, 'background')).toContain('var(--onboarding-focus-bg');
+        expect(declarationValue(focusedBlock, 'color')).toBe('var(--focus-text-primary)');
+        expect(declarationValue(focusedBlock, 'background')).toBe('var(--focus-surface)');
     });
 
-    it('keeps the intended unfocused button text colors for primary, secondary, and destructive variants', () => {
+    it('uses theme roles for unfocused primary, secondary, and destructive buttons', () => {
         const css = read('src/styles/shell.onboarding.shared-shell.css');
 
-        expect(declarationValue(blockFor(css, '.screen-button'), 'color')).toBe('#0e1017');
-        expect(declarationValue(blockFor(css, '.screen-button.secondary'), 'color')).toBe('var(--onboarding-text)');
-        expect(declarationValue(blockFor(css, '.screen-button.destructive'), 'color')).toBe('#ffffff');
+        expect(declarationValue(blockFor(css, '.screen-button'), 'color')).toBe('var(--color-text-on-focus)');
+        expect(declarationValue(blockFor(css, '.screen-button.secondary'), 'color')).toBe('var(--color-text-primary)');
+        expect(declarationValue(blockFor(css, '.screen-button.destructive'), 'color')).toBe('var(--color-text-on-focus)');
     });
 });

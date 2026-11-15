@@ -115,20 +115,18 @@ describe('ServerSelectScreen', () => {
         jest.restoreAllMocks();
     });
 
-    it('renders the branded hero glyph above the title', () => {
+    it('uses the shared onboarding brand and stage without a server hero glyph', () => {
         const orchestrator = createOrchestratorStub();
         const container = createBodyAppendedTestContainer();
 
         new ServerSelectScreen(container, orchestrator);
 
-        const hero = container.querySelector('.server-select-glyph');
-        const panel = container.querySelector('.screen-panel') as HTMLElement;
-        const orderedClassNames = Array.from(panel.children).map((child) => child.className);
+        const topbar = container.querySelector('.screen-shell-topbar');
+        const stage = container.querySelector('.screen-shell-stage');
 
-        expect(hero).not.toBeNull();
-        expect(hero?.querySelector('svg')).not.toBeNull();
-        expect(orderedClassNames[0]).toBe('screen-hero');
-        expect(orderedClassNames[1]).toBe('screen-title');
+        expect(topbar?.querySelector('.screen-shell-brand-glyph svg')).not.toBeNull();
+        expect(stage?.querySelector('.screen-title')?.textContent).toBe('Select Plex Server');
+        expect(container.querySelector('.server-select-glyph')).toBeNull();
     });
 
     it('relies on shared screen bootstrap while show and hide still own display lifecycle', async () => {

@@ -1,6 +1,5 @@
 import { EventEmitter } from '../../../../utils/EventEmitter';
 import { readAbortSignalReason } from '../../../../utils/abortSignalReason';
-import type { EpgLayoutMode } from '../../../settings/EpgPreferencesStore';
 import {
     isMatchingEpgChannelSnapshot,
     type ChannelConfig,
@@ -44,13 +43,14 @@ export class DeferredEPGComponent extends EventEmitter<EPGEventMap> implements I
     private _scheduleMetadata = new Map<string, EpgScheduleLoadMetadata>();
     private _scheduleOrder: string[] = [];
     private _rowLifecycle = new Map<string, EpgRowLifecycleState>();
-    private _layoutMode: EpgLayoutMode | null = null;
+    private _sourceLabelsEnabled: boolean | null = null;
     private _visibleHours: number | null = null;
     private _nowWatchingBannerEnabled: boolean | null = null;
     private _libraryTabs: PendingLibraryTabs | null = null;
     private _desiredVisible = false;
     private _lastShowOptions: { preserveFocus?: boolean } | undefined;
     private _pendingFocusCommand: PendingFocusCommand | null = null;
+    private _pendingMenuOpen = false;
     private _runtimeBridges: Array<() => void> = [];
     private _visibilityRequestId = 0;
 
@@ -132,6 +132,10 @@ export class DeferredEPGComponent extends EventEmitter<EPGEventMap> implements I
 
         if (this._runtimeInitialized && this._runtime) {
             this._runtime.show(options);
+            if (this._pendingMenuOpen) {
+                this._runtime.openLineupMenu();
+                this._pendingMenuOpen = false;
+            }
             return;
         }
 
@@ -148,6 +152,7 @@ export class DeferredEPGComponent extends EventEmitter<EPGEventMap> implements I
         this._visibilityRequestId += 1;
         this._desiredVisible = false;
         this._lastShowOptions = undefined;
+        this._pendingMenuOpen = false;
 
         if (this._runtimeInitialized && this._runtime) {
             this._runtime.hide();
@@ -190,10 +195,10 @@ export class DeferredEPGComponent extends EventEmitter<EPGEventMap> implements I
         }
     }
 
-    setLayoutMode(mode: EpgLayoutMode): void {
-        this._layoutMode = mode;
+    setSourceLabelsEnabled(enabled: boolean): void {
+        this._sourceLabelsEnabled = enabled;
         if (this._runtimeInitialized && this._runtime) {
-            this._runtime.setLayoutMode(mode);
+            this._runtime.setSourceLabelsEnabled(enabled);
         }
     }
 
@@ -417,6 +422,14 @@ export class DeferredEPGComponent extends EventEmitter<EPGEventMap> implements I
             : false;
     }
 
+    openLineupMenu(): void {
+        if (this._runtimeInitialized && this._runtime?.isVisible()) {
+            this._runtime.openLineupMenu();
+            return;
+        }
+        this._pendingMenuOpen = true;
+    }
+
     setGridAnchorTime(anchorTime: number): void {
         this._gridAnchorTime = anchorTime;
         if (this._runtimeInitialized && this._runtime) {
@@ -435,7 +448,7 @@ export class DeferredEPGComponent extends EventEmitter<EPGEventMap> implements I
         this._schedules.clear();
         this._scheduleMetadata.clear();
         this._scheduleOrder = [];
-        this._layoutMode = null;
+        this._sourceLabelsEnabled = null;
         this._visibleHours = null;
         this._nowWatchingBannerEnabled = null;
         this._libraryTabs = null;
@@ -486,6 +499,8 @@ export class DeferredEPGComponent extends EventEmitter<EPGEventMap> implements I
         bridge('programSelected');
         bridge('libraryFilterChanged');
         bridge('rowRetryRequested');
+        bridge('menuRouteRequested');
+        bridge('setupRequested');
         bridge('timeScroll');
         bridge('channelScroll');
     }
@@ -518,8 +533,8 @@ export class DeferredEPGComponent extends EventEmitter<EPGEventMap> implements I
             }
         }
 
-        if (this._layoutMode !== null) {
-            this._runtime.setLayoutMode(this._layoutMode);
+        if (this._sourceLabelsEnabled !== null) {
+            this._runtime.setSourceLabelsEnabled(this._sourceLabelsEnabled);
         }
 
         if (this._visibleHours !== null) {
@@ -540,6 +555,11 @@ export class DeferredEPGComponent extends EventEmitter<EPGEventMap> implements I
 
         if (this._desiredVisible && !this._runtime.isVisible()) {
             this._runtime.show(this._lastShowOptions);
+        }
+
+        if (this._pendingMenuOpen && this._desiredVisible) {
+            this._runtime.openLineupMenu();
+            this._pendingMenuOpen = false;
         }
 
         this._runtimeInitialized = true;

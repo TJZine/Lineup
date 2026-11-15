@@ -1,3 +1,9 @@
+.screen.onboarding-screen {
+  --space-local-6: 6px;
+  --space-local-10: 10px;
+  --space-local-14: 14px;
+}
+
 .setup-panel {
   max-height: 85vh;
   overflow: hidden;
@@ -77,8 +83,7 @@
 }
 
 .setup-toggle.focused,
-.setup-toggle:focus,
-.setup-toggle:focus-visible {
+.setup-toggle:focus {
   outline: none;
   background: var(--onboarding-focus-bg, rgba(255, 255, 255, 0.16));
   border-color: var(--onboarding-accent-alpha-45, rgba(200, 160, 100, 0.45));
@@ -90,7 +95,10 @@
 .setup-toggle::after {
   content: '';
   position: absolute;
-  inset: calc(-1 * var(--focus-ring-offset));
+  top: calc(-1 * var(--focus-ring-offset));
+  right: calc(-1 * var(--focus-ring-offset));
+  bottom: calc(-1 * var(--focus-ring-offset));
+  left: calc(-1 * var(--focus-ring-offset));
   border-radius: inherit;
   border: var(--focus-ring-width, 3px) solid transparent;
   transition: border-color 150ms ease;
@@ -98,8 +106,7 @@
 }
 
 .setup-toggle.focused::after,
-.setup-toggle:focus::after,
-.setup-toggle:focus-visible::after {
+.setup-toggle:focus::after {
   border-color: var(--onboarding-accent-alpha-72, rgba(200, 160, 100, 0.72));
 }
 
@@ -146,4 +153,17 @@
   .setup-toggle::after {
     content: none;
   }
+}
+
+/* Flex gap fallback for engines that support grid gap but not flex gap. */
+.no-flex-gap .setup-body > :not([hidden]) ~ :not([hidden]) {
+  margin-top: var(--space-4);
+}
+
+.no-flex-gap .setup-scroll > :not([hidden]) ~ :not([hidden]) {
+  margin-top: var(--space-4);
+}
+
+.no-flex-gap .setup-list > :not([hidden]) ~ :not([hidden]) {
+  margin-top: var(--space-local-10);
 }

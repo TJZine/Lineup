@@ -36,4 +36,18 @@ describe('ChannelNumberOverlay', () => {
         expect(container.classList.contains(CHANNEL_NUMBER_CLASSES.VISIBLE)).toBe(true);
         expect(container.classList.contains(CHANNEL_NUMBER_CLASSES.ERROR)).toBe(true);
     });
+
+    it('cancels a pending hide when dismissed and reused', () => {
+        jest.useFakeTimers();
+        try {
+            overlay.showError(99);
+            overlay.hide();
+            overlay.showDigits('12', 3);
+            jest.advanceTimersByTime(2_001);
+            expect(overlay.isVisible()).toBe(true);
+            expect(container.querySelector(`.${CHANNEL_NUMBER_CLASSES.DIGITS}`)?.textContent).toBe('12 _');
+        } finally {
+            jest.useRealTimers();
+        }
+    });
 });

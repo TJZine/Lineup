@@ -1,5 +1,7 @@
 export type ScreenTone = 'neutral' | 'loading' | 'success' | 'warning' | 'error';
 
+export type ScreenShellVariant = 'default' | 'onboarding';
+
 export type ScreenActionVariant = 'primary' | 'secondary' | 'ghost' | 'destructive';
 
 export interface ScreenAction {
@@ -24,6 +26,7 @@ export interface ScreenError {
 }
 
 export interface ScreenShellProps {
+    variant?: ScreenShellVariant;
     title: string;
     subtitle?: string;
     heroSlot?: HTMLElement | null;

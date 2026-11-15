@@ -12,15 +12,15 @@ describe('ChannelPersistenceStore', () => {
 
     it('returns null when no stored channel payload exists', () => {
         const store = new ChannelPersistenceStore();
-        expect(store.readStoredChannelData()).toBeNull();
+        expect(store.readStoredChannelData()).toEqual({ kind: 'absent' });
     });
 
     it('removes empty-string stored payload and returns null', () => {
         const store = new ChannelPersistenceStore();
         mockLocalStorage.setItem(STORAGE_KEY, '');
 
-        expect(store.readStoredChannelData()).toBeNull();
-        expect(mockLocalStorage.getItem(STORAGE_KEY)).toBeNull();
+        expect(store.readStoredChannelData()).toEqual({ kind: 'unreadable', raw: '' });
+        expect(mockLocalStorage.getItem(STORAGE_KEY)).toBe('');
     });
 
     it('writes and reads current channel id using default keys', () => {
@@ -54,16 +54,16 @@ describe('ChannelPersistenceStore', () => {
         const store = new ChannelPersistenceStore();
         mockLocalStorage.setItem(STORAGE_KEY, '{bad-json');
 
-        expect(store.readStoredChannelData()).toBeNull();
-        expect(mockLocalStorage.getItem(STORAGE_KEY)).toBeNull();
+        expect(store.readStoredChannelData()).toEqual({ kind: 'unreadable', raw: '{bad-json' });
+        expect(mockLocalStorage.getItem(STORAGE_KEY)).toBe('{bad-json');
     });
 
     it('returns null and clears payload when top-level shape is invalid', () => {
         const store = new ChannelPersistenceStore();
         mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify({ channels: 'bad', channelOrder: [] }));
 
-        expect(store.readStoredChannelData()).toBeNull();
-        expect(mockLocalStorage.getItem(STORAGE_KEY)).toBeNull();
+        expect(store.readStoredChannelData()).toEqual({ kind: 'unreadable', raw: JSON.stringify({ channels: 'bad', channelOrder: [] }) });
+        expect(mockLocalStorage.getItem(STORAGE_KEY)).toBe(JSON.stringify({ channels: 'bad', channelOrder: [] }));
     });
 
     it('reads valid stored payload', () => {
@@ -76,7 +76,7 @@ describe('ChannelPersistenceStore', () => {
         };
         mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
 
-        expect(store.readStoredChannelData()).toEqual(payload);
+        expect(store.readStoredChannelData()).toEqual({ kind: 'readable', data: payload, raw: JSON.stringify(payload) });
     });
 
     it('switches storage keys via setStorageKeys', () => {

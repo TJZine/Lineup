@@ -45,6 +45,33 @@ describe('ScreenShell', () => {
         expect((container.querySelector('.screen-detail') as HTMLElement).textContent).toBe('Please wait');
     });
 
+    it('composes onboarding screens in the shared branded topbar and stage', () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const shell = createScreenShell(container, {
+            variant: 'onboarding',
+            title: 'Welcome',
+            subtitle: 'Choose an option',
+            status: null,
+            error: null,
+            actions: [],
+        });
+
+        const panel = container.querySelector('.screen-panel--onboarding') as HTMLElement;
+        const topbar = panel.querySelector(':scope > .screen-shell-topbar');
+        const stage = panel.querySelector(':scope > .screen-shell-stage');
+
+        expect(container.classList.contains('onboarding-screen')).toBe(false);
+        expect(topbar?.querySelector('.screen-shell-brand-glyph svg')).not.toBeNull();
+        expect(topbar?.querySelector('.screen-shell-wordmark')?.textContent).toBe('LINEUP');
+        expect(stage?.querySelector('.screen-title')?.textContent).toBe('Welcome');
+        expect(stage?.querySelector('.screen-subtitle')?.textContent).toBe('Choose an option');
+        expect(panel.children[0]).toBe(topbar);
+        expect(panel.children[1]).toBe(stage);
+        shell.destroy();
+    });
+
     it('clears error block content cleanly', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);

@@ -23,6 +23,8 @@ const createContext = (): StepRenderContext => ({
 const createDeps = (overrides: Partial<LibraryStepDeps> = {}): LibraryStepDeps => ({
     libraries: [],
     selectedLibraryIds: new Set(),
+    inventory: null, isInventoryLoading: false, inventoryError: null,
+    acceptedReadyLibraryIds: new Set(), knownReadyLibraryIds: new Set(), confirmedDeselectedLibraryIds: new Set(),
     formatCount: (value: number) => value.toLocaleString(),
     movieSvg: '<svg></svg>',
     showSvg: '<svg></svg>',
@@ -31,7 +33,8 @@ const createDeps = (overrides: Partial<LibraryStepDeps> = {}): LibraryStepDeps =
     onSelectAll: jest.fn(),
     onClearAll: jest.fn(),
     onBack: jest.fn(),
-    onNext: jest.fn(),
+    onNext: jest.fn(), onScan: jest.fn(), onCancelScan: jest.fn(),
+    onRetry: jest.fn(), onToggleReady: jest.fn(), onToggleDeselectedConsent: jest.fn(),
     registerStepFocusables: jest.fn(),
     ...overrides,
 });
@@ -54,6 +57,38 @@ describe('LibraryStepController', () => {
         expect((ctx.contentEl.querySelector('#setup-next') as HTMLButtonElement).disabled).toBe(true);
     });
 
+    it.each([null, 'failed', 'unsupported'] as const)('allows selected libraries to reach Configure with %s inventory', status => {
+        const ctx = createContext();
+        const deps = createDeps({ libraries: [makeLibrary({ id: 'movies', contentCount: 10 })],
+            selectedLibraryIds: new Set(['movies']),
+            inventory: status === null ? null : { scopeKey: 'scope', generation: 1,
+                libraries: [{ libraryId: 'movies', libraryName: 'Movies', requiredFamilies: ['actors'],
+                    status, generation: 1 }], acceptedReadyLibraryIds: [], sharedPlaylistsStatus: 'unused' },
+        });
+        new LibraryStepController().render(ctx, deps);
+
+        const next = ctx.contentEl.querySelector<HTMLButtonElement>('#setup-next');
+        expect(next?.disabled).toBe(false);
+        next?.click();
+        expect(deps.onNext).toHaveBeenCalledTimes(1);
+    });
+
+    it.each([
+        { selected: false, busy: false },
+        { selected: true, busy: true },
+    ])('blocks Configure with selected=$selected and an active scan=$busy', ({ selected, busy }) => {
+        const ctx = createContext();
+        const deps = createDeps({ libraries: [makeLibrary({ id: 'movies', contentCount: 10 })],
+            selectedLibraryIds: new Set(selected ? ['movies'] : []), isInventoryLoading: busy,
+        });
+        new LibraryStepController().render(ctx, deps);
+
+        const next = ctx.contentEl.querySelector<HTMLButtonElement>('#setup-next');
+        expect(next?.disabled).toBe(true);
+        next?.click();
+        expect(deps.onNext).not.toHaveBeenCalled();
+    });
+
     it('routes select-all and clear-all callbacks toward the first library focus target', () => {
         const ctx = createContext();
         document.body.appendChild(ctx.contentEl);
@@ -70,7 +105,7 @@ describe('LibraryStepController', () => {
 
         expect(deps.onSelectAll).toHaveBeenCalledWith('setup-lib-movies');
         expect(deps.onClearAll).toHaveBeenCalledWith('setup-lib-movies');
-        expect((ctx.contentEl.querySelector('#setup-next') as HTMLButtonElement).disabled).toBe(false);
+        expect((ctx.contentEl.querySelector('#setup-scan') as HTMLButtonElement).disabled).toBe(false);
     });
 
     it('mounts movie and show glyphs in each library icon slot', () => {
@@ -101,6 +136,8 @@ describe('LibraryStepController', () => {
         const deps = createDeps({
             libraries: [makeLibrary({ id: 'movies' })],
             selectedLibraryIds: new Set(),
+    inventory: null, isInventoryLoading: false, inventoryError: null,
+    acceptedReadyLibraryIds: new Set(), knownReadyLibraryIds: new Set(), confirmedDeselectedLibraryIds: new Set(),
         });
         const controller = new LibraryStepController();
         controller.render(ctx, deps);
@@ -124,6 +161,8 @@ describe('LibraryStepController', () => {
         const deps = createDeps({
             libraries: [makeLibrary({ id: 'Movies & More' })],
             selectedLibraryIds: new Set(),
+    inventory: null, isInventoryLoading: false, inventoryError: null,
+    acceptedReadyLibraryIds: new Set(), knownReadyLibraryIds: new Set(), confirmedDeselectedLibraryIds: new Set(),
         });
         const controller = new LibraryStepController();
 

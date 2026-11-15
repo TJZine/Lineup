@@ -17,7 +17,7 @@ describe('EPGChannelPrimePublisher', () => {
         const reason = new DOMException('server transaction superseded', 'AbortError');
         const epg = {
             setLibraryTabs: jest.fn(() => controller.abort(reason)),
-            setLayoutMode: jest.fn(),
+            setSourceLabelsEnabled: jest.fn(),
             setNowWatchingBannerEnabled: jest.fn(),
             setVisibleHours: jest.fn(),
             loadChannels: jest.fn(),
@@ -29,14 +29,14 @@ describe('EPGChannelPrimePublisher', () => {
             shouldClearPersistedSelection: false,
             clearPersistedSelection: jest.fn(),
             tabs: { libraries: [], selectedId: null },
-            layoutMode: 'classic',
+            sourceLabelsEnabled: false,
             nowWatchingEnabled: true,
             visibleHours: 2,
             channels: [],
         }, operation)).toThrow(reason);
 
         expect(epg.setLibraryTabs).toHaveBeenCalledTimes(1);
-        expect(epg.setLayoutMode).not.toHaveBeenCalled();
+        expect(epg.setSourceLabelsEnabled).not.toHaveBeenCalled();
         expect(epg.loadChannels).not.toHaveBeenCalled();
         operation.release();
     });
@@ -46,7 +46,7 @@ describe('EPGChannelPrimePublisher', () => {
         const reason = new DOMException('cleanup superseded', 'AbortError');
         const epg = {
             setLibraryTabs: jest.fn(),
-            setLayoutMode: jest.fn(),
+            setSourceLabelsEnabled: jest.fn(),
             setNowWatchingBannerEnabled: jest.fn(),
             setVisibleHours: jest.fn(),
             loadChannels: jest.fn(),
@@ -58,7 +58,7 @@ describe('EPGChannelPrimePublisher', () => {
             shouldClearPersistedSelection: true,
             clearPersistedSelection: () => controller.abort(reason),
             tabs: { libraries: [], selectedId: null },
-            layoutMode: 'classic',
+            sourceLabelsEnabled: false,
             nowWatchingEnabled: true,
             visibleHours: 2,
             channels: [],

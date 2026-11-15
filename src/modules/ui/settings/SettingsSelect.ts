@@ -2,6 +2,7 @@ import type { SettingsSelectConfig } from './types';
 
 export function createSettingsSelect(config: SettingsSelectConfig): {
     element: HTMLButtonElement;
+    feedbackElement: HTMLElement;
     update: (value: number) => void;
     setDisabled: (disabled: boolean) => void;
     isDisabled: () => boolean;
@@ -27,6 +28,10 @@ export function createSettingsSelect(config: SettingsSelectConfig): {
     meta.setAttribute('role', 'status');
     meta.setAttribute('aria-live', 'polite');
     restoreMetadata();
+    const feedbackElement = document.createElement('div');
+    feedbackElement.className = 'settings-save-feedback';
+    feedbackElement.setAttribute('role', 'status');
+    feedbackElement.setAttribute('aria-live', 'polite');
 
     const state = document.createElement('span');
     state.className = 'setup-toggle-state';
@@ -81,9 +86,10 @@ export function createSettingsSelect(config: SettingsSelectConfig): {
         const result = config.onChange(nextValue);
         if (!result.ok) {
             update(result.effectiveValue ?? previousValue);
-            meta.textContent = result.message;
+            feedbackElement.textContent = `${result.message} Press OK to retry.`;
             return;
         }
+        feedbackElement.textContent = '';
         restoreMetadata();
     }
 
@@ -95,6 +101,7 @@ export function createSettingsSelect(config: SettingsSelectConfig): {
 
     return {
         element: button,
+        feedbackElement,
         update,
         setDisabled,
         isDisabled: (): boolean => config.disabled ?? false,

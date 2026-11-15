@@ -32,6 +32,7 @@ describe('BuildProgressStepController', () => {
             registerLinearFocusables: jest.fn(),
             onCancelOrBack: jest.fn(),
             onDone: jest.fn(),
+            onAddCustom: jest.fn(),
             startBuild,
         };
 
@@ -62,6 +63,7 @@ describe('BuildProgressStepController', () => {
             registerLinearFocusables: jest.fn(),
             onCancelOrBack: jest.fn(),
             onDone: jest.fn(),
+            onAddCustom: jest.fn(),
             startBuild,
         };
 
@@ -73,7 +75,7 @@ describe('BuildProgressStepController', () => {
         const backButton = ctx.contentEl.querySelector('#setup-back') as HTMLButtonElement | null;
         const doneButton = ctx.contentEl.querySelector('#setup-done') as HTMLButtonElement | null;
         expect(ctx.errorEl.textContent ?? '').toBe('');
-        expect(ctx.statusEl.textContent).toBe('Building channels...');
+        expect(ctx.statusEl.textContent).toBe('Applying reviewed lineup…');
         expect(backButton?.textContent).toBe('Cancel');
         expect(backButton?.disabled).toBe(false);
         expect(doneButton?.disabled).toBe(true);

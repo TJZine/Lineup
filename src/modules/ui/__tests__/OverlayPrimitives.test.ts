@@ -23,6 +23,7 @@ describe('OverlayPrimitives', () => {
         );
 
         expect(primitives.panelEl.className).toBe('test-panel');
+        expect(primitives.panelEl.dataset.overlaySurface).toBe('player');
         expect(primitives.headerEl?.className).toBe('test-header');
         expect(primitives.titleEl?.className).toBe('test-title');
         expect(primitives.contentEl?.className).toBe('test-content');

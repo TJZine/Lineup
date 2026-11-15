@@ -8,7 +8,6 @@ import {
     EXPECTED_CONTAINER_IDS,
     EXPECTED_RUNTIME_CHROME_HOST_CHILD_IDS,
 } from '../../../__tests__/fixtures/appShellContainerIds';
-import { EXIT_CONFIRM_CONTAINER_ID } from '../../../modules/ui/exit-confirm/constants';
 import { MINI_GUIDE_CONTAINER_ID } from '../../../modules/ui/mini-guide/constants';
 import { PLAYER_OSD_CONTAINER_ID } from '../../../modules/ui/player-osd/constants';
 import { APP_SHELL_CONTAINER_IDS } from '../../../modules/ui/common/appShellContainerIds';
@@ -19,6 +18,8 @@ const SCREEN_CONTAINER_IDS = [
     APP_SHELL_CONTAINER_IDS.PROFILE_SELECT,
     APP_SHELL_CONTAINER_IDS.SERVER_SELECT,
     APP_SHELL_CONTAINER_IDS.CHANNEL_SETUP,
+    APP_SHELL_CONTAINER_IDS.CHANNEL_DIRECTORY,
+    APP_SHELL_CONTAINER_IDS.CHANNEL_STUDIO,
     APP_SHELL_CONTAINER_IDS.AUDIO_SETUP,
 ];
 
@@ -97,6 +98,8 @@ describe('createAppContainers', () => {
         expect(refs.profileSelectContainer).toBe(document.getElementById(APP_SHELL_CONTAINER_IDS.PROFILE_SELECT));
         expect(refs.serverSelectContainer).toBe(document.getElementById(APP_SHELL_CONTAINER_IDS.SERVER_SELECT));
         expect(refs.channelSetupContainer).toBe(document.getElementById(APP_SHELL_CONTAINER_IDS.CHANNEL_SETUP));
+        expect(refs.channelDirectoryContainer).toBe(document.getElementById(APP_SHELL_CONTAINER_IDS.CHANNEL_DIRECTORY));
+        expect(refs.channelStudioContainer).toBe(document.getElementById(APP_SHELL_CONTAINER_IDS.CHANNEL_STUDIO));
         expect(refs.audioSetupContainer).toBe(document.getElementById(APP_SHELL_CONTAINER_IDS.AUDIO_SETUP));
         expect(refs.settingsContainer).toBe(document.getElementById(APP_SHELL_CONTAINER_IDS.SETTINGS));
         expect(refs.errorOverlay).toBe(errorOverlay);
@@ -293,30 +296,6 @@ describe('createAppContainers', () => {
         );
     });
 
-    it('repairs root-owned containers that exist outside #app without duplicating ids', () => {
-        const root = document.getElementById('app') as HTMLElement;
-        const strayNowPlaying = document.createElement('div');
-        strayNowPlaying.id = APP_SHELL_CONTAINER_IDS.NOW_PLAYING_INFO;
-        const strayPlaybackOptions = document.createElement('div');
-        strayPlaybackOptions.id = APP_SHELL_CONTAINER_IDS.PLAYBACK_OPTIONS;
-        const strayExitConfirm = document.createElement('div');
-        strayExitConfirm.id = EXIT_CONFIRM_CONTAINER_ID;
-        document.body.prepend(strayNowPlaying, strayPlaybackOptions, strayExitConfirm);
-
-        createAppContainers(root);
-
-        expect(document.querySelectorAll(`#${APP_SHELL_CONTAINER_IDS.NOW_PLAYING_INFO}`)).toHaveLength(1);
-        expect(document.querySelectorAll(`#${APP_SHELL_CONTAINER_IDS.PLAYBACK_OPTIONS}`)).toHaveLength(1);
-        expect(document.querySelectorAll(`#${EXIT_CONFIRM_CONTAINER_ID}`)).toHaveLength(1);
-        expect(document.getElementById(APP_SHELL_CONTAINER_IDS.NOW_PLAYING_INFO)).toBe(strayNowPlaying);
-        expect(document.getElementById(APP_SHELL_CONTAINER_IDS.PLAYBACK_OPTIONS)).toBe(strayPlaybackOptions);
-        expect(document.getElementById(EXIT_CONFIRM_CONTAINER_ID)).toBe(strayExitConfirm);
-        expect(strayNowPlaying.parentElement).toBe(root);
-        expect(strayPlaybackOptions.parentElement).toBe(root);
-        expect(strayExitConfirm.parentElement).toBe(root);
-        expect(Array.from(root.children, (child) => (child as HTMLElement).id)).toEqual(EXPECTED_APP_ROOT_CHILD_IDS);
-    });
-
     it('throws when #app contains an unmanaged child after canonical containers are assembled', () => {
         const root = document.getElementById('app') as HTMLElement;
         const rogue = document.createElement('div');
@@ -343,32 +322,5 @@ describe('createAppContainers', () => {
         );
     });
 
-    it('preserves live root-owned containers when repeated repair sees duplicate placeholders', () => {
-        const root = document.getElementById('app') as HTMLElement;
-        createAppContainers(root);
 
-        const liveNowPlaying = document.createElement('div');
-        liveNowPlaying.id = APP_SHELL_CONTAINER_IDS.NOW_PLAYING_INFO;
-        const liveNowPlayingPanel = document.createElement('section');
-        liveNowPlayingPanel.textContent = 'live now playing';
-        liveNowPlaying.appendChild(liveNowPlayingPanel);
-
-        const livePlaybackOptions = document.createElement('div');
-        livePlaybackOptions.id = APP_SHELL_CONTAINER_IDS.PLAYBACK_OPTIONS;
-        const livePlaybackOptionsPanel = document.createElement('section');
-        livePlaybackOptionsPanel.textContent = 'live playback options';
-        livePlaybackOptions.appendChild(livePlaybackOptionsPanel);
-
-        document.body.append(liveNowPlaying, livePlaybackOptions);
-
-        createAppContainers(root);
-
-        expect(document.getElementById(APP_SHELL_CONTAINER_IDS.NOW_PLAYING_INFO)).toBe(liveNowPlaying);
-        expect(document.getElementById(APP_SHELL_CONTAINER_IDS.PLAYBACK_OPTIONS)).toBe(livePlaybackOptions);
-        expect(liveNowPlaying.parentElement).toBe(root);
-        expect(livePlaybackOptions.parentElement).toBe(root);
-        expect(liveNowPlaying.textContent).toContain('live now playing');
-        expect(livePlaybackOptions.textContent).toContain('live playback options');
-        expect(Array.from(root.children, (child) => (child as HTMLElement).id)).toEqual(EXPECTED_APP_ROOT_CHILD_IDS);
-    });
 });

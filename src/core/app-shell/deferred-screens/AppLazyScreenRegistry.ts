@@ -348,6 +348,15 @@ export class AppLazyScreenRegistry {
                     getActiveUsername: settingsRuntimePorts.getActiveUsername,
                     getTheme: settingsRuntimePorts.getTheme,
                     setTheme: settingsRuntimePorts.setTheme,
+                    getThemePersistenceResult: settingsRuntimePorts.getThemePersistenceResult,
+                    retryThemePersistence: settingsRuntimePorts.retryThemePersistence,
+                    onKeepPlayingInSettingsChange: settingsRuntimePorts.updateSettingsPlaybackPolicy,
+                    onOverlayTransparencyChange: settingsRuntimePorts.setOverlayTransparency,
+                    onAccessibilityChange: settingsRuntimePorts.setAccessibilityPreference,
+                    onSwitchProfile: settingsRuntimePorts.switchProfileFromSettings,
+                    onSwitchServer: settingsRuntimePorts.switchServerFromSettings,
+                    onManageChannels: settingsRuntimePorts.manageChannelsFromSettings,
+                    onSignOut: settingsRuntimePorts.signOutFromSettings,
                 });
 
                 if (this._destroyed) {

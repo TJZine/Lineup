@@ -6,22 +6,20 @@ import { applyServerDecisionToStreamDecision } from '../plex/stream/diagnostics/
 import type { ScheduledProgram } from '../scheduler/scheduler';
 import { DebugOverridesStore } from './DebugOverridesStore';
 
-export interface NowPlayingDebugOverlayPort {
-    isVisible(): boolean;
+export interface PlayerOsdDebugPort {
+    expand(): void;
+    refreshIfVisible(): void;
 }
 
 export interface NowPlayingDebugManagerDeps {
-    nowPlayingModalId: string;
     getNavigation: () => INavigationManager | null;
     getStreamResolver: () => IPlexStreamResolver | null;
-    getNowPlayingInfo: () => NowPlayingDebugOverlayPort | null;
+    getPlayerOsd: () => PlayerOsdDebugPort | null;
 
     getCurrentProgram: () => ScheduledProgram | null;
     getCurrentStreamDecision: () => StreamDecision | null;
     debugOverridesStore: DebugOverridesStore;
 
-    // Called ONLY from debug-gated fetch after serverDecision applied AND modal is open.
-    requestNowPlayingOverlayRefresh: () => void;
 }
 
 export class NowPlayingDebugManager {
@@ -37,17 +35,15 @@ export class NowPlayingDebugManager {
     maybeAutoShowNowPlayingStreamDebugHud(): void {
         const navigation = this.deps.getNavigation();
         if (!navigation) return;
-        if (!this.deps.getNowPlayingInfo()) return;
+        const playerOsd = this.deps.getPlayerOsd();
+        if (!playerOsd) return;
         if (!this._isNowPlayingStreamDebugAutoShowEnabled()) return;
 
         const currentScreen = navigation.getCurrentScreen();
         if (currentScreen !== 'player') return;
 
-        // Avoid stacking over other modals.
-        if (navigation.isModalOpen(this.deps.nowPlayingModalId)) return;
         if (navigation.isModalOpen()) return;
-
-        navigation.openModal(this.deps.nowPlayingModalId);
+        playerOsd.expand();
     }
 
     buildNowPlayingStreamDebugText(): string | null {
@@ -131,10 +127,7 @@ export class NowPlayingDebugManager {
         await this._ensureServerDecision(program, decision, {
             logErrors: false,
             onApplied: (): void => {
-                const navigation = this.deps.getNavigation();
-                if (navigation?.isModalOpen(this.deps.nowPlayingModalId)) {
-                    this.deps.requestNowPlayingOverlayRefresh();
-                }
+                this.deps.getPlayerOsd()?.refreshIfVisible();
             },
         });
     }

@@ -15,7 +15,6 @@ import type { IChannelScheduler } from '../../modules/scheduler/scheduler';
 import type { IVideoPlayer } from '../../modules/player';
 import type { IEPGComponent, IEPGReadinessPort, IEPGDebugRuntime } from '../../modules/ui/epg';
 import { buildEPGStartupConfig } from '../../modules/ui/epg';
-import type { ChannelSwitchOutcome } from '../../types/channelSwitch';
 import type { IPlayerOsdOverlay } from '../../modules/ui/player-osd';
 import type { IMiniGuideOverlay } from '../../modules/ui/mini-guide';
 import type { IChannelTransitionOverlay } from '../../modules/ui/channel-transition';
@@ -25,7 +24,7 @@ import type {
     ChannelBadgeOverlayInitPort,
     ChannelNumberOverlayInitPort,
 } from '../orchestrator/contracts/OverlayPorts';
-import { EpgPreferencesStore, type EpgLayoutMode } from '../../modules/settings/EpgPreferencesStore';
+import { EpgPreferencesStore } from '../../modules/settings/EpgPreferencesStore';
 import { ProfileSessionStore } from '../../modules/settings/ProfileSessionStore';
 import {
     applyAuthValidationPolicy,
@@ -59,6 +58,7 @@ import {
     type StartupResumePhase,
 } from './InitializationResumeFailure';
 import { InitializationQuarantineAuthority, InitializationQuarantinedError } from './InitializationQuarantineAuthority';
+import { StartupRestoreBlockedError, type InitializationRestoreProjection } from './InitializationRestoreProjection';
 // Numeric order is significant for queued phase collapsing.
 export const STARTUP_PHASE = {
     FULL_STARTUP: 1,
@@ -95,7 +95,6 @@ export interface InitializationDependencies {
         miniGuide: IMiniGuideOverlay | null;
         channelTransition: IChannelTransitionOverlay | null;
     };
-    startupUiInitializer: InitializationStartupUiPort;
     epgDebugRuntime: IEPGDebugRuntime | null;
     stores: {
         epgPreferencesStore: EpgPreferencesStore;
@@ -103,9 +102,6 @@ export interface InitializationDependencies {
     };
 }
 
-export interface InitializationStartupUiPort {
-    ensureCorePlayerUiInitialized(): Promise<void>;
-}
 /**
  * Callbacks the coordinator invokes on the Orchestrator.
  * These maintain separation of concerns while allowing state updates.
@@ -139,8 +135,6 @@ export interface InitializationCallbacks {
     };
     routing: {
         shouldRunAudioSetup: () => boolean;
-        shouldRunChannelSetup: () => boolean;
-        switchToChannel: (id: string) => Promise<ChannelSwitchOutcome>;
         openServerSelect: () => void;
     };
     epgWarmup: {
@@ -148,6 +142,9 @@ export interface InitializationCallbacks {
             signal?: AbortSignal | null;
             shouldContinue?: () => boolean;
         }) => Promise<void>;
+    };
+    picture: {
+        hasUsableRetainedSession: () => boolean;
     };
     resources: {
         buildPlexResourceUrl: (pathOrUrl: string | null) => string | null;
@@ -167,6 +164,29 @@ export class InitializationCoordinator {
     private readonly _selectedServerTransaction: InitializationSelectedServerTransaction;
     private readonly _startupHandoff: InitializationStartupHandoff;
     private readonly _quarantineAuthority = new InitializationQuarantineAuthority();
+    private _restoreProjection: InitializationRestoreProjection = {
+        generation: 0, phase: 'auth', outcome: null, channelCount: null,
+        requiredComplete: false, optionalComplete: null, reason: null, actions: [],
+    };
+    private readonly _restoreListeners = new Set<(projection: InitializationRestoreProjection) => void>();
+
+    getRestoreProjection(): InitializationRestoreProjection { return this._restoreProjection; }
+
+    subscribeToRestoreProjection(
+        listener: (projection: InitializationRestoreProjection) => void
+    ): IDisposable {
+        this._restoreListeners.add(listener);
+        listener(this._restoreProjection);
+        return { dispose: (): void => { this._restoreListeners.delete(listener); } };
+    }
+
+    private _publishRestore(
+        change: Partial<InitializationRestoreProjection>, expectedGeneration?: number
+    ): void {
+        if (expectedGeneration !== undefined && this._restoreProjection.generation !== expectedGeneration) return;
+        this._restoreProjection = { ...this._restoreProjection, ...change };
+        for (const listener of this._restoreListeners) listener(this._restoreProjection);
+    }
     constructor(
         private readonly _config: OrchestratorConfig,
         private readonly _deps: InitializationDependencies,
@@ -179,14 +199,12 @@ export class InitializationCoordinator {
                 this._deps.modules.plexDiscovery?.isConnected() === true,
             initializePlaybackRuntime: (signal): Promise<void> =>
                 this._initializePlaybackRuntime(signal),
-            ensureCorePlayerUiInitialized: (signal): Promise<void> =>
-                this._ensureCorePlayerUiInitialized(signal),
             initializeEpg: (signal): Promise<void> =>
-                this._initializeEpg({ ensureCorePlayerUi: false, signal }),
+                this._initializeEpg({ signal }),
+            isEpgReady: (): boolean => this._callbacks.status.getModuleStatus('epg-ui') === 'ready',
             getNavigation: (): INavigationManager | null => this._deps.modules.navigation,
             getChannelManager: (): IChannelManager | null => this._deps.modules.channelManager,
             shouldRunAudioSetup: this._callbacks.routing.shouldRunAudioSetup,
-            shouldRunChannelSetup: this._callbacks.routing.shouldRunChannelSetup,
             openServerSelect: this._callbacks.routing.openServerSelect,
             publishCommitStart: (): void => {
                 this._callbacks.status.updateModuleStatus('plex-auth', 'ready', undefined, 0);
@@ -207,14 +225,53 @@ export class InitializationCoordinator {
             },
         });
     }
-    runSelectedServerTransaction(request: SelectedServerInitializationRequest): Promise<SelectedServerInitializationResult> {
+    async runSelectedServerTransaction(request: SelectedServerInitializationRequest): Promise<SelectedServerInitializationResult> {
         this._cancelEpgWarmup();
-        return this._selectedServerTransaction.run(request);
+        const generation = this._restoreProjection.generation + 1;
+        this._publishRestore({ generation, phase: 'auth', outcome: null,
+            channelCount: null, requiredComplete: false, optionalComplete: null,
+            reason: null, actions: [] });
+        const result = await this._selectedServerTransaction.run({
+            ...request,
+            publishRestorePhase: (phase): void => this._publishRestore({ phase }, generation),
+            publishRestoreLoad: (load): void => this._publishRestore({
+                phase: 'prepare-runtime', outcome: load.kind,
+                channelCount: 'channelCount' in load ? load.channelCount : null,
+            }, generation),
+        });
+        if (result.kind === 'completed') {
+            const load = this._deps.modules.channelManager?.getLastLoadOutcome();
+            const optionalComplete = result.payload.epgRefresh.kind === 'succeeded';
+            this._publishRestore({ phase: 'complete', outcome: load?.kind ?? null,
+                channelCount: load && 'channelCount' in load ? load.channelCount : null,
+                requiredComplete: true, optionalComplete,
+                reason: optionalComplete ? null : 'Some Guide data is unavailable. Retry to refresh.',
+                actions: optionalComplete ? [] : ['retry', 'switch-server'] }, generation);
+        } else if (result.kind === 'stopped') {
+            this._publishRestore({ phase: 'complete',
+                outcome: result.reason === 'auth_required' ? 'auth-invalid'
+                    : result.reason === 'server_unavailable' ? 'server-unavailable' : 'superseded',
+                reason: result.reason,
+                actions: result.reason === 'superseded' ? [] : ['retry', 'switch-server', 'support'] }, generation);
+        } else {
+            const blocked = result.error instanceof StartupRestoreBlockedError ? result.error : null;
+            const load = blocked?.outcome;
+            this._publishRestore({ phase: 'complete', outcome: load?.kind ?? 'restore-failed',
+                channelCount: load && 'channelCount' in load ? load.channelCount : null,
+                reason: result.error instanceof Error ? result.error.message : String(result.error),
+                actions: load?.kind === 'unreadable' || load?.kind === 'unsupported'
+                    ? ['retry', 'switch-server', 'switch-profile', 'rerun-setup', 'support']
+                    : ['retry', 'switch-server', 'switch-profile', 'support'] }, generation);
+        }
+        return result;
     }
     runStartup(startPhase: StartupPhase, options?: StartupSignalOptions): Promise<void> {
         const lease = this._quarantineAuthority.begin(options?.signal);
         if (!lease) return Promise.reject(new InitializationQuarantinedError());
         const request = this._startupHandoff.beginStartup();
+        this._publishRestore({ generation: this._restoreProjection.generation + 1, phase: 'auth',
+            outcome: null, channelCount: null, requiredComplete: false, optionalComplete: null,
+            reason: null, actions: [] });
         const startup = this._runStartup(startPhase, { signal: lease.signal, preferQueuedSignal: Boolean(options?.signal) });
         this._startupHandoff.trackStartup(request, startup);
         return lease.track(startup);
@@ -245,11 +302,12 @@ export class InitializationCoordinator {
         let caughtError: unknown;
         let passValidity: StartupPassValidity | null = null;
         let retainedGuard: PlexAuthValidationGuard | null = null;
+        let projectionGeneration = this._restoreProjection.generation;
         try {
             while (true) {
+                projectionGeneration = this._restoreProjection.generation;
                 throwIfStartupAborted(activeCallerSignal);
-                const willRunInitializePlaybackRuntime = phaseToRun <= STARTUP_PHASE.RESUME_RUNTIME_MODULES;
-                const shouldEagerlyInitEpgForPass = phaseToRun > STARTUP_PHASE.FULL_STARTUP;
+                        const shouldEagerlyInitEpgForPass = phaseToRun > STARTUP_PHASE.FULL_STARTUP;
                 if (phaseToRun <= STARTUP_PHASE.FULL_STARTUP) {
                     await initializeCoreInfrastructure({
                         config: this._config,
@@ -265,6 +323,10 @@ export class InitializationCoordinator {
                     : await this._validateAuthentication(activeCallerSignal);
                 retainedGuard = null;
                 if (authResult.kind === 'stop') {
+                    if (this._deps.modules.navigation?.getCurrentScreen() === 'auth') {
+                        this._publishRestore({ phase: 'complete', outcome: 'auth-invalid',
+                            reason: 'Sign in is required.', actions: ['retry'] }, projectionGeneration);
+                    }
                     const queuedWork = this._startupQueue.consumeQueuedWork();
                     if (queuedWork === null) break;
                     phaseToRun = queuedWork.phase;
@@ -278,9 +340,12 @@ export class InitializationCoordinator {
 
                 try {
                     if (phaseToRun <= STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION) {
+                        this._publishRestore({ phase: 'server' }, projectionGeneration);
                         const serverConnection = await this._connectPlexServer(activeSignal);
                         passValidity!.assertCurrent();
                         if (serverConnection.kind === 'stop') {
+                            this._publishRestore({ phase: 'complete', outcome: 'server-unavailable',
+                                reason: serverConnection.reason, actions: ['retry', 'switch-server'] }, projectionGeneration);
                             const queuedWork = this._startupQueue.consumeQueuedWork();
                             passValidity.dispose();
                             passValidity = null;
@@ -302,18 +367,26 @@ export class InitializationCoordinator {
                     }
 
                     if (phaseToRun <= STARTUP_PHASE.RESUME_RUNTIME_MODULES) {
-                        await this._initializePlaybackRuntime(activeSignal);
+                        this._publishRestore({ phase: 'read-lineup' }, projectionGeneration);
+                        await this._initializePlaybackRuntime(activeSignal, projectionGeneration);
                         passValidity!.assertCurrent();
-                        await this._ensureCorePlayerUiInitialized(activeSignal);
-                        passValidity.assertCurrent();
                     }
 
                     if (shouldEagerlyInitEpgForPass) {
                         await this._initializeEpg({
-                            ensureCorePlayerUi: !willRunInitializePlaybackRuntime,
                             signal: activeSignal,
                         });
                         passValidity.assertCurrent();
+                    }
+
+                    const load = this._deps.modules.channelManager?.getLastLoadOutcome();
+                    if (load?.kind === 'readable' || load?.kind === 'readable-degraded') {
+                        this._publishRestore({ phase: 'prepare-guide' }, projectionGeneration);
+                        await this._initializeEpg({ signal: activeSignal });
+                        passValidity.assertCurrent();
+                        if (this._callbacks.status.getModuleStatus('epg-ui') !== 'ready') {
+                            throw new Error('Guide runtime is unavailable after lineup restore.');
+                        }
                     }
 
                     passValidity.assertCurrent();
@@ -336,8 +409,6 @@ export class InitializationCoordinator {
                             navigation: this._deps.modules.navigation,
                             channelManager: this._deps.modules.channelManager,
                             shouldRunAudioSetup: this._callbacks.routing.shouldRunAudioSetup,
-                            shouldRunChannelSetup: this._callbacks.routing.shouldRunChannelSetup,
-                            switchToChannel: this._callbacks.routing.switchToChannel,
                             openServerSelect: this._callbacks.routing.openServerSelect,
                             signal: activeSignal,
                         });
@@ -346,6 +417,11 @@ export class InitializationCoordinator {
 
                     passValidity.assertCurrent();
                     this._callbacks.state.setReady(true);
+                    if (load) this._publishRestore({ phase: 'complete', outcome: load.kind,
+                        channelCount: 'channelCount' in load ? load.channelCount : null,
+                        requiredComplete: true, optionalComplete: null,
+                        reason: load.kind === 'readable-degraded' ? 'Saved lineup needed a safe legacy repair.' : null,
+                        actions: [] }, projectionGeneration);
                     if (this._deps.modules.lifecycle) {
                         passValidity.assertCurrent();
                         this._deps.modules.lifecycle.setPhase('ready');
@@ -378,14 +454,33 @@ export class InitializationCoordinator {
         } catch (error: unknown) {
             caughtError = error;
             this._cancelEpgWarmup();
+            if (activeCallerSignal?.aborted && isStartupAbortError(error, activeCallerSignal)) {
+                this._publishRestore({ phase: 'complete', outcome: 'canceled',
+                    requiredComplete: false, optionalComplete: null,
+                    reason: 'Lineup restore was canceled.', actions: ['retry', 'switch-server', 'support'] }, projectionGeneration);
+            }
+            if (error instanceof StartupRestoreBlockedError) {
+                this._publishRestore({ phase: 'complete', outcome: error.outcome.kind,
+                    channelCount: null, requiredComplete: false, optionalComplete: null,
+                    reason: error.message,
+                    actions: error.outcome.kind === 'unreadable' || error.outcome.kind === 'unsupported'
+                        ? ['retry', 'switch-server', 'switch-profile', 'rerun-setup', 'support']
+                        : ['retry', 'switch-server', 'switch-profile', 'support'] }, projectionGeneration);
+            }
             if (!isStartupAbortError(error, activeCallerSignal) && !isStartupAbortError(error, passValidity?.signal)) {
                 const message = error instanceof Error ? error.message : String(error);
+                if (!(error instanceof StartupRestoreBlockedError)) {
+                    this._publishRestore({ phase: 'complete', outcome: 'restore-failed',
+                        requiredComplete: false, optionalComplete: null, reason: message,
+                        actions: ['retry', 'switch-server', 'switch-profile', 'support'] }, projectionGeneration);
+                }
                 this.clearAuthResume();
                 this.clearServerResume();
                 this.clearProfileResume();
                 this._callbacks.errors.handleGlobalError(
                     {
-                        code: AppErrorCode.INITIALIZATION_FAILED,
+                        code: error instanceof StartupRestoreBlockedError
+                            ? AppErrorCode.STORAGE_CORRUPTED : AppErrorCode.INITIALIZATION_FAILED,
                         message,
                         recoverable: true,
                     },
@@ -537,14 +632,22 @@ export class InitializationCoordinator {
             return { kind: 'stop', reason: 'selection_failed' };
         }
     }
-    private async _initializePlaybackRuntime(signal: AbortSignal | null | undefined): Promise<void> {
+    private async _initializePlaybackRuntime(
+        signal: AbortSignal | null | undefined,
+        projectionGeneration?: number
+    ): Promise<void> {
         const startTime = Date.now();
         if (this._deps.modules.channelManager) {
             const channelManager = this._deps.modules.channelManager;
             await this._initializeRuntimeModule('channel-manager', startTime, signal, async () => {
                 await this._callbacks.serverStorage.configureChannelManagerStorage();
                 throwIfStartupAborted(signal);
-                await channelManager.loadChannels();
+                const load = await channelManager.loadChannels();
+                throwIfStartupAborted(signal);
+                if (projectionGeneration !== undefined) {
+                    this._publishRestore({ phase: 'prepare-runtime', outcome: load.kind,
+                        channelCount: 'channelCount' in load ? load.channelCount : null }, projectionGeneration);
+                }
             });
         }
         if (this._deps.modules.scheduler) {
@@ -615,30 +718,19 @@ export class InitializationCoordinator {
     }
 
     private async _initializeEpg(options?: {
-        ensureCorePlayerUi?: boolean;
         signal?: AbortSignal | null | undefined;
     }): Promise<void> {
-        const ensureCorePlayerUi = options?.ensureCorePlayerUi ?? true;
         const signal = options?.signal;
         throwIfStartupAborted(signal);
         if (this._callbacks.status.getModuleStatus('epg-ui') === 'ready') {
-            if (ensureCorePlayerUi) {
-                await this._ensureCorePlayerUiInitialized(signal);
-            }
             return;
         }
         if (this._epgInitPromise) {
             await this._epgInitPromise;
             throwIfStartupAborted(signal);
-            if (ensureCorePlayerUi) {
-                await this._ensureCorePlayerUiInitialized(signal);
-            }
             return;
         }
         if (!this._deps.modules.epg || !this._config) {
-            if (ensureCorePlayerUi) {
-                await this._ensureCorePlayerUiInitialized(signal);
-            }
             return;
         }
 
@@ -654,8 +746,8 @@ export class InitializationCoordinator {
                 channelManager: this._deps.modules.channelManager,
                 scheduler: this._deps.modules.scheduler,
                 buildPlexResourceUrl: this._callbacks.resources.buildPlexResourceUrl,
-                readEpgLayoutMode: (): EpgLayoutMode =>
-                    this._deps.stores.epgPreferencesStore.readLayoutModeAndClean('classic'),
+                hasUsableRetainedSession: this._callbacks.picture.hasUsableRetainedSession,
+                epgPreferencesStore: this._deps.stores.epgPreferencesStore,
                 readShowNowWatchingBanner: (): boolean =>
                     this._deps.stores.epgPreferencesStore.readNowWatchingEnabledAndClean(true),
                 debugRuntime: this._deps.epgDebugRuntime,
@@ -690,14 +782,6 @@ export class InitializationCoordinator {
             });
 
         await this._epgInitPromise;
-        if (ensureCorePlayerUi) {
-            await this._ensureCorePlayerUiInitialized(signal);
-        }
-    }
-    private async _ensureCorePlayerUiInitialized(signal: AbortSignal | null | undefined): Promise<void> {
-        throwIfStartupAborted(signal);
-        await this._deps.startupUiInitializer.ensureCorePlayerUiInitialized();
-        throwIfStartupAborted(signal);
     }
     async drainEpgWarmupForShutdown(): Promise<void> {
         if (this._epgWarmupTimerId !== null) {

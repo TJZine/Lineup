@@ -5,7 +5,12 @@ describe('theme settings source of truth', () => {
         expect(DEFAULT_THEME).toBe('ember-steel');
     });
 
-    it('lists ember-steel as the first selectable theme', () => {
-        expect(THEME_OPTIONS[0]?.theme).toBe('ember-steel');
+    it('exposes the four upstream themes in their approved order and labels', () => {
+        expect(THEME_OPTIONS).toEqual([
+            { theme: 'ember-steel', label: 'Ember & Steel' },
+            { theme: 'slate-pine', label: 'Slate & Pine' },
+            { theme: 'swiss', label: 'Mint Noir' },
+            { theme: 'directv', label: 'Satellite Blue' },
+        ]);
     });
 });

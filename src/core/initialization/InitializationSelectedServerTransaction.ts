@@ -5,9 +5,8 @@ import {
 } from '../../modules/plex/auth';
 import type { INavigationManager } from '../../modules/navigation';
 import type { IChannelManager } from '../../modules/scheduler/channel-manager';
-import type { ChannelSwitchOutcome } from '../../types/channelSwitch';
+import type { ChannelLoadOutcome } from '../../modules/scheduler/channel-manager/contracts/ChannelDurability';
 import type { OperationContextUpstream } from '../../utils/RetainedOperationContext';
-import type { ChannelInitialTuneLineage } from '../channel-tuning/ChannelInitialTuneAuthority';
 import type { EpgScheduleRefreshOutcome, EpgScheduleRefreshResult } from '../../shared/epgRefresh';
 import { applyPostReadyRoutingPolicy } from './InitializationStartupPolicy';
 import { createStartupPassValidity } from './InitializationAbort';
@@ -18,24 +17,23 @@ export type SelectedServerInitializationResult =
     | { kind: 'failed'; error: unknown };
 
 export interface SelectedServerInitializationRequest {
-    lineage: ChannelInitialTuneLineage;
+    publishRestorePhase?(phase: 'server' | 'read-lineup' | 'prepare-guide'): void;
+    publishRestoreLoad?(outcome: ChannelLoadOutcome): void;
     signal: AbortSignal;
     assertCurrent(): void;
     commitOperation: OperationContextUpstream & { signal: AbortSignal };
     beforeCommit(operation: OperationContextUpstream): Promise<EpgScheduleRefreshResult>;
-    initialTune(channelId: string, lineage: ChannelInitialTuneLineage): Promise<ChannelSwitchOutcome>;
 }
 
 export interface InitializationSelectedServerTransactionDeps {
     getPlexAuth(): Pick<IPlexAuth, 'validateStoredCredentials'> | null;
     isSelectedServerConnected(): boolean;
     initializePlaybackRuntime(signal: AbortSignal): Promise<void>;
-    ensureCorePlayerUiInitialized(signal: AbortSignal): Promise<void>;
     initializeEpg(signal: AbortSignal): Promise<void>;
+    isEpgReady(): boolean;
     getNavigation(): Pick<INavigationManager, 'replaceScreen'> | null;
-    getChannelManager(): Pick<IChannelManager, 'getCurrentChannel' | 'getAllChannels'> | null;
+    getChannelManager(): Pick<IChannelManager, 'getLastLoadOutcome'> | null;
     shouldRunAudioSetup(): boolean;
-    shouldRunChannelSetup(): boolean;
     openServerSelect(): void;
     publishCommitStart(): void;
     setupEventWiring(): boolean;
@@ -60,6 +58,7 @@ export class InitializationSelectedServerTransaction {
             if (auth.kind !== 'active_valid') {
                 return { kind: 'stopped', reason: 'auth_required' };
             }
+            request.publishRestorePhase?.('server');
             if (!this._deps.isSelectedServerConnected()) {
                 return { kind: 'stopped', reason: 'server_unavailable' };
             }
@@ -71,12 +70,18 @@ export class InitializationSelectedServerTransaction {
             try {
                 validity.assertCurrent();
                 this._deps.setReady(false);
+                request.publishRestorePhase?.('read-lineup');
                 await this._deps.initializePlaybackRuntime(validity.signal);
                 validity.assertCurrent();
-                await this._deps.ensureCorePlayerUiInitialized(validity.signal);
-                validity.assertCurrent();
+                const load = this._deps.getChannelManager()?.getLastLoadOutcome();
+                if (load) request.publishRestoreLoad?.(load);
+                request.publishRestorePhase?.('prepare-guide');
                 await this._deps.initializeEpg(validity.signal);
                 validity.assertCurrent();
+                if ((load?.kind === 'readable' || load?.kind === 'readable-degraded')
+                    && !this._deps.isEpgReady()) {
+                    throw new Error('Guide runtime is unavailable after selected-server restore.');
+                }
 
                 const epgRefresh = await this._runEpgBeforeCommit(request, validity);
                 validity.assertCurrent();
@@ -97,8 +102,6 @@ export class InitializationSelectedServerTransaction {
                         navigation,
                         channelManager: this._deps.getChannelManager(),
                         shouldRunAudioSetup: this._deps.shouldRunAudioSetup,
-                        shouldRunChannelSetup: this._deps.shouldRunChannelSetup,
-                        switchToChannel: (channelId) => request.initialTune(channelId, request.lineage),
                         openServerSelect: this._deps.openServerSelect,
                         signal: validity.signal,
                     });

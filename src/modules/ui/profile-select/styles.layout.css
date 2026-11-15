@@ -1,29 +1,59 @@
-.profile-select-glyph {
-    display: block;
-    width: 64px;
-    height: 64px;
-    margin-bottom: var(--space-local-2);
+.screen.profile-select {
+    font-size: var(--text-control);
+    --profile-grid-min-column-width: max(140px, 8em);
+    --profile-grid-column-gap: var(--space-8);
+    --profile-grid-max-column-width: 200px;
 }
 
-.profile-panel {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
+.screen.profile-select .screen-shell-stage {
+    padding-top: 96px;
+}
+
+.screen.profile-select .screen-title,
+.screen.profile-select .screen-subtitle {
+    text-align: center;
 }
 
 .profile-list {
+    position: relative;
     display: grid;
-    grid-template-columns: repeat(var(--profile-grid-columns), max-content);
+    grid-template-columns: repeat(
+        var(--profile-grid-columns, 5),
+        minmax(min(100%, var(--profile-grid-min-column-width)), var(--profile-grid-max-column-width))
+    );
     justify-content: center;
-    gap: calc(var(--space-6) * var(--onboarding-scale, 1));
-    margin-top: var(--space-3);
-    padding: var(--space-2);
+    gap: var(--profile-grid-column-gap);
+    width: min(100%, 1160px);
     max-height: min(52vh, 560px);
+    margin: var(--space-3) auto 0;
+    padding: var(--focus-ring-offset);
     overflow-y: auto;
 }
 
+.screen.profile-select .profile-grid-size-probe {
+    position: absolute;
+    width: var(--profile-grid-min-column-width);
+    height: 0;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    visibility: hidden;
+    pointer-events: none;
+}
+
 .profile-tip {
-    font-size: var(--text-md);
-    color: rgba(255, 255, 255, 0.6);
+    max-width: 72ch;
     margin-top: var(--space-1);
+    color: var(--color-text-secondary);
+    font-size: var(--text-body);
+    line-height: 1.45;
+    text-align: center;
+}
+
+@media (max-width: 1280px) {
+    .screen.profile-select {
+        --profile-grid-min-column-width: max(112px, 8em);
+        --profile-grid-column-gap: var(--space-4);
+        --profile-grid-max-column-width: 1fr;
+    }
 }

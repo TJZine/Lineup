@@ -183,7 +183,6 @@ describe('SettingsScreenFocusCoordinator', () => {
             getActiveCategoryItemIds: () =>
                 categories.find((category) => category.id === activeCategoryId)?.items.map((item) => item.id) ?? [],
             getCategoryButton: (categoryId) => categoryButtons.get(categoryId) ?? null,
-            getSwitchProfileButton: () => null,
             getToggle: (id) => toggles.get(id),
             getSelect: (id) => selects.get(id),
             setActiveCategory: (categoryId): void => {

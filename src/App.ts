@@ -20,6 +20,9 @@ import {
     createChannelSetupRuntimePort,
 } from './core/app-shell/deferred-screens/AppLazyScreenPortFactory';
 import { AppScreenVisibilityCoordinator } from './core/app-shell/chrome/AppScreenVisibilityCoordinator';
+import { AppAuthoringScreenRegistry } from './core/app-shell/deferred-screens/AppAuthoringScreenRegistry';
+import { AppAuthoringPortFactory } from './core/app-shell/deferred-screens/AppAuthoringPortFactory';
+import type { ChannelStudioRequest } from './modules/ui/channels/ChannelDirectoryPorts';
 import {
     AppBlockingErrorOverlayPresenter,
     type BlockingErrorOverlayAction,
@@ -35,6 +38,9 @@ import { AppThemeController } from './core/app-shell/runtime/AppThemeController'
 import { DebugOverridesStore } from './modules/debug/DebugOverridesStore';
 import { SplashScreen } from './modules/ui/splash';
 import { ProfileSessionStore } from './modules/settings/ProfileSessionStore';
+import { AccessibilityPreferencesStore } from './modules/settings/AccessibilityPreferencesStore';
+import { SupportReportStore } from './modules/support/SupportReportStore';
+import { NowPlayingDisplayStore, type OverlayTransparency } from './modules/settings/NowPlayingDisplayStore';
 import type { ChannelSetupConfig } from './core/channel-setup/types';
 import { AppErrorCode, getAppErrorCode } from './types/app-errors';
 import type { IDisposable } from './utils/interfaces';
@@ -100,6 +106,8 @@ export class App {
     private _orchestrator: AppShellOrchestratorRuntime | null = null;
     private readonly _debugOverridesStore = new DebugOverridesStore();
     private readonly _profileSessionStore = new ProfileSessionStore();
+    private readonly _accessibilityPreferencesStore = new AccessibilityPreferencesStore();
+    private readonly _nowPlayingDisplayStore = new NowPlayingDisplayStore();
     private readonly _blockingErrorOverlayPresenter = new AppBlockingErrorOverlayPresenter({
         getNavigation: (): INavigationManager | null => this._orchestrator?.getNavigation() ?? null,
         modalId: ERROR_OVERLAY_MODAL_ID,
@@ -121,11 +129,28 @@ export class App {
         debugOverridesStore: this._debugOverridesStore,
     });
     private _lazyScreenRegistry: AppLazyScreenRegistry | null = null;
+    private _authoringRegistry: AppAuthoringScreenRegistry | null = null;
+    private _studioRequest: ChannelStudioRequest | null = null;
+    private _studioEnteredFromDirectory = false;
+    private _directoryPreferredId: string | undefined;
+    private _directoryUseStack = false;
+    private _channelSetupEnteredFromDirectory = false;
     private _screenVisibilityCoordinator: AppScreenVisibilityCoordinator | null = null;
     private _splashScreen: SplashScreen | null = null;
     private _themeController: AppThemeController | null = null;
     private _screenUnsubscribe: (() => void) | null = null;
     private _phaseUnsubscribe: (() => void) | null = null;
+    private _restoreSubscription: IDisposable | null = null;
+    private _restoreKeySubscription: IDisposable | null = null;
+    private _startupController: AbortController | null = null;
+    private _restoreCancelDestination: 'recovery' | 'server' | null = null;
+    private _restoreRecoveryRoute: {
+        generation: number;
+        screen: 'server-select' | 'profile-select' | 'settings' | 'channel-setup';
+    } | null = null;
+    private readonly _supportReport = new SupportReportStore();
+    private _recordedRestoreGeneration = 0;
+    private _recordedRestoreTerminalGeneration = 0;
     private _lifecycleWarningDisposables: IDisposable[] = [];
 
     constructor(options: AppOptions = {}) {
@@ -134,9 +159,11 @@ export class App {
 
     async start(): Promise<void> {
         markStartupTiming(APP_START_START_MARK);
+        this._supportReport.record({ code: 'app-start', at: Date.now(), outcome: 'started' });
         try {
             this._themeController = new AppThemeController();
             this._themeController.initialize();
+            this._applySavedVisualPreferences();
 
             const containerRefs = this._createContainers();
             const platformServices = createWebOsPlatformServices();
@@ -165,7 +192,9 @@ export class App {
             });
 
             markStartupTiming(ORCHESTRATOR_START_START_MARK);
-            await orchestrator.start();
+            const startupOutcome = await this._runStartupPass();
+            this._supportReport.record({ code: 'app-start', at: Date.now(),
+                outcome: startupOutcome });
             markStartupTiming(ORCHESTRATOR_START_END_MARK);
             measureStartupTiming(
                 ORCHESTRATOR_START_MEASURE,
@@ -179,6 +208,7 @@ export class App {
                 APP_START_FIRST_ACTIONABLE_MARK
             );
         } catch (error) {
+            this._supportReport.record({ code: 'app-start', at: Date.now(), outcome: 'failed' });
             console.error('App startup failed:', summarizeErrorForLog(error));
             try {
                 await this.shutdown();
@@ -258,6 +288,13 @@ export class App {
     }
 
     async shutdown(): Promise<void> {
+        this._startupController?.abort(new DOMException('App shutdown', 'AbortError'));
+        this._startupController = null;
+        this._restoreSubscription?.dispose();
+        this._restoreSubscription = null;
+        this._restoreKeySubscription?.dispose();
+        this._restoreKeySubscription = null;
+        this._restoreRecoveryRoute = null;
         if (this._screenUnsubscribe) {
             this._screenUnsubscribe();
             this._screenUnsubscribe = null;
@@ -275,6 +312,12 @@ export class App {
         this._splashScreen = null;
         this._lazyScreenRegistry?.destroy();
         this._lazyScreenRegistry = null;
+        this._authoringRegistry?.destroy();
+        this._authoringRegistry = null;
+        this._studioRequest = null;
+        this._directoryPreferredId = undefined;
+        this._directoryUseStack = false;
+        this._channelSetupEnteredFromDirectory = false;
         this._screenVisibilityCoordinator = null;
         this._themeController = null;
         this._diagnosticsSurface.dispose();
@@ -288,6 +331,28 @@ export class App {
 
     getOrchestrator(): AppOrchestratorRuntime | null {
         return this._orchestrator;
+    }
+
+    private _applySavedVisualPreferences(): void {
+        this._setOverlayTransparency(this._nowPlayingDisplayStore.readOverlayTransparencyAndClean());
+        this._setAccessibilityPreference('reduceMotion', this._accessibilityPreferencesStore.readReduceMotionEnabledAndClean());
+        this._setAccessibilityPreference('largeFocus', this._accessibilityPreferencesStore.readLargeFocusEnabledAndClean());
+    }
+
+    private _setOverlayTransparency(value: OverlayTransparency): void {
+        document.body?.setAttribute('data-player-overlay-transparency', value);
+    }
+
+    private _setAccessibilityPreference(name: 'reduceMotion' | 'largeFocus', enabled: boolean): void {
+        const root = document.body;
+        if (!root) return;
+        if (name === 'reduceMotion') {
+            if (enabled) root.setAttribute('data-motion', 'reduced');
+            else root.removeAttribute('data-motion');
+        } else {
+            if (enabled) root.setAttribute('data-large-focus', 'true');
+            else root.removeAttribute('data-large-focus');
+        }
     }
 
     private _createContainers(): AppContainerRefs {
@@ -312,6 +377,19 @@ export class App {
             return;
         }
         const lazyScreenPortFactory = new AppLazyScreenPortFactory({
+            openChannelsFromSettings: (): void => {
+                this._orchestrator?.getNavigation()?.goTo('channels');
+            },
+            goBackFromChannelSetupLibraries: (): void => {
+                const navigation = this._orchestrator?.getNavigation();
+                if (this._channelSetupEnteredFromDirectory && navigation?.goBack()) return;
+                this._orchestrator?.openServerSelect();
+            },
+            openCustomChannelStudio: (): void => {
+                this._studioRequest = { kind: 'create' };
+                this._studioEnteredFromDirectory = false;
+                this._orchestrator?.getNavigation()?.replaceScreen('channel-studio');
+            },
             getNavigationRuntime: (): AppShellNavigationRuntimePort | null => this._orchestrator,
             getAuthRuntime: (): AppShellAuthRuntimePort | null => this._orchestrator,
             getProfileRuntime: (): AppShellProfileRuntimePort | null => this._orchestrator,
@@ -329,10 +407,26 @@ export class App {
                     getActiveUsername: () => runtime.getActiveUsername(),
                     getTheme: () => themeController.getTheme(),
                     setTheme: (theme) => themeController.setTheme(theme),
+                    getThemePersistenceResult: () => themeController.getPersistenceResult(),
+                    retryThemePersistence: () => themeController.retryPersistence(),
+                    updateSettingsPlaybackPolicy: (keepRunning) => runtime.updateSettingsPlaybackPolicy(keepRunning),
+                    setOverlayTransparency: (value) => this._setOverlayTransparency(value),
+                    setAccessibilityPreference: (name, enabled) => this._setAccessibilityPreference(name, enabled),
+                    switchProfileFromSettings: (): void => { runtime.getNavigation()?.goTo('profile-select'); },
+                    switchServerFromSettings: () => runtime.openServerSelect(),
+                    signOutFromSettings: () => runtime.signOutPlex(),
                 };
             },
         });
-        this._splashScreen = new SplashScreen(containerRefs.splashContainer);
+        this._splashScreen = new SplashScreen(
+            containerRefs.splashContainer,
+            () => {
+                this._restoreCancelDestination = 'server';
+                this._startupController?.abort(new DOMException('Switching server', 'AbortError'));
+                this._orchestrator?.openServerSelect();
+            },
+            () => this._orchestrator?.getNavigation() ?? null
+        );
         this._lazyScreenRegistry = new AppLazyScreenRegistry({
             portFactory: lazyScreenPortFactory,
             profileSessionStore: this._profileSessionStore,
@@ -348,6 +442,43 @@ export class App {
                 lazyScreenPortFactory.getNavigation()?.replaceScreen('channel-setup');
             },
         });
+        const authoringPorts = new AppAuthoringPortFactory(
+            () => this._orchestrator,
+            {
+                openStudio: (request): void => {
+                    this._studioRequest = request;
+                    this._studioEnteredFromDirectory = true;
+                    this._orchestrator?.getNavigation()?.goTo('channel-studio');
+                },
+                openGenerate: (): void => {
+                    this._channelSetupEnteredFromDirectory = true;
+                    this._orchestrator?.getNavigation()?.goTo('channel-setup');
+                },
+                goBack: (): void => {
+                    const navigation = this._orchestrator?.getNavigation();
+                    if (this._directoryUseStack && navigation?.goBack()) return;
+                    navigation?.replaceScreen('guide');
+                },
+                closeStudio: (focusChannelId): void => {
+                    this._directoryPreferredId = focusChannelId ?? undefined;
+                    const navigation = this._orchestrator?.getNavigation();
+                    if (this._studioEnteredFromDirectory && navigation?.goBack()) return;
+                    this._directoryUseStack = false;
+                    navigation?.replaceScreen('channels');
+                },
+                openGuide: (): void => { this._orchestrator?.getNavigation()?.replaceScreen('guide'); },
+            }
+        );
+        this._authoringRegistry = new AppAuthoringScreenRegistry({
+            directoryContainer: containerRefs.channelDirectoryContainer,
+            studioContainer: containerRefs.channelStudioContainer,
+            createDirectoryPorts: (): ReturnType<AppAuthoringPortFactory['createDirectoryPorts']> =>
+                authoringPorts.createDirectoryPorts(),
+            createStudioPorts: (): ReturnType<AppAuthoringPortFactory['createStudioPorts']> =>
+                authoringPorts.createStudioPorts(),
+            getScopeKey: (): string => this._orchestrator?.getDirectoryScopeKey() ?? 'unavailable',
+            onLoadError: (error): void => this._handleLazyScreenError(error),
+        });
         this._screenVisibilityCoordinator = new AppScreenVisibilityCoordinator({
             getIsReady: (): boolean => this._orchestrator?.isReady() ?? false,
             getCurrentScreen: (): string | null => this._orchestrator?.getCurrentScreen() ?? null,
@@ -356,6 +487,12 @@ export class App {
             ),
             getSplashScreen: (): SplashScreen | null => this._splashScreen,
             getLazyScreenRegistry: (): AppLazyScreenRegistry | null => this._lazyScreenRegistry,
+            getAuthoringScreenRegistry: (): AppAuthoringScreenRegistry | null => this._authoringRegistry,
+            getStudioRequest: (): ChannelStudioRequest | null => this._studioRequest,
+            getDirectoryPreferredId: (): string | undefined => this._directoryPreferredId,
+            onSettingsShown: (): void => {
+                if (this._restoreRecoveryRoute?.screen === 'settings') this._lazyScreenRegistry?.getSettingsScreen()?.showSupport();
+            },
             onLazyScreenError: (error: unknown): void => {
                 this._handleLazyScreenError(error);
             },
@@ -367,10 +504,70 @@ export class App {
         if (!this._orchestrator) {
             return;
         }
-        const disposable = this._orchestrator.onScreenChange((_from, to) => {
+        const disposable = this._orchestrator.onScreenChange((from, to) => {
+            if (to === 'channel-setup' && from !== 'channels') this._channelSetupEnteredFromDirectory = false;
+            if (to === 'channels' && (from === 'guide' || from === 'settings')) {
+                this._directoryUseStack = true;
+                this._directoryPreferredId = undefined;
+            }
+            if (from === 'channel-studio' && to !== 'channel-studio') this._studioRequest = null;
             this._screenVisibilityCoordinator?.apply(to);
+            const recoveryRoute = this._restoreRecoveryRoute;
+            if (to === 'splash' && recoveryRoute) {
+                const orchestrator = this._orchestrator;
+                // A successful profile switch enters Splash immediately before it
+                // publishes the next startup generation. Let that pass take ownership.
+                queueMicrotask(() => {
+                    if (!orchestrator || this._orchestrator !== orchestrator
+                        || this._restoreRecoveryRoute !== recoveryRoute
+                        || orchestrator.getCurrentScreen() !== 'splash') return;
+                    const projection = orchestrator.getStartupRestoreProjection();
+                    if (projection?.generation !== recoveryRoute.generation
+                        || projection.phase !== 'complete' || projection.requiredComplete
+                        || projection.actions.length === 0) return;
+                    this._restoreRecoveryRoute = null;
+                    this.showErrorOverlay({ code: AppErrorCode.INITIALIZATION_FAILED,
+                        message: projection.reason ?? 'Lineup restore needs attention.',
+                        userMessage: projection.reason ?? 'Lineup restore needs attention.',
+                        recoverable: true, phase: 'error', timestamp: Date.now(), actions: [] });
+                });
+            }
         });
         this._screenUnsubscribe = (): void => disposable.dispose();
+
+        this._restoreSubscription = this._orchestrator.subscribeToStartupRestoreProjection(projection => {
+            if (this._restoreRecoveryRoute && (projection.generation !== this._restoreRecoveryRoute.generation
+                || projection.requiredComplete)) this._restoreRecoveryRoute = null;
+            this._splashScreen?.updateRestoreProjection(projection);
+            if (projection.generation > this._recordedRestoreGeneration) {
+                this._recordedRestoreGeneration = projection.generation;
+                this._supportReport.record({ code: 'restore', at: Date.now(), outcome: 'started' });
+            }
+            if (projection.generation > this._recordedRestoreTerminalGeneration && projection.phase === 'complete') {
+                this._recordedRestoreTerminalGeneration = projection.generation;
+                this._supportReport.record({ code: 'restore', at: Date.now(),
+                    outcome: projection.outcome === 'canceled' ? 'cancelled'
+                        : projection.requiredComplete ? 'succeeded' : 'failed' });
+            }
+            if (projection.phase === 'complete' && projection.outcome === 'canceled'
+                && this._restoreCancelDestination === 'recovery') {
+                this._restoreCancelDestination = null;
+                this.showErrorOverlay({ code: AppErrorCode.INITIALIZATION_FAILED,
+                    message: 'Lineup restore was canceled.', userMessage: 'Lineup restore was canceled.',
+                    recoverable: true, phase: 'error', timestamp: Date.now(), actions: [] });
+            }
+        });
+        this._restoreKeySubscription = this._orchestrator.getNavigation()?.on('keyPress', event => {
+            if (event.handled || event.button !== 'back'
+                || this._orchestrator?.getCurrentScreen() !== 'splash'
+                || !this._startupController) return;
+            const projection = this._orchestrator.getStartupRestoreProjection();
+            if (!projection || projection.phase === 'complete') return;
+            event.handled = true;
+            event.originalEvent.preventDefault();
+            this._restoreCancelDestination = 'recovery';
+            this._startupController.abort(new DOMException('Restore canceled by Back', 'AbortError'));
+        }) ?? null;
 
         const phaseDisposable = this._orchestrator.onLifecycleEvent('phaseChange', ({ to }) => {
             if (to === 'ready') {
@@ -382,6 +579,34 @@ export class App {
         const current = this._orchestrator.getCurrentScreen();
         if (current) {
             this._screenVisibilityCoordinator?.apply(current);
+        }
+    }
+
+    private async _runStartupPass(): Promise<'succeeded' | 'failed' | 'cancelled'> {
+        const orchestrator = this._orchestrator;
+        if (!orchestrator) throw new Error('Startup runtime is unavailable.');
+        const controller = new AbortController();
+        this._startupController = controller;
+        this._restoreCancelDestination = null;
+        try {
+            await orchestrator.start({ signal: controller.signal });
+            return 'succeeded';
+        } catch (error) {
+            if (controller.signal.aborted) return 'cancelled';
+            const restore = orchestrator.getStartupRestoreProjection();
+            if (this._orchestrator !== orchestrator || restore?.phase !== 'complete'
+                || restore.requiredComplete || restore.actions.length === 0) throw error;
+            // Restore failures with recovery actions need the initialized shell to
+            // stay alive. Fatal initialization errors still reach start() teardown.
+            const message = restore.reason ?? 'Lineup restore needs attention.';
+            this.showErrorOverlay({
+                code: AppErrorCode.INITIALIZATION_FAILED,
+                message, userMessage: message, recoverable: true,
+                phase: 'error', timestamp: Date.now(), actions: [],
+            });
+            return 'failed';
+        } finally {
+            if (this._startupController === controller) this._startupController = null;
         }
     }
 
@@ -427,6 +652,57 @@ export class App {
             ];
             this._blockingErrorOverlayPresenter.show(error, actions, {
                 modalPolicy: QUARANTINE_MODAL_POLICY,
+            });
+            return;
+        }
+
+        const restore = this._orchestrator.getStartupRestoreProjection();
+        if ((error.code === AppErrorCode.STORAGE_CORRUPTED || error.code === AppErrorCode.INITIALIZATION_FAILED)
+            && restore?.phase === 'complete' && !restore.requiredComplete
+            && restore.actions.length > 0) {
+            const orchestrator = this._orchestrator;
+            const actions: BlockingErrorOverlayAction[] = [];
+            if (restore.actions.includes('retry')) actions.push({
+                id: 'retry', label: 'Retry', isPrimary: true, action: async (): Promise<void> => {
+                    this._blockingErrorOverlayPresenter.hide();
+                    await this._runStartupPass();
+                },
+            });
+            if (restore.actions.includes('switch-server')) actions.push({
+                id: 'switch-server', label: 'Switch server', isPrimary: false, action: (): void => {
+                    this._blockingErrorOverlayPresenter.hide();
+                    this._restoreRecoveryRoute = { generation: restore.generation, screen: 'server-select' };
+                    orchestrator.openServerSelect();
+                },
+            });
+            if (restore.actions.includes('switch-profile')) actions.push({
+                id: 'switch-profile', label: 'Switch profile', isPrimary: false, action: (): void => {
+                    this._blockingErrorOverlayPresenter.hide();
+                    this._restoreRecoveryRoute = { generation: restore.generation, screen: 'profile-select' };
+                    orchestrator.getNavigation()?.goTo('profile-select');
+                },
+            });
+            if (restore.actions.includes('support')) actions.push({
+                id: 'support', label: 'Support', isPrimary: false, action: (): void => {
+                    this._blockingErrorOverlayPresenter.hide();
+                    this._restoreRecoveryRoute = { generation: restore.generation, screen: 'settings' };
+                    orchestrator.getNavigation()?.goTo('settings');
+                },
+            });
+            if (restore.actions.includes('rerun-setup')) actions.push({
+                id: 'rerun-setup', label: 'Re-run setup', isPrimary: false,
+                action: (): void => {
+                    if (!orchestrator.getSelectedServerId()) {
+                        throw new Error('A selected server is required before setup can reopen.');
+                    }
+                    this._blockingErrorOverlayPresenter.hide();
+                    this._restoreRecoveryRoute = { generation: restore.generation, screen: 'channel-setup' };
+                    const result = orchestrator.requestChannelSetupRerun();
+                    if (!result.ok) throw new Error('A selected server is required before setup can reopen.');
+                },
+            });
+            this._blockingErrorOverlayPresenter.show(error, actions, {
+                modalPolicy: { dismissOnBack: false, blocksBackgroundCommands: true },
             });
             return;
         }

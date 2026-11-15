@@ -4,7 +4,6 @@ import type {
     PlexDiscoverySignalOptions,
     PlexServerSelectionResult,
 } from '../../modules/plex/discovery';
-import type { ChannelInitialTuneLineage } from '../channel-tuning/ChannelInitialTuneAuthority';
 import { RetainedOperationContext, type OperationContextUpstream } from '../../utils/RetainedOperationContext';
 import type { SelectedServerInitializationResult } from '../initialization/InitializationSelectedServerTransaction';
 import type { InitializationSelectedServerLineage } from '../initialization/InitializationStartupHandoff';
@@ -62,13 +61,10 @@ export interface ServerSelectionCoordinatorDeps {
     getSelectedServerUri(): string | null;
     suspendAndDrainForScopeTransition(): Promise<void>;
     resumeAfterScopeTransition(): void;
-    beginInitialTuneLineage(validators: readonly OperationContextUpstream[]): ChannelInitialTuneLineage;
-    completeInitialTuneLineage(lineage: ChannelInitialTuneLineage): void;
     beginSelectedServerLineage(): InitializationSelectedServerLineage;
     releaseSelectedServerLineage(lineage: InitializationSelectedServerLineage): void;
     getSupersedingStartupHandoff(lineage: InitializationSelectedServerLineage): Promise<void> | null;
     runSelectedServerInitialization(options: {
-        lineage: ChannelInitialTuneLineage;
         startupLineage: InitializationSelectedServerLineage;
         operation: CurrentOperation;
         commitOperation: CurrentOperation;
@@ -201,7 +197,6 @@ export class ServerSelectionCoordinator {
             operation = this._createOperation(result.receipt, evidence, undefined, true, [
                 preDiscoveryOperation,
             ]);
-            let lineage: ChannelInitialTuneLineage | null = null;
             operation.assertCurrent();
             await this._deps.suspendAndDrainForScopeTransition();
             operation.assertCurrent();
@@ -213,17 +208,12 @@ export class ServerSelectionCoordinator {
                 startupLineage,
             ]);
             commitOperation.assertCurrent();
-            lineage = this._deps.beginInitialTuneLineage([commitOperation]);
             const initialized = await this._deps.runSelectedServerInitialization({
-                lineage,
                 startupLineage,
                 operation,
                 commitOperation,
             });
             if (initialized.kind === 'completed') {
-                commitOperation.assertCurrent();
-                this._deps.completeInitialTuneLineage(lineage);
-                lineage = null;
                 commitOperation.assertCurrent();
                 this._deps.resumeAfterScopeTransition();
                 commitOperation.assertCurrent();
@@ -511,9 +501,7 @@ export class ServerSelectionCoordinator {
                                 operation,
                                 startupLineage,
                                 suspendAndDrain: this._deps.suspendAndDrainForScopeTransition,
-                                beginInitialTuneLineage: this._deps.beginInitialTuneLineage,
                                 runInitialization: this._deps.runSelectedServerInitialization,
-                                completeInitialTuneLineage: this._deps.completeInitialTuneLineage,
                             });
                         } finally {
                             this._deps.releaseSelectedServerLineage(startupLineage);

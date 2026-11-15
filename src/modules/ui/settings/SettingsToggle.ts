@@ -2,6 +2,7 @@ import type { SettingsToggleConfig } from './types';
 
 export function createSettingsToggle(config: SettingsToggleConfig): {
     element: HTMLButtonElement;
+    feedbackElement: HTMLElement;
     update: (value: boolean) => void;
     setDisabled: (disabled: boolean) => void;
     isDisabled: () => boolean;
@@ -12,6 +13,8 @@ export function createSettingsToggle(config: SettingsToggleConfig): {
     button.id = config.id;
     button.className = `setup-toggle${config.value ? ' selected' : ''}${config.disabled ? ' disabled' : ''}`;
     button.disabled = config.disabled ?? false;
+    button.setAttribute('role', 'switch');
+    button.setAttribute('aria-checked', String(config.value));
 
     const label = document.createElement('span');
     label.className = 'setup-toggle-label';
@@ -22,6 +25,10 @@ export function createSettingsToggle(config: SettingsToggleConfig): {
     meta.setAttribute('role', 'status');
     meta.setAttribute('aria-live', 'polite');
     restoreMetadata();
+    const feedbackElement = document.createElement('div');
+    feedbackElement.className = 'settings-save-feedback';
+    feedbackElement.setAttribute('role', 'status');
+    feedbackElement.setAttribute('aria-live', 'polite');
 
     const state = document.createElement('span');
     state.className = 'setup-toggle-state';
@@ -39,9 +46,10 @@ export function createSettingsToggle(config: SettingsToggleConfig): {
         const result = config.onChange(newValue);
         if (!result.ok) {
             update(result.effectiveValue ?? previousValue);
-            meta.textContent = result.message;
+            feedbackElement.textContent = `${result.message} Press OK to retry.`;
             return;
         }
+        feedbackElement.textContent = '';
         restoreMetadata();
     }
 
@@ -53,6 +61,7 @@ export function createSettingsToggle(config: SettingsToggleConfig): {
             button.classList.remove('selected');
         }
         state.textContent = value ? 'On' : 'Off';
+        button.setAttribute('aria-checked', String(value));
     }
 
     function setDisabled(disabled: boolean): void {
@@ -74,6 +83,7 @@ export function createSettingsToggle(config: SettingsToggleConfig): {
 
     return {
         element: button,
+        feedbackElement,
         update,
         setDisabled,
         isDisabled: (): boolean => config.disabled ?? false,

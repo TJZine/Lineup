@@ -43,6 +43,12 @@ export class LibraryStepPresenter {
         this._libraryStep.render(ctx, {
             libraries: session.libraries,
             selectedLibraryIds: session.selectedLibraryIds,
+            inventory: session.inventory,
+            isInventoryLoading: session.isInventoryLoading,
+            inventoryError: session.inventoryError,
+            acceptedReadyLibraryIds: session.acceptedReadyLibraryIds,
+            knownReadyLibraryIds: session.knownReadyLibraryIds,
+            confirmedDeselectedLibraryIds: session.confirmedDeselectedLibraryIds,
             formatCount: (value) => this._formatCount(value),
             movieSvg: MOVIE_SVG,
             showSvg: SHOW_SVG,
@@ -61,7 +67,37 @@ export class LibraryStepPresenter {
                 this._deps.renderStep();
             },
             onBack: () => {
-                this._deps.screenPorts.openServerSelect();
+                this._deps.screenPorts.goBackFromLibraries();
+            },
+            onScan: () => {
+                void this._deps.session.scanInventory(() => this._deps.renderStep());
+            },
+            onCancelScan: () => {
+                this._deps.session.cancelInventory();
+                this._deps.renderStep();
+            },
+            onRetry: (libraryId, _focusId) => {
+                this._deps.setPreferredFocusId(`setup-lib-${this._toDomId(libraryId)}`);
+                void this._deps.session.retryInventory(libraryId, () => this._deps.renderStep());
+            },
+            onToggleReady: (libraryId, focusId) => {
+                const latest = this._deps.session.getSnapshot();
+                const partial = latest.inventory?.libraries.some((fact) => fact.status !== 'ready') ?? false;
+                const ids = new Set(latest.acceptedReadyLibraryIds.size > 0
+                    ? latest.acceptedReadyLibraryIds : partial ? [] : latest.inventory?.acceptedReadyLibraryIds ?? []);
+                if (ids.has(libraryId)) ids.delete(libraryId);
+                else ids.add(libraryId);
+                if (ids.size > 0) this._deps.session.acceptReadySubset([...ids]);
+                this._deps.setPreferredFocusId(focusId);
+                this._deps.renderStep();
+            },
+            onToggleDeselectedConsent: (libraryId, focusId) => {
+                const confirmed = new Set(this._deps.session.getSnapshot().confirmedDeselectedLibraryIds);
+                if (confirmed.has(libraryId)) confirmed.delete(libraryId);
+                else confirmed.add(libraryId);
+                this._deps.session.confirmDeselectedLibraries([...confirmed]);
+                this._deps.setPreferredFocusId(focusId);
+                this._deps.renderStep();
             },
             onNext: () => {
                 this._deps.session.setStep(2);
@@ -83,29 +119,24 @@ export class LibraryStepPresenter {
     }
 
     private _handleToggleLibrary(ctx: StepRenderContext, libraryId: string, focusId: string): void {
+        const previous = this._deps.session.getSnapshot();
+        const needsRender = previous.inventory !== null || previous.isInventoryLoading;
         this._deps.setPreferredFocusId(focusId);
-        const nextSelected = this._deps.session.toggleLibrary(libraryId);
-
-        const updated = this._libraryStep.updateLibraryToggle(
-            this._deps.contentEl,
-            libraryId,
-            nextSelected,
-            (raw) => this._toDomId(raw)
-        );
-        if (!updated) {
+        const selected = this._deps.session.toggleLibrary(libraryId);
+        if (needsRender) {
             this._deps.renderStep();
             return;
         }
-
-        const updatedSession = this._deps.session.getSnapshot();
+        const button = this._libraryStep.updateLibraryToggle(this._deps.contentEl, libraryId, selected,
+            (raw) => this._toDomId(raw));
+        if (!button) { this._deps.renderStep(); return; }
+        const latest = this._deps.session.getSnapshot();
+        ctx.detailEl.textContent = `Selected ${latest.selectedLibraryIds.size} of ${latest.libraries.length}. 0 ready for Review.`;
+        const scan = this._deps.contentEl.querySelector<HTMLButtonElement>('#setup-scan');
+        if (scan) scan.disabled = latest.selectedLibraryIds.size === 0;
+        const next = this._deps.contentEl.querySelector<HTMLButtonElement>('#setup-next');
+        if (next) next.disabled = latest.isInventoryLoading || latest.selectedLibraryIds.size === 0;
         this._deps.setPreferredFocusId(null);
-        const count = updatedSession.selectedLibraryIds.size;
-        const total = updatedSession.libraries.length;
-        ctx.detailEl.textContent = `Selected ${count} of ${total}.`;
-        const nextButton = this._deps.contentEl.querySelector('#setup-next') as HTMLButtonElement | null;
-        if (nextButton) {
-            nextButton.disabled = updatedSession.libraries.length === 0 || updatedSession.selectedLibraryIds.size === 0;
-        }
     }
 
     private _toDomId(raw: string): string {

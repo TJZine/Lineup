@@ -246,7 +246,7 @@ describe('StrategyStepController', () => {
         expect(ctx.contentEl.querySelector('#scope-collections')).toBeNull();
     });
 
-    it('renders active-category dots, footer actions, and first-time next label', () => {
+    it('renders active-category dots, footer actions, and first-time Review label', () => {
         const baseState = createDeps().state;
         const strategies = createDefaultStrategyState();
         strategies.collections.enabled = true;
@@ -266,7 +266,7 @@ describe('StrategyStepController', () => {
         expect(
             ctx.contentEl.querySelector('#category-advanced-sources .setup-category-dot')
         ).not.toBeNull();
-        expect((ctx.contentEl.querySelector('#setup-next') as HTMLButtonElement).textContent).toBe('Build Channels');
+        expect((ctx.contentEl.querySelector('#setup-next') as HTMLButtonElement).textContent).toBe('Review channels');
 
         (ctx.contentEl.querySelector('#setup-back') as HTMLButtonElement).click();
         (ctx.contentEl.querySelector('#setup-next') as HTMLButtonElement).click();
@@ -274,7 +274,12 @@ describe('StrategyStepController', () => {
         expect(deps.onBack).toHaveBeenCalledTimes(1);
         expect(deps.onNext).toHaveBeenCalledTimes(1);
         expect(deps.registerStep2Focusables).toHaveBeenCalledTimes(1);
-        expect(ctx.detailEl.textContent).toBe('Detail text');
+        const footer = ctx.contentEl.querySelector('.setup-configure-footer');
+        expect(footer?.querySelector('.setup-configure-footer-summary')?.textContent).toBe('Detail text');
+        expect(footer?.querySelectorAll('.setup-configure-footer-actions button')).toHaveLength(2);
+        expect(Array.from(footer?.querySelectorAll('.setup-configure-footer-actions button') ?? [])
+            .map((button) => button.id)).toEqual(['setup-back', 'setup-next']);
+        expect(ctx.detailEl.textContent).toBe('');
     });
 
     it('routes strategy and scope toggles through applySettingChange mutations', () => {
@@ -421,12 +426,12 @@ describe('StrategyStepController', () => {
             },
         });
 
-        (seriesCtx.contentEl.querySelector(`#${STEP2_CONTROL_IDS.seriesBaseMode}`) as HTMLButtonElement).click();
+        (seriesCtx.contentEl.querySelector('#setup-playback-random') as HTMLButtonElement).click();
         (seriesCtx.contentEl.querySelector(`#${STEP2_CONTROL_IDS.seriesBaseBlockSize}`) as HTMLButtonElement).click();
         (seriesCtx.contentEl.querySelector(`#${STEP2_CONTROL_IDS.seriesVariantType}`) as HTMLButtonElement).click();
         (seriesCtx.contentEl.querySelector(`#${STEP2_CONTROL_IDS.seriesVariantBlockSize}`) as HTMLButtonElement).click();
 
-        expect(seriesDeps.openAdjustableControl).toHaveBeenCalledWith(STEP2_CONTROL_IDS.seriesBaseMode);
+        expect(seriesDeps.applySettingChange).toHaveBeenCalledWith('setup-playback-random', expect.any(Function));
         expect(seriesDeps.openAdjustableControl).toHaveBeenCalledWith(STEP2_CONTROL_IDS.seriesBaseBlockSize);
         expect(seriesDeps.openAdjustableControl).toHaveBeenCalledWith(STEP2_CONTROL_IDS.seriesVariantType);
         expect(seriesDeps.openAdjustableControl).toHaveBeenCalledWith(STEP2_CONTROL_IDS.seriesVariantBlockSize);

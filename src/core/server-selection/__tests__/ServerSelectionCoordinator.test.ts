@@ -3,7 +3,6 @@ import type {
     PlexDiscoverySelectionReceipt,
 } from '../../../modules/plex/discovery';
 import { PlexDiscoverySelectionContext } from '../../../modules/plex/discovery/PlexDiscoverySelectionContext';
-import { ChannelInitialTuneAuthority } from '../../channel-tuning/ChannelInitialTuneAuthority';
 import type { SelectedServerInitializationResult } from '../../initialization/InitializationSelectedServerTransaction';
 import { InitializationStartupHandoff } from '../../initialization/InitializationStartupHandoff';
 import { ServerSelectionCoordinator, type ServerSelectionCoordinatorDeps } from '../ServerSelectionCoordinator';
@@ -43,7 +42,6 @@ function createHarness(snapshot?: PlexDiscoverySelectedServerSnapshot): Coordina
     const evidence = new SelectedServerPersistenceAdapter({
         getCredentialsPort: (): null => null,
     }).capturePersistenceEvidence();
-    const tuneAuthority = new ChannelInitialTuneAuthority();
     const transferSelectedServerTuningToStartup = jest.fn();
     const startupHandoff = new InitializationStartupHandoff(transferSelectedServerTuningToStartup);
     const deps: jest.Mocked<ServerSelectionCoordinatorDeps> = {
@@ -96,8 +94,6 @@ function createHarness(snapshot?: PlexDiscoverySelectedServerSnapshot): Coordina
         getSelectedServerUri: jest.fn(() => 'https://candidate.example.invalid'),
         suspendAndDrainForScopeTransition: jest.fn().mockResolvedValue(undefined),
         resumeAfterScopeTransition: jest.fn(),
-        beginInitialTuneLineage: jest.fn((validators) => tuneAuthority.beginLineage(validators)),
-        completeInitialTuneLineage: jest.fn((lineage) => tuneAuthority.completeLineage(lineage)),
         beginSelectedServerLineage: jest.fn(() => startupHandoff.beginSelectedServerLineage()),
         releaseSelectedServerLineage: jest.fn((lineage) =>
             startupHandoff.releaseSelectedServerLineage(lineage)),
@@ -164,7 +160,6 @@ describe('ServerSelectionCoordinator', () => {
         expect((result as Record<string, unknown>).startupResume).toBeUndefined();
         expect((result as Record<string, unknown>).readiness).toBeUndefined();
         expect(deps.suspendAndDrainForScopeTransition).toHaveBeenCalled();
-        expect(deps.completeInitialTuneLineage).toHaveBeenCalledTimes(1);
         expect(deps.resumeAfterScopeTransition).toHaveBeenCalledTimes(1);
         expect(deps.restoreDiscoverySelectionSnapshot).not.toHaveBeenCalled();
     });

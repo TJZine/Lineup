@@ -14,6 +14,9 @@ describe('focused EPG overflow style contract', () => {
     const css = readComposedCss('src/modules/ui/epg/styles.css');
     const cellsCss = read('src/modules/ui/epg/styles.cells.css');
     const gridCss = read('src/modules/ui/epg/styles.grid.css');
+    const shellCss = read('src/modules/ui/epg/styles.shell.css');
+    const classicCss = read('src/modules/ui/epg/styles.classic.css');
+    const themeCss = read('src/modules/ui/epg/styles.theme.css');
     const motionCss = read('src/modules/ui/epg/styles.motion.css');
 
     it('keeps the stylesheet seam pure and ordered', () => {
@@ -197,26 +200,49 @@ describe('focused EPG overflow style contract', () => {
         ['base', '.epg-channel-row.focused', 'rgba(var(--focus-color-rgb), 0.12)'],
         [
             'classic',
-            '.epg-container.layout-classic .epg-channel-row.focused',
+            '.epg-container .epg-channel-row.focused',
             'rgba(var(--focus-color-rgb), 0.18)',
         ],
         [
-            'glass classic',
-            '.theme-glass .epg-container.layout-classic .epg-channel-row.focused',
-            'transparent',
-        ],
-        [
             'swiss classic',
-            '.theme-swiss .epg-container.layout-classic .epg-channel-row.focused',
+            '.theme-swiss .epg-container .epg-channel-row.focused',
             'rgba(var(--focus-color-rgb), 0.12)',
         ],
         [
             'DirectV classic',
-            '.theme-directv .epg-container.layout-classic .epg-channel-row.focused',
+            '.theme-directv .epg-container .epg-channel-row.focused',
             'var(--directv-focus-fill)',
         ],
     ])('keeps the %s channel-focus cascade', (_name, selector, background) => {
         expect(declarationValue(blockFor(css, selector), 'background')).toBe(background);
+    });
+
+    it('uses shared Large Focus ring tokens on every main Guide focus path', () => {
+        for (const selector of [
+            '.epg-classic-header-brand.epg-toolbar-focused',
+            '.epg-toolbar-button.epg-toolbar-focused',
+            '.epg-search-result.epg-toolbar-focused',
+            '.epg-menu-overlay button.epg-toolbar-focused',
+        ]) {
+            expect(declarationValue(blockFor(shellCss, selector), 'outline'))
+                .toBe('var(--focus-ring-width) solid var(--focus-border-color)');
+        }
+        expect(declarationValue(
+            blockFor(shellCss, '.epg-classic-header-brand.epg-toolbar-focused .epg-classic-header-title'),
+            'color'
+        )).toBe('var(--focus-text-primary)');
+        for (const selector of ['.epg-container .epg-cell.focused', '.epg-container .epg-channel-row.focused']) {
+            expect(declarationValue(blockFor(classicCss, selector), 'outline'))
+                .toBe('var(--focus-ring-width) solid var(--focus-border-color)');
+        }
+        const selectedWhileToolbarFocused = blockFor(themeCss, '.epg-container.epg-focus-in-toolbar .epg-cell.focused');
+        expect(declarationValue(selectedWhileToolbarFocused, 'outline')).toBe('none');
+        expect(declarationValue(selectedWhileToolbarFocused, '--directv-focus-text'))
+            .toBe('var(--color-text-primary)');
+        for (const theme of ['ember-steel', 'swiss', 'directv']) {
+            const focusBlock = blockFor(themeCss, `.theme-${theme} .epg-container .epg-cell.focused`);
+            expect(focusBlock).not.toMatch(/outline\s*:\s*none/);
+        }
     });
 
     it('keeps reduced-motion suppression for title and subtitle tickers', () => {

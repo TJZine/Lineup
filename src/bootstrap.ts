@@ -3,6 +3,8 @@ import { LINEUP_EVENT_NAMES } from './config/events';
 import { LINEUP_STORAGE_KEYS } from './config/storageKeys';
 import { DeveloperSettingsStore } from './modules/settings/DeveloperSettingsStore';
 import { APP_SHELL_CONTAINER_IDS } from './modules/ui/common/appShellContainerIds';
+import { installRequiredWebApis } from './platform/requiredWebApis';
+import { installLayoutCapabilities } from './platform/layoutCapabilities';
 import { sanitizeDiagnosticText } from './utils/redact';
 import { summarizeErrorForLog } from './utils/errors';
 import {
@@ -371,6 +373,8 @@ function bootstrap(): Promise<void> {
         return bootstrapPromise;
     }
 
+    installRequiredWebApis();
+    installLayoutCapabilities();
     logLifecycle('[Lineup] Starting...');
     const nextApp = new App();
     app = nextApp;

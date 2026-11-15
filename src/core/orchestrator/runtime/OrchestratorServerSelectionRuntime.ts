@@ -8,13 +8,8 @@ import type {
 } from '../../../modules/plex/discovery';
 import type { EPGCoordinator, IEPGComponent } from '../../../modules/ui/epg';
 import { createEpgRetainedOperationContext } from '../../../modules/ui/epg/runtime/EPGRetainedOperationContext';
-import type { ChannelSwitchOutcome } from '../../../types/channelSwitch';
 import type { EpgScheduleRefreshResult } from '../../../shared/epgRefresh';
 import type { OperationContextUpstream } from '../../../utils/RetainedOperationContext';
-import type {
-    ChannelInitialTuneLineage,
-    ChannelInitialTunePermit,
-} from '../../channel-tuning/ChannelInitialTuneAuthority';
 import type {
     SelectedServerInitializationResult,
 } from '../../initialization/InitializationSelectedServerTransaction';
@@ -44,10 +39,6 @@ export interface OrchestratorServerSelectionRuntimeDeps {
     getEpgCoordinator(): EPGCoordinator | null;
     suspendAndDrainForScopeTransition(): Promise<void>;
     resumeAfterScopeTransition(): void;
-    beginInitialTuneLineage(validators: readonly OperationContextUpstream[]): ChannelInitialTuneLineage;
-    mintInitialTunePermit(lineage: ChannelInitialTuneLineage): ChannelInitialTunePermit;
-    completeInitialTuneLineage(lineage: ChannelInitialTuneLineage): void;
-    switchToInitialChannel(channelId: string, permit: ChannelInitialTunePermit): Promise<ChannelSwitchOutcome>;
     clearIdentityScopedRuntime(): void;
     prepareQuarantineRuntime(): Promise<void>;
     releaseQuarantineRuntimeGate(): void;
@@ -98,8 +89,6 @@ export class OrchestratorServerSelectionRuntime {
                 this._requireDiscovery('selectServer').getServerUri(),
             suspendAndDrainForScopeTransition: this._deps.suspendAndDrainForScopeTransition,
             resumeAfterScopeTransition: this._deps.resumeAfterScopeTransition,
-            beginInitialTuneLineage: this._deps.beginInitialTuneLineage,
-            completeInitialTuneLineage: this._deps.completeInitialTuneLineage,
             beginSelectedServerLineage: (): InitializationSelectedServerLineage =>
                 this._requireInitialization()
                 .beginSelectedServerLineage(),
@@ -157,7 +146,6 @@ export class OrchestratorServerSelectionRuntime {
     }
 
     private async _runSelectedServerInitialization(options: {
-        lineage: ChannelInitialTuneLineage;
         startupLineage: InitializationSelectedServerLineage;
         operation: OperationContextUpstream & { signal: AbortSignal };
         commitOperation: OperationContextUpstream & { signal: AbortSignal };
@@ -165,12 +153,10 @@ export class OrchestratorServerSelectionRuntime {
         const initialization = this._deps.getInitializationCoordinator();
         if (!initialization) return { kind: 'failed', error: new Error('Initialization unavailable.') };
         return initialization.runSelectedServerTransaction({
-            lineage: options.lineage,
             signal: options.operation.signal,
             assertCurrent: (): void => options.operation.assertCurrent(),
             commitOperation: options.commitOperation,
             beforeCommit: (operation) => this._refreshEpgForSelectedServer(operation),
-            initialTune: (channelId, lineage) => this._runInitialTune(channelId, lineage),
         });
     }
 
@@ -197,14 +183,6 @@ export class OrchestratorServerSelectionRuntime {
         } finally {
             epgOperation.release();
         }
-    }
-
-    private _runInitialTune(
-        channelId: string,
-        lineage: ChannelInitialTuneLineage
-    ): Promise<ChannelSwitchOutcome> {
-        const permit = this._deps.mintInitialTunePermit(lineage);
-        return this._deps.switchToInitialChannel(channelId, permit);
     }
 
     private _restoreUnselectedRuntime(

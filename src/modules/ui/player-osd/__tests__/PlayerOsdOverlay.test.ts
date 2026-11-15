@@ -136,7 +136,7 @@ describe('PlayerOsdOverlay', () => {
         expect(parseFloat(buffered.style.width)).toBeCloseTo(40, 2);
     });
 
-    it('renders rising-stage wrapper order (content row, meta strip, progress)', () => {
+    it('keeps details and the compact action row in the same Player surface', () => {
         overlay.setViewModel(baseViewModel);
         overlay.show();
 
@@ -148,9 +148,62 @@ describe('PlayerOsdOverlay', () => {
         expect(contentRow).not.toBeNull();
         expect(metaStrip).not.toBeNull();
         expect(progress).not.toBeNull();
-        expect(panel.firstElementChild).toBe(contentRow);
-        expect(panel.children.item(1)).toBe(metaStrip);
-        expect(panel.lastElementChild).toBe(progress);
+        expect(panel.querySelector('.player-osd-expanded')).not.toBeNull();
+        expect(panel.querySelector('.player-osd-reader')).not.toBeNull();
+        expect(contentRow && metaStrip && (contentRow.compareDocumentPosition(metaStrip) & Node.DOCUMENT_POSITION_FOLLOWING)).toBeTruthy();
+        expect(metaStrip && progress && (metaStrip.compareDocumentPosition(progress) & Node.DOCUMENT_POSITION_FOLLOWING)).toBeTruthy();
+    });
+
+    it('renders Sleep choices and Close for the navigation owner to activate', () => {
+        overlay.setViewModel({
+            ...baseViewModel,
+            presentation: 'sleep',
+            sleepChoices: [
+                { minutes: 0, label: 'Off', selected: true },
+                { minutes: 90, label: '90 minutes', selected: false },
+            ],
+            sleepRemainingText: null,
+        });
+        expect(container.querySelector('#player-osd-sleep-90')).toBeInstanceOf(HTMLButtonElement);
+        expect(container.querySelector('#player-osd-sleep-close')).toBeInstanceOf(HTMLButtonElement);
+    });
+
+    it('keeps a readable More info state and visible Retry and Close after detail failure', () => {
+        overlay.setViewModel({
+            ...baseViewModel,
+            presentation: 'more-info',
+            description: null,
+            detailStatus: 'error',
+        });
+        expect(container.querySelector('.player-osd-reader .player-osd-detail-summary')?.textContent)
+            .toContain('Could not load');
+        const retry = container.querySelector('#player-osd-reader-retry') as HTMLButtonElement;
+        expect(retry.hidden).toBe(false);
+        expect(container.querySelector('#player-osd-reader-close')).toBeInstanceOf(HTMLButtonElement);
+    });
+
+    it('renders expanded replacement details and a reachable Close control', () => {
+        overlay.setViewModel({
+            ...baseViewModel,
+            presentation: 'expanded',
+            posterUrl: 'https://example.test/poster.jpg',
+            qualityBadges: ['4K', 'HDR', 'AAC'],
+            castText: 'Actor as Character',
+            playbackSummary: 'Playback: Direct Play',
+            playbackDetails: ['Video: H.264 • 4K'],
+        });
+        expect(container.querySelector('#player-osd-expanded-close')).toBeInstanceOf(HTMLButtonElement);
+        expect(container.querySelector('.player-osd-expanded .player-osd-detail-badges')?.textContent)
+            .toContain('4K');
+        expect(container.querySelector('.player-osd-expanded .player-osd-detail-cast')?.textContent)
+            .toContain('Actor as Character');
+        expect(container.querySelector('.player-osd-expanded .player-osd-detail-playback')?.textContent)
+            .toContain('Direct Play');
+        const poster = container.querySelector('.player-osd-expanded .player-osd-detail-poster') as HTMLImageElement;
+        poster.dispatchEvent(new Event('error'));
+        expect(poster.hidden).toBe(true);
+        const fallback = container.querySelector('.player-osd-expanded .player-osd-detail-poster-fallback') as HTMLElement;
+        expect(fallback.hidden).toBe(false);
     });
 
     it('places up-next on the right side of the meta strip and keeps timing metadata on the left', () => {
@@ -474,21 +527,5 @@ describe('PlayerOsdOverlay', () => {
         expect(buffered.style.opacity).toBe('');
     });
 
-    it('applies info-only class when vm.infoOnly is true', () => {
-        overlay.setViewModel({ ...baseViewModel, infoOnly: true });
-        overlay.show();
-        const panel = container.querySelector(`.${PLAYER_OSD_CLASSES.PANEL}`) as HTMLElement;
-        expect(panel.classList.contains(PLAYER_OSD_CLASSES.INFO_ONLY)).toBe(true);
-    });
 
-    it('removes info-only class when vm.infoOnly becomes falsy', () => {
-        overlay.setViewModel({ ...baseViewModel, infoOnly: true });
-        overlay.show();
-        const panel = container.querySelector(`.${PLAYER_OSD_CLASSES.PANEL}`) as HTMLElement;
-        expect(panel.classList.contains(PLAYER_OSD_CLASSES.INFO_ONLY)).toBe(true);
-
-        overlay.setViewModel({ ...baseViewModel, infoOnly: false });
-        overlay.show();
-        expect(panel.classList.contains(PLAYER_OSD_CLASSES.INFO_ONLY)).toBe(false);
-    });
 });

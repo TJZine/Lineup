@@ -1,13 +1,19 @@
 import {
     type SafeLocalStorageMutationResult,
     safeLocalStorageGet,
+    safeLocalStorageGetWithResult,
     safeLocalStorageRemove,
     safeLocalStorageRemoveWithResult,
     safeLocalStorageSetWithResult,
 } from '../../../../utils/storage';
 import { CURRENT_CHANNEL_KEY, STORAGE_KEY } from '../constants';
 import type { StoredChannelData } from '../contracts/types';
-import { decodeStoredChannelData, encodeStoredChannelData } from './StoredChannelDataCodec';
+import { decodeStoredChannelBody, encodeStoredChannelData } from './StoredChannelDataCodec';
+
+export type StoredChannelBodyRead =
+    | { kind: 'absent' | 'read-failed' }
+    | { kind: 'unreadable' | 'unsupported'; raw: string }
+    | { kind: 'readable'; data: Partial<StoredChannelData>; raw: string };
 
 export class ChannelPersistenceStore {
     private _storageKey!: string;
@@ -27,23 +33,19 @@ export class ChannelPersistenceStore {
         this._currentChannelKey = normalizedCurrentChannelKey;
     }
 
-    readStoredChannelData(): Partial<StoredChannelData> | null {
-        const raw = safeLocalStorageGet(this._storageKey);
-        if (raw === null) {
-            return null;
-        }
-        if (raw === '') {
-            safeLocalStorageRemove(this._storageKey);
-            return null;
-        }
+    readStoredChannelData(): StoredChannelBodyRead {
+        const result = safeLocalStorageGetWithResult(this._storageKey);
+        if (!result.ok) return { kind: 'read-failed' };
+        if (result.value === null) return { kind: 'absent' };
+        const decoded = decodeStoredChannelBody(result.value);
+        return decoded.kind === 'readable'
+            ? { ...decoded, raw: result.value }
+            : { kind: decoded.kind, raw: result.value };
+    }
 
-        const parsed = decodeStoredChannelData(raw);
-        if (parsed === null) {
-            safeLocalStorageRemove(this._storageKey);
-            return null;
-        }
-
-        return parsed as Partial<StoredChannelData>;
+    readRawBody(): { ok: true; value: string | null } | { ok: false } {
+        const result = safeLocalStorageGetWithResult(this._storageKey);
+        return result.ok ? result : { ok: false };
     }
 
     writeStoredChannelData(data: StoredChannelData): SafeLocalStorageMutationResult {

@@ -52,6 +52,11 @@ function createMockDescriptor(
     };
 }
 
+function setNativeMediaFacts(video: HTMLVideoElement, currentSrc: string): void {
+    Object.defineProperty(video, 'ended', { configurable: true, value: true });
+    Object.defineProperty(video, 'currentSrc', { configurable: true, value: currentSrc });
+}
+
 const developerSettingsStore = new DeveloperSettingsStore();
 
 function enableSubtitleDebugLogging(): void {
@@ -1197,12 +1202,14 @@ describe('VideoPlayer', () => {
             const handler = jest.fn();
             player.on('ended', handler);
 
-            await player.loadStream(createMockDescriptor());
+            const descriptor = createMockDescriptor();
+            await player.loadStream(descriptor);
 
             const videoElement = container.querySelector('video')!;
+            setNativeMediaFacts(videoElement, descriptor.url);
             videoElement.dispatchEvent(new Event('ended'));
 
-            expect(handler).toHaveBeenCalled();
+            expect(handler).toHaveBeenCalledTimes(1);
         });
 
         it('should ignore ended events during unload/reload teardown', async () => {
@@ -1213,9 +1220,33 @@ describe('VideoPlayer', () => {
 
             const videoElement = container.querySelector('video')!;
             player.unloadStream();
+            setNativeMediaFacts(videoElement, 'http://example.com/stream.m3u8');
             videoElement.dispatchEvent(new Event('ended'));
 
             expect(handler).not.toHaveBeenCalled();
+        });
+
+        it('should ignore the prior resource ended event and accept the new resource after replacement', async () => {
+            const handler = jest.fn();
+            player.on('ended', handler);
+            const previousDescriptor = createMockDescriptor({
+                url: 'http://example.com/previous.m3u8',
+            });
+            const nextDescriptor = createMockDescriptor({
+                url: 'http://example.com/next.m3u8',
+            });
+
+            await player.loadStream(previousDescriptor);
+            const videoElement = container.querySelector('video')!;
+            await player.loadStream(nextDescriptor);
+
+            setNativeMediaFacts(videoElement, previousDescriptor.url);
+            videoElement.dispatchEvent(new Event('ended'));
+            expect(handler).not.toHaveBeenCalled();
+
+            setNativeMediaFacts(videoElement, nextDescriptor.url);
+            videoElement.dispatchEvent(new Event('ended'));
+            expect(handler).toHaveBeenCalledTimes(1);
         });
     });
 

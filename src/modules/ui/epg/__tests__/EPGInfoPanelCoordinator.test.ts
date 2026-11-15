@@ -33,29 +33,11 @@ describe('EPGInfoPanelCoordinator', () => {
         isCurrent: false,
     });
 
-    const createHosts = (): {
-        infoPanelElement: HTMLElement;
-        overlayShowcaseElement: HTMLElement;
-        classicShowcaseInfoElement: HTMLElement;
-    } => {
-        const infoPanelElement = document.createElement('div');
-        const overlayShowcaseElement = document.createElement('div');
-        const classicShowcaseInfoElement = document.createElement('div');
-
-        overlayShowcaseElement.appendChild(infoPanelElement);
-        document.body.appendChild(overlayShowcaseElement);
-        document.body.appendChild(classicShowcaseInfoElement);
-
-        return { infoPanelElement, overlayShowcaseElement, classicShowcaseInfoElement };
-    };
-
     beforeEach(() => {
         jest.useFakeTimers();
         isVisible = true;
         focusedProgram = null;
         infoPanel = {
-            setPresentationMode: jest.fn(),
-            getPresentationMode: jest.fn(() => 'overlay'),
             show: jest.fn(),
             hide: jest.fn(),
             update: jest.fn(),
@@ -76,38 +58,6 @@ describe('EPGInfoPanelCoordinator', () => {
         jest.clearAllTimers();
         jest.useRealTimers();
         document.body.innerHTML = '';
-    });
-
-    it('moves the info panel element between overlay and classic hosts when layout mode changes', () => {
-        const { infoPanelElement, overlayShowcaseElement, classicShowcaseInfoElement } = createHosts();
-
-        coordinator.attachHosts({
-            infoPanelElement,
-            overlayShowcaseElement,
-            classicShowcaseInfoElement,
-        });
-
-        coordinator.setLayoutMode('classic');
-        expect(infoPanel.setPresentationMode).toHaveBeenCalledWith('classic');
-        expect(infoPanelElement.parentElement).toBe(classicShowcaseInfoElement);
-
-        coordinator.setLayoutMode('overlay');
-        expect(infoPanel.setPresentationMode).toHaveBeenLastCalledWith('overlay');
-        expect(infoPanelElement.parentElement).toBe(overlayShowcaseElement);
-    });
-
-    it('does not throw when attachHosts receives null elements', () => {
-        expect(() =>
-            coordinator.attachHosts({
-                infoPanelElement: null,
-                overlayShowcaseElement: null,
-                classicShowcaseInfoElement: null,
-            })
-        ).not.toThrow();
-
-        coordinator.setLayoutMode('overlay');
-
-        expect(infoPanel.setPresentationMode).toHaveBeenCalledWith('overlay');
     });
 
     it('updates fast immediately and defers full updates until debounce completes for the still-focused program', () => {
@@ -159,16 +109,8 @@ describe('EPGInfoPanelCoordinator', () => {
     });
 
     it('destroy clears pending timers without destroying the underlying info panel', () => {
-        const { infoPanelElement, overlayShowcaseElement, classicShowcaseInfoElement } = createHosts();
         const program = createProgram('program-a', 0);
         focusedProgram = program;
-
-        coordinator.attachHosts({
-            infoPanelElement,
-            overlayShowcaseElement,
-            classicShowcaseInfoElement,
-        });
-        coordinator.setLayoutMode('overlay');
         coordinator.syncFocusedProgram(program);
         coordinator.destroy();
 
@@ -183,7 +125,6 @@ describe('EPGInfoPanelCoordinator', () => {
         expect(infoPanel.updateFast).toHaveBeenCalledTimes(1);
         expect(infoPanel.updateFull).not.toHaveBeenCalled();
         expect(() => infoPanel.updateFull(program)).not.toThrow();
-        expect(infoPanelElement.parentElement).toBe(overlayShowcaseElement);
     });
 
     it('clears when syncing a null program', () => {

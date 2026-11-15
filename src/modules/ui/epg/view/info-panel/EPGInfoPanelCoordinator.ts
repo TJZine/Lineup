@@ -1,4 +1,3 @@
-import type { EpgLayoutMode } from '../../../../settings/EpgPreferencesStore';
 import type { IEPGInfoPanel } from '../../interfaces';
 import type { ScheduledProgram } from '../../types';
 
@@ -10,20 +9,10 @@ interface EPGInfoPanelCoordinatorDeps {
     getFocusedProgram: () => ScheduledProgram | null;
 }
 
-interface EPGInfoPanelHosts {
-    infoPanelElement: HTMLElement | null;
-    overlayShowcaseElement: HTMLElement | null;
-    classicShowcaseInfoElement: HTMLElement | null;
-}
-
 export class EPGInfoPanelCoordinator {
     private readonly infoPanel: IEPGInfoPanel;
     private readonly isEpgVisible: () => boolean;
     private readonly getFocusedProgram: () => ScheduledProgram | null;
-    private infoPanelElement: HTMLElement | null = null;
-    private overlayShowcaseElement: HTMLElement | null = null;
-    private classicShowcaseInfoElement: HTMLElement | null = null;
-    private layoutMode: EpgLayoutMode = 'overlay';
     private fullUpdateTimer: ReturnType<typeof setTimeout> | null = null;
     private pendingProgramKey: string | null = null;
     private destroyed = false;
@@ -32,25 +21,6 @@ export class EPGInfoPanelCoordinator {
         this.infoPanel = deps.infoPanel;
         this.isEpgVisible = deps.isEpgVisible;
         this.getFocusedProgram = deps.getFocusedProgram;
-    }
-
-    attachHosts(hosts: EPGInfoPanelHosts): void {
-        if (this.destroyed) {
-            return;
-        }
-        this.infoPanelElement = hosts.infoPanelElement;
-        this.overlayShowcaseElement = hosts.overlayShowcaseElement;
-        this.classicShowcaseInfoElement = hosts.classicShowcaseInfoElement;
-        this.syncHost();
-    }
-
-    setLayoutMode(mode: EpgLayoutMode): void {
-        if (this.destroyed) {
-            return;
-        }
-        this.layoutMode = mode;
-        this.infoPanel.setPresentationMode(mode);
-        this.syncHost();
     }
 
     syncFocusedProgram(program: ScheduledProgram | null): void {
@@ -106,30 +76,11 @@ export class EPGInfoPanelCoordinator {
             return;
         }
         this.clear();
-        this.infoPanelElement = null;
-        this.overlayShowcaseElement = null;
-        this.classicShowcaseInfoElement = null;
-        this.layoutMode = 'overlay';
         this.destroyed = true;
     }
 
     isDestroyed(): boolean {
         return this.destroyed;
-    }
-
-    private syncHost(): void {
-        const infoPanelElement = this.infoPanelElement;
-        const target = this.layoutMode === 'classic'
-            ? this.classicShowcaseInfoElement
-            : this.overlayShowcaseElement;
-
-        if (!infoPanelElement || !target) {
-            return;
-        }
-
-        if (infoPanelElement.parentElement !== target) {
-            target.appendChild(infoPanelElement);
-        }
     }
 
     private clearFullUpdateTimer(): void {

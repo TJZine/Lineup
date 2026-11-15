@@ -1,7 +1,8 @@
 import type { INavigationManager, FocusableElement } from '../../navigation';
 import { DEFAULT_SETTINGS } from '../settings/constants';
 import { setTrustedInlineSvg } from '../../../utils/inlineSvg';
-import { AudioSettingsStore } from '../../settings/AudioSettingsStore';
+import { AudioSettingsStore, type AudioPreferenceReadResult } from '../../settings/AudioSettingsStore';
+import { createScreenShell } from '../common/ScreenShell';
 
 interface AudioChoice {
     id: 'external' | 'tv-speakers';
@@ -42,7 +43,7 @@ const AUDIO_CHOICES: AudioChoice[] = [
     },
 ];
 
-const AUDIO_SETTINGS_FAILURE_MESSAGE = 'Could not save audio settings. Check device storage and try again.';
+const AUDIO_SETTINGS_FAILURE_MESSAGE = 'Audio settings were not fully saved. Current read results and retry choices are shown above.';
 const AUDIO_SETTINGS_HINT = 'This helps optimize audio playback. You can change this later in Settings.';
 
 /**
@@ -57,9 +58,24 @@ export class AudioSetupScreen {
     private _selectedChoice: AudioChoice['id'] | null = null;
     private _lastFocusedChoiceId: string = 'audio-choice-tv-speakers';
     private _fallbackFocusable: FocusableElement | null = null;
+    private _savedDtsPassthrough: AudioPreferenceReadResult = {
+        kind: 'default',
+        effectiveValue: DEFAULT_SETTINGS.audio.dtsPassthrough,
+        reason: 'missing',
+    };
+    private _savedDirectPlayAudioFallback: AudioPreferenceReadResult = {
+        kind: 'default',
+        effectiveValue: DEFAULT_SETTINGS.audio.directPlayAudioFallback,
+        reason: 'missing',
+    };
     private _directPlayFallbackEnabled: boolean;
-    private _didUserExplicitlyChoose: boolean = false;
+    private _hasSaveFailure: boolean = false;
+    private _savedSummaryEl: HTMLElement | null = null;
+    private _fallbackStateEl: HTMLElement | null = null;
+    private _statusEl: HTMLElement | null = null;
+    private _choiceSavedStatusEls = new Map<AudioChoice['id'], HTMLElement>();
     private readonly _audioSettingsStore = new AudioSettingsStore();
+    private _destroyScreenShell: (() => void) | null = null;
 
     constructor(
         container: HTMLElement,
@@ -69,34 +85,39 @@ export class AudioSetupScreen {
         this._container = container;
         this._getNavigation = getNavigation;
         this._onComplete = onComplete;
-        this._directPlayFallbackEnabled = this._audioSettingsStore.readDirectPlayAudioFallbackEnabledAndClean(
-            DEFAULT_SETTINGS.audio.directPlayAudioFallback
-        );
+        this._directPlayFallbackEnabled = DEFAULT_SETTINGS.audio.directPlayAudioFallback;
         this._buildUI();
     }
 
     private _buildUI(): void {
-        this._container.className = 'screen';
+        this._container.className = 'screen onboarding-screen audio-setup-screen';
         this._container.id = 'audio-setup-screen';
 
-        const panel = document.createElement('div');
-        panel.className = 'screen-panel setup-panel';
+        const shell = createScreenShell(this._container, {
+            variant: 'onboarding',
+            title: 'Audio Setup',
+            subtitle: 'Do you have an external sound system?',
+            status: null,
+            error: null,
+            actions: [
+                {
+                    id: 'audio-setup-continue',
+                    label: 'Continue',
+                    variant: 'primary',
+                    disabled: true,
+                    onSelect: (): void => this._applyAndContinue(),
+                },
+            ],
+        });
+        this._destroyScreenShell = shell.destroy;
+        shell.panelEl.classList.add('audio-setup-shell');
+        shell.contentEl.classList.add('audio-setup-content');
+        shell.actionsEl.classList.add('audio-setup-actions');
+        shell.statusEl.remove();
+        shell.detailEl.remove();
+        shell.errorEl.remove();
 
-        const title = document.createElement('h1');
-        title.className = 'screen-title';
-        title.textContent = 'Audio Setup';
-
-        const stepLabel = document.createElement('div');
-        stepLabel.className = 'setup-step';
-        stepLabel.textContent = 'Step 2 of 3';
-
-        const subtitle = document.createElement('p');
-        subtitle.className = 'screen-subtitle';
-        subtitle.textContent = 'Do you have an external sound system?';
-
-        panel.appendChild(title);
-        panel.appendChild(stepLabel);
-        panel.appendChild(subtitle);
+        const content = shell.contentEl;
 
         const choicesList = document.createElement('div');
         choicesList.className = 'audio-choice-row';
@@ -120,22 +141,39 @@ export class AudioSetupScreen {
             desc.className = 'audio-choice-desc';
             desc.textContent = choice.description;
 
+            const savedStatus = document.createElement('span');
+            savedStatus.className = 'audio-choice-saved-status';
+            savedStatus.setAttribute('aria-live', 'polite');
+            this._choiceSavedStatusEls.set(choice.id, savedStatus);
+
             button.appendChild(iconWrap);
             button.appendChild(label);
             button.appendChild(desc);
+            button.appendChild(savedStatus);
             choicesList.appendChild(button);
         }
 
-        panel.appendChild(choicesList);
+        content.appendChild(choicesList);
+
+        const savedSummary = document.createElement('p');
+        savedSummary.id = 'audio-setup-saved-values';
+        savedSummary.className = 'audio-saved-values';
+        savedSummary.setAttribute('role', 'status');
+        savedSummary.setAttribute('aria-live', 'polite');
+        this._savedSummaryEl = savedSummary;
+        content.appendChild(savedSummary);
 
         const advanced = document.createElement('div');
         advanced.className = 'audio-advanced-separator';
         advanced.textContent = 'Advanced';
-        panel.appendChild(advanced);
+        content.appendChild(advanced);
 
         const fallbackButton = document.createElement('button');
         fallbackButton.id = 'audio-direct-play-fallback';
-        fallbackButton.className = `setup-toggle${this._directPlayFallbackEnabled ? ' selected' : ''}`;
+        fallbackButton.className = `setup-toggle audio-fallback-toggle${this._directPlayFallbackEnabled ? ' selected' : ''}`;
+        fallbackButton.setAttribute('role', 'switch');
+        fallbackButton.setAttribute('aria-checked', String(this._directPlayFallbackEnabled));
+        fallbackButton.setAttribute('aria-pressed', String(this._directPlayFallbackEnabled));
 
         const fallbackLabel = document.createElement('span');
         fallbackLabel.className = 'setup-toggle-label';
@@ -146,26 +184,33 @@ export class AudioSetupScreen {
         fallbackMeta.textContent = 'Allow Direct Play using a compatible fallback audio track';
 
         const fallbackState = document.createElement('span');
-        fallbackState.className = 'setup-toggle-state';
-        fallbackState.textContent = this._directPlayFallbackEnabled ? 'On' : 'Off';
+        fallbackState.className = 'setup-toggle-state audio-fallback-state';
+        this._fallbackStateEl = fallbackState;
+        fallbackState.textContent = '';
+
+        const fallbackSwitch = document.createElement('span');
+        fallbackSwitch.className = 'audio-fallback-switch';
+        fallbackSwitch.setAttribute('aria-hidden', 'true');
 
         fallbackButton.addEventListener('click', () => {
             this._directPlayFallbackEnabled = !this._directPlayFallbackEnabled;
             fallbackButton.classList.toggle('selected', this._directPlayFallbackEnabled);
-            fallbackState.textContent = this._directPlayFallbackEnabled ? 'On' : 'Off';
+            fallbackButton.setAttribute('aria-checked', String(this._directPlayFallbackEnabled));
+            this._updateSavedValuePresentation();
+            this._restoreStatus();
         });
 
         fallbackButton.appendChild(fallbackLabel);
         fallbackButton.appendChild(fallbackMeta);
         fallbackButton.appendChild(fallbackState);
-        panel.appendChild(fallbackButton);
+        fallbackButton.appendChild(fallbackSwitch);
+        content.appendChild(fallbackButton);
 
         const helper = document.createElement('div');
         helper.id = 'audio-direct-play-helper';
         helper.className = 'audio-helper';
-        helper.textContent =
-            'If enabled, Lineup can play a compatible audio track instead of transcoding. Recommended: On for most users.';
-        panel.appendChild(helper);
+        helper.textContent = 'Allow a compatible fallback track instead of transcoding. Recommended for most users.';
+        content.appendChild(helper);
 
         const hint = document.createElement('p');
         hint.id = 'audio-setup-status';
@@ -173,25 +218,13 @@ export class AudioSetupScreen {
         hint.setAttribute('role', 'status');
         hint.setAttribute('aria-live', 'polite');
         hint.textContent = AUDIO_SETTINGS_HINT;
-        panel.appendChild(hint);
+        this._statusEl = hint;
+        content.appendChild(hint);
 
-        const actions = document.createElement('div');
-        actions.className = 'button-row';
-
-        const continueBtn = document.createElement('button');
-        continueBtn.id = 'audio-setup-continue';
-        continueBtn.className = 'screen-button';
-        continueBtn.textContent = 'Continue';
-        continueBtn.addEventListener('click', () => this._applyAndContinue());
-        actions.appendChild(continueBtn);
-
-        panel.appendChild(actions);
-        this._container.appendChild(panel);
     }
 
     private _selectChoice(choiceId: AudioChoice['id']): void {
         this._restoreStatus();
-        this._didUserExplicitlyChoose = true;
         this._selectedChoice = choiceId;
         this._setLastFocusedChoiceId(`audio-choice-${choiceId}`);
 
@@ -200,17 +233,21 @@ export class AudioSetupScreen {
             if (btn) {
                 if (choice.id === choiceId) {
                     btn.classList.add('selected');
+                    btn.setAttribute('aria-pressed', 'true');
                 } else {
                     btn.classList.remove('selected');
+                    btn.setAttribute('aria-pressed', 'false');
                 }
             }
         }
+        this._updateSavedValuePresentation();
 
         const continueBtn = this._container.querySelector('#audio-setup-continue') as HTMLButtonElement | null;
         if (continueBtn) {
             continueBtn.disabled = false;
-            continueBtn.textContent = 'Continue';
+            continueBtn.textContent = this._hasSaveFailure ? 'Try again' : 'Continue';
         }
+        this._restoreStatus();
     }
 
     private _applyAndContinue(): void {
@@ -241,14 +278,94 @@ export class AudioSetupScreen {
     }
 
     private _showPersistenceFailure(): void {
-        const status = this._container.querySelector('#audio-setup-status');
-        if (status) status.textContent = AUDIO_SETTINGS_FAILURE_MESSAGE;
+        this._hasSaveFailure = true;
+        this._refreshSavedAudioValues();
+        if (this._statusEl) {
+            this._statusEl.textContent = AUDIO_SETTINGS_FAILURE_MESSAGE;
+            this._statusEl.classList.add('audio-setup-error');
+        }
+        const continueBtn = this._container.querySelector('#audio-setup-continue') as HTMLButtonElement | null;
+        if (continueBtn) continueBtn.textContent = 'Try again';
         this._getNavigation()?.setFocus('audio-setup-continue');
     }
 
     private _restoreStatus(): void {
-        const status = this._container.querySelector('#audio-setup-status');
-        if (status) status.textContent = AUDIO_SETTINGS_HINT;
+        if (this._hasSaveFailure) return;
+        if (this._statusEl) {
+            this._statusEl.textContent = AUDIO_SETTINGS_HINT;
+            this._statusEl.classList.remove('audio-setup-error');
+        }
+        const continueBtn = this._container.querySelector('#audio-setup-continue') as HTMLButtonElement | null;
+        if (continueBtn) continueBtn.textContent = 'Continue';
+    }
+
+    private _refreshSavedAudioValues(): void {
+        this._savedDtsPassthrough = this._audioSettingsStore.readDtsPassthroughState(
+            DEFAULT_SETTINGS.audio.dtsPassthrough
+        );
+        this._savedDirectPlayAudioFallback = this._audioSettingsStore.readDirectPlayAudioFallbackState(
+            DEFAULT_SETTINGS.audio.directPlayAudioFallback
+        );
+        this._updateSavedValuePresentation();
+    }
+
+    private _updateSavedValuePresentation(): void {
+        const fallbackChosenLabel = this._enabledLabel(this._directPlayFallbackEnabled);
+        const fallbackChoiceLabel = this._hasSaveFailure
+            ? `Chosen for retry: ${fallbackChosenLabel}`
+            : `Chosen: ${fallbackChosenLabel}`;
+        if (this._savedSummaryEl) {
+            this._savedSummaryEl.textContent = `DTS passthrough — ${this._preferenceStateLabel(this._savedDtsPassthrough)} · Audio fallback — ${this._preferenceStateLabel(this._savedDirectPlayAudioFallback)}`;
+        }
+
+        const fallbackButton = this._container.querySelector('#audio-direct-play-fallback') as HTMLButtonElement | null;
+        if (this._fallbackStateEl) {
+            this._fallbackStateEl.textContent = `${this._preferenceStateLabel(this._savedDirectPlayAudioFallback)} · ${fallbackChoiceLabel}`;
+        }
+        fallbackButton?.setAttribute('aria-checked', String(this._directPlayFallbackEnabled));
+        fallbackButton?.setAttribute('aria-pressed', String(this._directPlayFallbackEnabled));
+        fallbackButton?.classList.toggle('selected', this._directPlayFallbackEnabled);
+        fallbackButton?.setAttribute('aria-label',
+            `Direct Play Audio Fallback. ${fallbackChoiceLabel}. ${this._preferenceStateLabel(this._savedDirectPlayAudioFallback)}.`
+        );
+
+        for (const choice of AUDIO_CHOICES) {
+            const button = this._container.querySelector(`#audio-choice-${choice.id}`) as HTMLButtonElement | null;
+            const status = this._choiceSavedStatusEls.get(choice.id);
+            if (!button || !status) continue;
+            const chosenDts = choice.id === 'external';
+            const isSelected = this._selectedChoice === choice.id;
+            const isSaved = this._savedDtsPassthrough.kind === 'stored'
+                && this._savedDtsPassthrough.value === chosenDts;
+            button.setAttribute('aria-pressed', String(isSelected));
+            button.classList.toggle('saved', isSelected && isSaved);
+            status.textContent = !isSelected
+                ? ''
+                : isSaved
+                    ? 'This sound system is saved'
+                    : this._hasSaveFailure
+                        ? 'Chosen for retry'
+                        : 'Chosen; not saved';
+        }
+    }
+
+    private _effectiveValue(result: AudioPreferenceReadResult): boolean {
+        return result.kind === 'stored' ? result.value : result.effectiveValue;
+    }
+
+    private _preferenceStateLabel(result: AudioPreferenceReadResult): string {
+        if (result.kind === 'stored') {
+            return `Saved: ${this._enabledLabel(result.value)}`;
+        }
+        if (result.kind === 'default') {
+            const reason = result.reason === 'missing' ? 'not saved' : 'invalid stored value';
+            return `Default (${reason}): ${this._enabledLabel(result.effectiveValue)}`;
+        }
+        return `Unavailable; default ${this._enabledLabel(result.effectiveValue)}`;
+    }
+
+    private _enabledLabel(enabled: boolean): string {
+        return enabled ? 'On' : 'Off';
     }
 
     public static isSetupComplete(): boolean {
@@ -257,6 +374,9 @@ export class AudioSetupScreen {
 
     public show(): void {
         this._container.classList.add('visible');
+        this._refreshSavedAudioValues();
+        this._directPlayFallbackEnabled = this._effectiveValue(this._savedDirectPlayAudioFallback);
+        this._updateSavedValuePresentation();
         this._ensureInitialSelectionAndState();
         this._registerFocusables();
     }
@@ -340,7 +460,7 @@ export class AudioSetupScreen {
         }
 
         const selectedChoiceId = this._selectedChoice ? `audio-choice-${this._selectedChoice}` : null;
-        const fallbackFocusId = externalBtn?.id ?? tvBtn?.id ?? null;
+        const fallbackFocusId = this._lastFocusedChoiceId;
         const focusId = preferredFocusId && this._focusableIds.includes(preferredFocusId)
             ? preferredFocusId
             : (selectedChoiceId && this._focusableIds.includes(selectedChoiceId)
@@ -362,29 +482,18 @@ export class AudioSetupScreen {
         if (this._selectedChoice) {
             const continueBtnExisting = this._container.querySelector('#audio-setup-continue') as HTMLButtonElement | null;
             if (continueBtnExisting) {
-                continueBtnExisting.textContent = this._didUserExplicitlyChoose
-                    ? 'Continue'
-                    : 'Continue with current settings';
+                continueBtnExisting.disabled = false;
+                continueBtnExisting.textContent = this._hasSaveFailure ? 'Try again' : 'Continue';
             }
             return;
         }
-        const dtsEnabled = this._audioSettingsStore.readDtsPassthroughEnabledAndClean(
-            DEFAULT_SETTINGS.audio.dtsPassthrough
-        );
-        this._selectedChoice = dtsEnabled ? 'external' : 'tv-speakers';
-        this._lastFocusedChoiceId = `audio-choice-${this._selectedChoice}`;
-
-        for (const choice of AUDIO_CHOICES) {
-            const btn = this._container.querySelector(`#audio-choice-${choice.id}`) as HTMLButtonElement | null;
-            if (!btn) continue;
-            btn.classList.toggle('selected', choice.id === this._selectedChoice);
-        }
-
         const continueBtn = this._container.querySelector('#audio-setup-continue') as HTMLButtonElement | null;
         if (continueBtn) {
-            continueBtn.disabled = false;
-            continueBtn.textContent = this._didUserExplicitlyChoose ? 'Continue' : 'Continue with current settings';
+            continueBtn.disabled = true;
+            continueBtn.textContent = 'Continue';
         }
+        this._lastFocusedChoiceId = 'audio-choice-tv-speakers';
+        this._updateSavedValuePresentation();
     }
 
     private _unregisterFocusables(): void {
@@ -400,6 +509,7 @@ export class AudioSetupScreen {
 
     public destroy(): void {
         this._unregisterFocusables();
-        this._container.replaceChildren();
+        this._destroyScreenShell?.();
+        this._destroyScreenShell = null;
     }
 }

@@ -25,10 +25,6 @@ import { ChannelScheduler, type IChannelScheduler } from '../../../modules/sched
 import { VideoPlayer, type IVideoPlayer } from '../../../modules/player';
 import { DeferredEPGComponent } from '../../../modules/ui/epg/component/DeferredEPGComponent';
 import type { IEPGComponent, IEPGReadinessPort } from '../../../modules/ui/epg/interfaces';
-import {
-    NowPlayingInfoOverlay,
-    type INowPlayingInfoOverlay,
-} from '../../../modules/ui/now-playing-info';
 import { PlayerOsdOverlay } from '../../../modules/ui/player-osd';
 import {
     ChannelNumberOverlay,
@@ -43,11 +39,6 @@ import {
 import {
     ChannelTransitionOverlay,
 } from '../../../modules/ui/channel-transition';
-import {
-    PlaybackOptionsModal,
-    type IPlaybackOptionsModal,
-} from '../../../modules/ui/playback-options';
-import { ExitConfirmModal } from '../../../modules/ui/exit-confirm';
 import { SleepTimerManager } from '../../../modules/ui/sleep-timer';
 import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 import type { OrchestratorConfig } from '../contracts/OrchestratorTypes';
@@ -68,6 +59,7 @@ export interface OrchestratorModuleFactoryDeps {
     debugOverridesStore: DebugOverridesStore;
     developerSettingsStore: DeveloperSettingsStore;
     onSleepTimerTick: () => void;
+    onSleepTimerExpired: () => void;
 }
 
 export interface OrchestratorModules {
@@ -82,14 +74,11 @@ export interface OrchestratorModules {
     videoPlayer: IVideoPlayer;
     epg: IEPGComponent;
     epgReadinessPort: IEPGReadinessPort | null;
-    nowPlayingInfo: INowPlayingInfoOverlay;
     playerOsd: PlayerOsdOverlay;
     channelNumberOverlay: ChannelNumberOverlayInitPort;
     channelBadgeOverlay: ChannelBadgeOverlayInitPort;
     miniGuide: IMiniGuideOverlay;
     channelTransitionOverlay: ChannelTransitionOverlay;
-    playbackOptionsModal: IPlaybackOptionsModal;
-    exitConfirmModal: ExitConfirmModal;
     sleepTimer: SleepTimerManager;
 }
 
@@ -169,18 +158,15 @@ export function createOrchestratorModules(deps: OrchestratorModuleFactoryDeps): 
     const deferredEpg = new DeferredEPGComponent();
     const epg: IEPGComponent = deferredEpg;
     const epgReadinessPort: IEPGReadinessPort = deferredEpg;
-    const nowPlayingInfo = new NowPlayingInfoOverlay();
     const playerOsd = new PlayerOsdOverlay();
     const channelNumberOverlay = new ChannelNumberOverlay();
     const channelBadgeOverlay = new ChannelBadgeOverlay();
     const miniGuide = new MiniGuideOverlay();
     const channelTransitionOverlay = new ChannelTransitionOverlay();
-    const playbackOptionsModal = new PlaybackOptionsModal();
-    const exitConfirmModal = new ExitConfirmModal();
     const sleepTimer = new SleepTimerManager({
         onWarning: (): void => undefined,
         onSleep: (): void => {
-            videoPlayer.pause();
+            deps.onSleepTimerExpired();
         },
         onCancel: (): void => undefined,
         onTick: deps.onSleepTimerTick,
@@ -198,14 +184,11 @@ export function createOrchestratorModules(deps: OrchestratorModuleFactoryDeps): 
         videoPlayer,
         epg,
         epgReadinessPort,
-        nowPlayingInfo,
         playerOsd,
         channelNumberOverlay,
         channelBadgeOverlay,
         miniGuide,
         channelTransitionOverlay,
-        playbackOptionsModal,
-        exitConfirmModal,
         sleepTimer,
     };
 }

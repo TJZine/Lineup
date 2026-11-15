@@ -10,4 +10,10 @@ export interface IMiniGuideOverlay {
 
     setViewModel(vm: MiniGuideViewModel): void;
     setFocusedIndex(index: number): void;
+    setActions(actions: {
+        select: (index: number) => void;
+        fullGuide: () => void;
+        close: () => void;
+        tick?: () => void;
+    }): void;
 }

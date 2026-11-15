@@ -174,7 +174,7 @@ export function applyPlaybackMode(
  * A 24-hour guide at 30-minute programs across 20 visible channels is about
  * 1000 entries, and this cap prevents unbounded edge-case growth.
  */
-const MAX_WINDOW_PROGRAMS = 1000;
+export const MAX_WINDOW_PROGRAMS = 1000;
 
 export function generateScheduleWindow(
     startTime: number,

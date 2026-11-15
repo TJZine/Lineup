@@ -24,6 +24,18 @@ describe('SleepTimerManager', () => {
         manager.destroy();
     });
 
+    it('reconciles expiration once when interval delivery was suspended', () => {
+        const callbacks = { onWarning: jest.fn(), onSleep: jest.fn(), onCancel: jest.fn(), onTick: jest.fn() };
+        const manager = new SleepTimerManager(callbacks);
+        manager.start(1);
+        jest.setSystemTime(new Date('2020-01-01T00:02:00Z'));
+        expect(manager.reconcileExpiration()).toBe(true);
+        expect(manager.reconcileExpiration()).toBe(false);
+        jest.runOnlyPendingTimers();
+        expect(callbacks.onSleep).toHaveBeenCalledTimes(1);
+        expect(manager.isActive()).toBe(false);
+    });
+
     it('fires onWarning once when entering the warning window', () => {
         const callbacks = {
             onWarning: jest.fn(),
@@ -101,6 +113,7 @@ describe('SleepTimerManager', () => {
         expect(manager.cyclePreset()).toBe(15);
         expect(manager.cyclePreset()).toBe(30);
         expect(manager.cyclePreset()).toBe(60);
+        expect(manager.cyclePreset()).toBe(90);
         expect(manager.cyclePreset()).toBe(120);
 
         // Wrap to 0 disables the timer (cancel).
@@ -125,6 +138,21 @@ describe('SleepTimerManager', () => {
         expect(remaining).toBeGreaterThanOrEqual(49_000);
         expect(remaining).toBeLessThanOrEqual(50_000);
 
+        manager.destroy();
+    });
+
+    it('reports one selected deadline without playback side effects from a presentation read', () => {
+        const callbacks = { onWarning: jest.fn(), onSleep: jest.fn(), onCancel: jest.fn(), onTick: jest.fn() };
+        const manager = new SleepTimerManager(callbacks);
+        manager.start(90);
+        expect(manager.getSelectedPresetMinutes()).toBe(90);
+        expect(manager.getDeadlineMs()).toBe(Date.now() + 90 * 60_000);
+        jest.setSystemTime(Date.now() + 91 * 60_000);
+        expect(manager.getSelectedPresetMinutes()).toBe(0);
+        expect(manager.getDeadlineMs()).toBeNull();
+        expect(callbacks.onSleep).not.toHaveBeenCalled();
+        expect(manager.reconcileExpiration()).toBe(true);
+        expect(callbacks.onSleep).toHaveBeenCalledTimes(1);
         manager.destroy();
     });
 

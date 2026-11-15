@@ -50,7 +50,6 @@ export interface PriorityOneRequiredRuntimeModules {
 export interface PriorityOneOptionalRuntimeSurfaces {
     channelBadgeOverlay: { show: (input: { channelNumber: number; channelName: string }) => void; hide: () => void } | null;
     playerOsd: { isVisible: () => boolean } | null;
-    nowPlayingInfo: { isVisible: () => boolean } | null;
     epg: { isVisible: () => boolean } | null;
     channelTransitionActivity: { isActive: () => boolean } | null;
     channelManager: IChannelManager | null;
@@ -60,6 +59,7 @@ export interface PriorityOneOptionalRuntimeSurfaces {
 }
 
 export interface PriorityOnePlaybackRuntimePort {
+    reconcileSleepExpiration: () => boolean;
     playbackState: OrchestratorPlaybackStateAccessors;
     playbackRecovery: PriorityOnePlaybackRecoveryPort;
     stopPlayback: () => void;
@@ -85,7 +85,6 @@ export interface PriorityOnePlayerEventPort {
 
 export interface PriorityOneUiRuntimePort {
     handleGlobalError: (error: AppError, context: string) => void;
-    showInfoBanner: () => void;
     onProgramStartUiSideEffects: (program: ScheduledProgram) => void;
     onStreamResolved: (stream: StreamDescriptor) => void;
     onPlaybackStartFailure: (error: unknown) => void;

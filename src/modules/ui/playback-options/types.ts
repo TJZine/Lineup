@@ -1,7 +1,3 @@
-export interface PlaybackOptionsConfig {
-    containerId: string;
-}
-
 export type PlaybackOptionsSectionId = 'subtitles' | 'audio';
 
 export interface PlaybackOptionsItem {
@@ -21,6 +17,7 @@ export interface PlaybackOptionsSection {
     options: PlaybackOptionsItem[];
     helperText?: string;
     emptyMessage?: string;
+    modeOptions?: PlaybackOptionsItem[];
 }
 
 export interface PlaybackOptionsViewModel {

@@ -142,6 +142,43 @@ describe('ChannelSetupPlanner', () => {
         jest.useRealTimers();
     });
 
+    it.each(['shuffle', 'sequential', 'block', 'random'] as const)(
+        'produces %s series programming with deterministic lineup seeds and explicit anchor',
+        (mode) => {
+            const input = (lineupSeed?: number): Parameters<typeof buildChannelSetupPlan>[0] => ({
+                config: createConfig({
+                    selectedLibraryIds: ['s1'],
+                    strategyConfig: createStrategyConfig({ collections: { enabled: true } }),
+                    seriesOrdering: { basePlaybackMode: mode, baseBlockSize: 4,
+                        ...(lineupSeed === undefined ? {} : { lineupSeed }),
+                        startTimeAnchor: 1_700_000_000_000, includeSpecials: false },
+                    channelExpansion: { addAlternateLineups: true, alternateLineupCopies: 1,
+                        variantType: 'none' as const, variantBlockSize: 3 },
+                }),
+                libraries: [{ id: 's1', title: 'Shows', type: 'show', contentCount: 10 }] as PlexLibrarySection[],
+                playlists: [], collectionsByLibraryId: new Map([['s1', [
+                    { ratingKey: 'co1', key: '/library/collections/co1', title: 'Classics', thumb: null, childCount: 10 },
+                ]]]),
+                genresByLibraryId: new Map(), directorsByLibraryId: new Map(), yearsByLibraryId: new Map(),
+                actorsByLibraryId: new Map(), studiosByLibraryId: new Map(),
+                peopleSeriesIndexByLibraryId: new Map(), warnings: [], seedFor,
+            });
+            const auto = buildChannelSetupPlan(input()).pendingChannels;
+            const explicit = buildChannelSetupPlan(input(73)).pendingChannels;
+            expect(auto[0]).toMatchObject({ playbackMode: mode, shuffleSeed: seedFor('collection:co1'),
+                startTimeAnchor: 1_700_000_000_000, scheduleAnchorMode: 'fixed' });
+            expect(explicit[0]?.shuffleSeed).toBe(seedFor('73:collection:co1'));
+            expect(explicit[0]?.shuffleSeed).not.toBe(auto[0]?.shuffleSeed);
+            expect(buildChannelSetupPlan(input(73)).pendingChannels).toEqual(explicit);
+            if (mode === 'block') expect(explicit[0]).toMatchObject({ blockSize: 4, includeSpecials: false });
+            else expect(explicit[0]).not.toHaveProperty('includeSpecials');
+            if (mode !== 'sequential') {
+                expect(explicit[1]?.shuffleSeed).toBe(seedFor(`73:${createChannelIdentityKey(explicit[0]!)}:replica:1`));
+                expect(explicit[1]?.shuffleSeed).not.toBe(explicit[0]?.shuffleSeed);
+            }
+        }
+    );
+
     const cooperativeParityCases: Array<{
         name: string;
         strategy: 'genres' | 'directors' | 'studios' | 'actors';

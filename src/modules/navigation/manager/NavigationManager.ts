@@ -26,6 +26,7 @@ import {
     CHANNEL_INPUT_CONFIG,
 } from '../config/constants';
 import type { PlatformInputService } from '../../../platform';
+import { requestPlatformBack } from '../../../platform/webosPlatformServices';
 
 interface NavigationInternalState {
     config: NavigationConfig;
@@ -289,6 +290,21 @@ export class NavigationManager
 
         this.emit('screenChange', { from, to: screen });
 
+    }
+
+    public resetToAuth(): void {
+        if (this._state.isInputBlocked || this._blocksBackgroundCommands()) {
+            return;
+        }
+
+        const from = this._state.currentScreen;
+        const hasHistory = this._state.screenStack.length > 0;
+        this._state.screenStack = [];
+        this._state.serverSelectParams = null;
+        this._state.currentScreen = 'auth';
+        if (from !== 'auth' || hasHistory) {
+            this.emit('screenChange', { from, to: 'auth' });
+        }
     }
 
     public getServerSelectParams(): ServerSelectNavigationParams | null {
@@ -659,6 +675,11 @@ export class NavigationManager
             return;
         }
 
+        if (this._state.currentScreen === 'guide') {
+            requestPlatformBack();
+            return;
+        }
+
         if (this._state.screenStack.length > 0) {
             this.goBack();
             return;
@@ -671,13 +692,13 @@ export class NavigationManager
         switch (screen) {
             case 'splash':
                 // Mandatory webOS UX guideline: Back on entry screen must exit to Home.
-                window.close();
+                requestPlatformBack();
                 break;
             case 'player':
             case 'auth':
                 // Exit to Home when at a root screen without wired navigation coordinators.
-                // (Player context overrides this via NavigationCoordinator with an in-app confirmation modal.)
-                window.close();
+                // Player context is handled by NavigationCoordinator while it is active.
+                requestPlatformBack();
                 break;
             case 'server-select':
                 this.replaceScreen('auth');
@@ -692,8 +713,9 @@ export class NavigationManager
                 this.replaceScreen('audio-setup');
                 break;
             case 'settings':
-            case 'channel-edit':
-                this.replaceScreen('player');
+            case 'channels':
+            case 'channel-studio':
+                this.replaceScreen('guide');
                 break;
             default:
                 break;

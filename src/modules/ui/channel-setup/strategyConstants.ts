@@ -68,7 +68,7 @@ export const COMBINE_MODE_OPTIONS = (['separate', 'combined'] as const) satisfie
 
 export const ALTERNATE_LINEUP_COPY_OPTIONS = [1, 2, 3] as const;
 
-export const SERIES_BASE_MODE_OPTIONS = (['shuffle', 'sequential', 'block'] as const) satisfies readonly SeriesOrderingConfig['basePlaybackMode'][];
+export const SERIES_BASE_MODE_OPTIONS = (['shuffle', 'sequential', 'block', 'random'] as const) satisfies readonly SeriesOrderingConfig['basePlaybackMode'][];
 
 export const SERIES_VARIANT_TYPE_OPTIONS = (['none', 'sequential', 'block'] as const) satisfies readonly ChannelExpansionConfig['variantType'][];
 

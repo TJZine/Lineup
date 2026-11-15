@@ -40,16 +40,20 @@ type MockRuntimeOrchestrator = {
     getChannelSetupWorkflowPort: jest.Mock;
     getSelectedServerId: jest.Mock;
     openServerSelect: jest.Mock;
-    switchToChannelByNumberWithOutcome: jest.Mock;
-    waitForNextPlaybackStart: jest.Mock;
-    openEPG: jest.Mock;
-    appendBuilderGuideDiagnostic: jest.Mock;
     requestChannelSetupRerun: jest.Mock;
     setSubtitleTrack: jest.Mock;
     onGuideSettingChange: jest.Mock;
     getActiveUsername: jest.Mock;
     getTheme: jest.Mock;
     setTheme: jest.Mock;
+    getThemePersistenceResult: jest.Mock;
+    retryThemePersistence: jest.Mock;
+    updateSettingsPlaybackPolicy: jest.Mock;
+    setOverlayTransparency: jest.Mock;
+    setAccessibilityPreference: jest.Mock;
+    switchProfileFromSettings: jest.Mock;
+    switchServerFromSettings: jest.Mock;
+    signOutFromSettings: jest.Mock;
     getNavigation: jest.Mock;
 };
 
@@ -95,15 +99,18 @@ const createScreenWorkflowPort = (): jest.Mocked<ChannelSetupScreenWorkflowPort>
             samples: { created: [], removed: [], unchanged: [] },
         },
     })),
-    createChannelsFromSetup: jest.fn((_config, _options) => Promise.resolve({
+    scanSetupInventory: jest.fn().mockResolvedValue({ scopeKey: '', generation: 0, libraries: [], acceptedReadyLibraryIds: [] }),
+    retrySetupInventory: jest.fn(),
+    applySetupReview: jest.fn((_reviewId, _config, _consent, _options) => Promise.resolve({ kind: 'no-change', summary: {
         created: 0,
         skipped: 0,
         reachedMaxChannels: false,
         errorCount: 0,
         canceled: false,
         lastTask: 'done',
-    })),
-    markSetupComplete: jest.fn((_serverId, _setupConfig) => ({
+    } })),
+    cancelPreparedReview: jest.fn(),
+    markSetupComplete: jest.fn((_serverId, _setupConfig, _expectedScopeKey) => ({
         ok: true,
         record: { serverId: _serverId },
     } as ChannelSetupCompletionResult)),
@@ -151,21 +158,28 @@ const makeOrchestrator = (): MockRuntimeOrchestrator => ({
     getChannelSetupWorkflowPort: jest.fn().mockReturnValue(createChannelSetupWorkflowPortFixture()),
     getSelectedServerId: jest.fn().mockReturnValue('server-1'),
     openServerSelect: jest.fn(),
-    switchToChannelByNumberWithOutcome: jest.fn().mockResolvedValue({ kind: 'switched' }),
-    waitForNextPlaybackStart: jest.fn().mockResolvedValue({ kind: 'started' }),
-    openEPG: jest.fn(),
-    appendBuilderGuideDiagnostic: jest.fn(),
     requestChannelSetupRerun: jest.fn(() => ({ ok: true as const, serverId: 'server-1' })),
     setSubtitleTrack: jest.fn().mockResolvedValue(undefined),
     onGuideSettingChange: jest.fn(),
     getActiveUsername: jest.fn().mockReturnValue('UnitTestUser'),
     getTheme: jest.fn().mockReturnValue('ember-steel'),
-    setTheme: jest.fn().mockReturnValue({ ok: true }),
+    setTheme: jest.fn().mockReturnValue({ ok: true, effectiveValue: 'swiss', migration: null }),
+    getThemePersistenceResult: jest.fn().mockReturnValue({ ok: true, effectiveValue: 'ember-steel', migration: null }),
+    retryThemePersistence: jest.fn().mockReturnValue({ ok: true, effectiveValue: 'ember-steel', migration: null }),
+    updateSettingsPlaybackPolicy: jest.fn(),
+    setOverlayTransparency: jest.fn(),
+    setAccessibilityPreference: jest.fn(),
+    switchProfileFromSettings: jest.fn(),
+    switchServerFromSettings: jest.fn(),
+    signOutFromSettings: jest.fn().mockResolvedValue(undefined),
     getNavigation: jest.fn().mockReturnValue({ replaceScreen: jest.fn() }),
 });
 
 const createFactory = (runtime: MockRuntimeOrchestrator | null): AppLazyScreenPortFactory =>
     new AppLazyScreenPortFactory({
+        openCustomChannelStudio: jest.fn(),
+        openChannelsFromSettings: jest.fn(),
+        goBackFromChannelSetupLibraries: jest.fn(),
         getNavigationRuntime: (): MockRuntimeOrchestrator | null => runtime,
         getAuthRuntime: (): MockRuntimeOrchestrator | null => runtime,
         getProfileRuntime: (): MockRuntimeOrchestrator | null => runtime,
@@ -366,8 +380,12 @@ describe('AppLazyScreenPortFactory', () => {
         screenWorkflowPort.getSetupContextForSelectedServer();
         await screenWorkflowPort.getSetupPreview(config, { signal });
         await screenWorkflowPort.getSetupReview(config, { signal });
-        await screenWorkflowPort.createChannelsFromSetup(config, buildOptions);
-        screenWorkflowPort.markSetupComplete('server-1', config);
+        await screenWorkflowPort.scanSetupInventory(config, { signal });
+        screenWorkflowPort.retrySetupInventory('lib-1');
+        await screenWorkflowPort.applySetupReview('review-1', config,
+            { removalConfirmedForReviewId: 'review-1', wholeLineupReplacementConfirmedForReviewId: null }, buildOptions);
+        screenWorkflowPort.cancelPreparedReview();
+        screenWorkflowPort.markSetupComplete('server-1', config, 'scope-key');
 
         expect(fullWorkflowPort.invalidateFacetSnapshot).toHaveBeenCalledTimes(1);
         expect(fullWorkflowPort.invalidateSessionData).toHaveBeenCalledTimes(1);
@@ -376,8 +394,12 @@ describe('AppLazyScreenPortFactory', () => {
         expect(fullWorkflowPort.getSetupContextForSelectedServer).toHaveBeenCalledTimes(1);
         expect(fullWorkflowPort.getSetupPreview).toHaveBeenCalledWith(config, { signal });
         expect(fullWorkflowPort.getSetupReview).toHaveBeenCalledWith(config, { signal });
-        expect(fullWorkflowPort.createChannelsFromSetup).toHaveBeenCalledWith(config, buildOptions);
-        expect(fullWorkflowPort.markSetupComplete).toHaveBeenCalledWith('server-1', config);
+        expect(fullWorkflowPort.scanSetupInventory).toHaveBeenCalledWith(config, { signal });
+        expect(fullWorkflowPort.retrySetupInventory).toHaveBeenCalledWith('lib-1');
+        expect(fullWorkflowPort.applySetupReview).toHaveBeenCalledWith('review-1', config,
+            { removalConfirmedForReviewId: 'review-1', wholeLineupReplacementConfirmedForReviewId: null }, buildOptions);
+        expect(fullWorkflowPort.cancelPreparedReview).toHaveBeenCalledTimes(1);
+        expect(fullWorkflowPort.markSetupComplete).toHaveBeenCalledWith('server-1', config, 'scope-key');
         expect(fullWorkflowPort.getSetupPlanDiagnostics).not.toHaveBeenCalled();
     });
 
@@ -398,20 +420,9 @@ describe('AppLazyScreenPortFactory', () => {
         expect(workflowPort.invalidateSessionData).toHaveBeenCalledTimes(1);
         expect(runtimePort?.getSelectedServerId()).toBe('server-1');
         runtimePort?.openServerSelect();
-        runtimePort?.openEPG();
-        await runtimePort?.switchToChannelByNumberWithOutcome(12);
-        const controller = new AbortController();
-        await runtimePort?.switchToChannelByNumberWithOutcome(12, { signal: controller.signal });
-        await runtimePort?.waitForNextPlaybackStart(controller.signal);
 
         expect(orchestrator.getChannelSetupWorkflowPort).toHaveBeenCalledTimes(1);
         expect(orchestrator.openServerSelect).toHaveBeenCalledTimes(1);
-        expect(orchestrator.openEPG).toHaveBeenCalledTimes(1);
-        expect(orchestrator.switchToChannelByNumberWithOutcome).toHaveBeenCalledWith(12, undefined);
-        expect(orchestrator.switchToChannelByNumberWithOutcome).toHaveBeenCalledWith(12, {
-            signal: controller.signal,
-        });
-        expect(orchestrator.waitForNextPlaybackStart).toHaveBeenCalledWith(controller.signal);
     });
 
     it('returns null channel-setup runtime port without a source runtime', (): void => {
@@ -439,17 +450,11 @@ describe('AppLazyScreenPortFactory', () => {
 
         expect(channelSetupInput?.screenPorts.getSelectedServerId()).toBe('server-1');
         channelSetupInput?.screenPorts.openServerSelect();
-        channelSetupInput?.screenPorts.openEPG();
-        await channelSetupInput?.screenPorts.switchToChannelByNumberWithOutcome(12);
-        await channelSetupInput?.screenPorts.waitForNextPlaybackStart();
 
         expect(orchestrator.openServerSelect).toHaveBeenCalledTimes(1);
-        expect(orchestrator.openEPG).toHaveBeenCalledTimes(1);
         expect(orchestrator.getChannelSetupWorkflowPort).toHaveBeenCalledTimes(1);
         expect(workflowPort.invalidateFacetSnapshot).toHaveBeenCalledTimes(1);
         expect(workflowPort.invalidateSessionData).toHaveBeenCalledTimes(1);
-        expect(orchestrator.switchToChannelByNumberWithOutcome).toHaveBeenCalledWith(12, undefined);
-        expect(orchestrator.waitForNextPlaybackStart).toHaveBeenCalledWith(undefined);
     });
 
     it('looks up channel-setup navigation from the current orchestrator at call time', (): void => {
@@ -462,6 +467,9 @@ describe('AppLazyScreenPortFactory', () => {
 
         let currentOrchestrator: MockRuntimeOrchestrator = firstOrchestrator;
         const factory = new AppLazyScreenPortFactory({
+            openCustomChannelStudio: jest.fn(),
+            openChannelsFromSettings: jest.fn(),
+            goBackFromChannelSetupLibraries: jest.fn(),
             getNavigationRuntime: (): MockRuntimeOrchestrator => currentOrchestrator,
             getAuthRuntime: (): MockRuntimeOrchestrator => currentOrchestrator,
             getProfileRuntime: (): MockRuntimeOrchestrator => currentOrchestrator,
@@ -490,10 +498,16 @@ describe('AppLazyScreenPortFactory', () => {
 
         await settingsRuntimePorts?.clearSubtitleTrack();
         settingsRuntimePorts?.onGuideSettingChange({ key: 'libraryTabs', enabled: true });
-        expect(settingsRuntimePorts?.setTheme('glass')).toEqual({ ok: true });
+        expect(settingsRuntimePorts?.setTheme('swiss')).toEqual({ ok: true, effectiveValue: 'swiss', migration: null });
+        settingsRuntimePorts?.updateSettingsPlaybackPolicy(true);
+        settingsRuntimePorts?.setOverlayTransparency('reduced');
+        settingsRuntimePorts?.setAccessibilityPreference('largeFocus', true);
 
         expect(orchestrator.setSubtitleTrack).toHaveBeenCalledWith(null);
         expect(orchestrator.onGuideSettingChange).toHaveBeenCalledWith({ key: 'libraryTabs', enabled: true });
-        expect(orchestrator.setTheme).toHaveBeenCalledWith('glass');
+        expect(orchestrator.setTheme).toHaveBeenCalledWith('swiss');
+        expect(orchestrator.updateSettingsPlaybackPolicy).toHaveBeenCalledWith(true);
+        expect(orchestrator.setOverlayTransparency).toHaveBeenCalledWith('reduced');
+        expect(orchestrator.setAccessibilityPreference).toHaveBeenCalledWith('largeFocus', true);
     });
 });

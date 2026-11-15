@@ -5,8 +5,8 @@ import type { createSettingsSelect } from './SettingsSelect';
 import type { createSettingsToggle } from './SettingsToggle';
 import type { SettingsCategoryConfig, SettingsCategoryId } from './types';
 
-type SettingsToggleControl = ReturnType<typeof createSettingsToggle>;
-type SettingsSelectControl = ReturnType<typeof createSettingsSelect>;
+type SettingsToggleControl = Pick<ReturnType<typeof createSettingsToggle>, 'element' | 'isDisabled' | 'activate'>;
+type SettingsSelectControl = Pick<ReturnType<typeof createSettingsSelect>, 'element' | 'isDisabled' | 'getOptions' | 'getValue' | 'setValue'>;
 type SettingsDropdownHandle = ReturnType<typeof createDropdownPopover>;
 
 export interface SettingsScreenSetActiveCategoryOptions {
@@ -21,9 +21,10 @@ export interface SettingsScreenFocusCoordinatorOptions {
     getActiveCategoryId: () => SettingsCategoryId | null;
     getActiveCategoryItemIds: () => string[];
     getCategoryButton: (categoryId: SettingsCategoryId) => HTMLButtonElement | null;
-    getSwitchProfileButton: () => HTMLButtonElement | null;
+    getBackButton?: () => HTMLButtonElement | null;
     getToggle: (id: string) => SettingsToggleControl | undefined;
     getSelect: (id: string) => SettingsSelectControl | undefined;
+    getAction?: (id: string) => HTMLButtonElement | undefined;
     setActiveCategory: (categoryId: SettingsCategoryId, options?: SettingsScreenSetActiveCategoryOptions) => void;
     isVisible: () => boolean;
 }
@@ -35,9 +36,10 @@ export class SettingsScreenFocusCoordinator {
     private readonly _getActiveCategoryId: () => SettingsCategoryId | null;
     private readonly _getActiveCategoryItemIds: () => string[];
     private readonly _getCategoryButton: (categoryId: SettingsCategoryId) => HTMLButtonElement | null;
-    private readonly _getSwitchProfileButton: () => HTMLButtonElement | null;
+    private readonly _getBackButton: () => HTMLButtonElement | null;
     private readonly _getToggle: (id: string) => SettingsToggleControl | undefined;
     private readonly _getSelect: (id: string) => SettingsSelectControl | undefined;
+    private readonly _getAction: (id: string) => HTMLButtonElement | undefined;
     private readonly _setActiveCategory: (
         categoryId: SettingsCategoryId,
         options?: SettingsScreenSetActiveCategoryOptions
@@ -57,9 +59,10 @@ export class SettingsScreenFocusCoordinator {
         this._getActiveCategoryId = options.getActiveCategoryId;
         this._getActiveCategoryItemIds = options.getActiveCategoryItemIds;
         this._getCategoryButton = options.getCategoryButton;
-        this._getSwitchProfileButton = options.getSwitchProfileButton;
+        this._getBackButton = options.getBackButton ?? ((): null => null);
         this._getToggle = options.getToggle;
         this._getSelect = options.getSelect;
+        this._getAction = options.getAction ?? ((): undefined => undefined);
         this._setActiveCategory = options.setActiveCategory;
         this._isVisible = options.isVisible;
     }
@@ -231,12 +234,12 @@ export class SettingsScreenFocusCoordinator {
         const categories = this._getCategories();
         const categoryIds = categories.map((category) => this.getCategoryButtonId(category.id));
         const detailIds = this._getActiveCategoryItemIds().filter((id) => this._isFocusableEnabled(id));
-        const switchProfileId = this._getSwitchProfileButton()?.id;
+        const backId = this._getBackButton()?.id;
 
         const candidateFocusableIds = [
+            ...(backId ? [backId] : []),
             ...categoryIds,
             ...detailIds,
-            ...(switchProfileId ? [switchProfileId] : []),
         ].filter((id) => {
             const element = this._getFocusableElement(id);
             return Boolean(element) && this._isFocusableEnabled(id);
@@ -245,7 +248,6 @@ export class SettingsScreenFocusCoordinator {
         const currentFocusId = nav.getFocusedElement()?.id ?? null;
         const activeCategoryId = this._getActiveCategoryId();
         const activeCategoryButtonId = activeCategoryId ? this.getCategoryButtonId(activeCategoryId) : undefined;
-        const lastDetailId = detailIds.length > 0 ? detailIds[detailIds.length - 1] : undefined;
 
         const entries: FocusableElement[] = [];
         for (const id of candidateFocusableIds) {
@@ -257,13 +259,17 @@ export class SettingsScreenFocusCoordinator {
             let onSelect: (() => void) | undefined;
 
             const categoryId = this._getCategoryIdFromButtonId(id);
-            if (categoryId) {
+            if (backId && id === backId) {
+                if (categoryIds[0]) neighbors.down = categoryIds[0];
+                onSelect = (): void => { this._getBackButton()?.click(); };
+            } else if (categoryId) {
                 const categoryIndex = categoryIds.indexOf(id);
                 const upId = categoryIndex > 0 ? categoryIds[categoryIndex - 1] : undefined;
                 const downId = categoryIndex >= 0 && categoryIndex < categoryIds.length - 1
                     ? categoryIds[categoryIndex + 1]
                     : undefined;
-                if (upId) neighbors.up = upId;
+                const previousId = upId ?? backId;
+                if (previousId) neighbors.up = previousId;
                 if (downId) neighbors.down = downId;
                 const preferredDetailId = this._getPreferredDetailFocusId(categoryId);
                 if (preferredDetailId) {
@@ -287,7 +293,7 @@ export class SettingsScreenFocusCoordinator {
                 const upId = detailIndex > 0 ? detailIds[detailIndex - 1] : undefined;
                 const downId = detailIndex < detailIds.length - 1
                     ? detailIds[detailIndex + 1]
-                    : switchProfileId;
+                    : undefined;
                 if (upId) neighbors.up = upId;
                 if (downId) neighbors.down = downId;
                 if (activeCategoryButtonId) {
@@ -303,15 +309,12 @@ export class SettingsScreenFocusCoordinator {
                         this.openDropdownForSelect(id);
                     }
                     : (): void => {
-                        this._getToggle(id)?.activate();
+                        if (this._getAction(id)) {
+                            this._getAction(id)?.click();
+                        } else {
+                            this._getToggle(id)?.activate();
+                        }
                     };
-            } else if (switchProfileId && id === switchProfileId) {
-                if (lastDetailId) {
-                    neighbors.up = lastDetailId;
-                }
-                if (activeCategoryButtonId) {
-                    neighbors.left = activeCategoryButtonId;
-                }
             }
 
             const focusable: FocusableElement = {
@@ -433,17 +436,14 @@ export class SettingsScreenFocusCoordinator {
     }
 
     private _isDetailFocusable(id: string): boolean {
-        return Boolean(this._getToggle(id) ?? this._getSelect(id)) || id === this._getSwitchProfileButton()?.id;
+        return Boolean(this._getToggle(id) ?? this._getSelect(id) ?? this._getAction(id));
     }
 
     private _isFocusableEnabled(id: string): boolean {
         if (this._getCategoryIdFromButtonId(id)) {
             return true;
         }
-        const switchProfileButton = this._getSwitchProfileButton();
-        if (switchProfileButton && id === switchProfileButton.id) {
-            return true;
-        }
+        if (id === this._getBackButton()?.id) return true;
         const toggle = this._getToggle(id);
         if (toggle) {
             return !toggle.isDisabled();
@@ -452,6 +452,7 @@ export class SettingsScreenFocusCoordinator {
         if (select) {
             return !select.isDisabled();
         }
+        if (this._getAction(id)) return true;
         return false;
     }
 
@@ -460,14 +461,13 @@ export class SettingsScreenFocusCoordinator {
         if (categoryId) {
             return this._getCategoryButton(categoryId);
         }
-        const switchProfileButton = this._getSwitchProfileButton();
-        if (switchProfileButton && id === switchProfileButton.id) {
-            return switchProfileButton;
-        }
+        if (id === this._getBackButton()?.id) return this._getBackButton();
         const toggle = this._getToggle(id);
         if (toggle) return toggle.element;
         const select = this._getSelect(id);
         if (select) return select.element;
+        const action = this._getAction(id);
+        if (action) return action;
         return null;
     }
 

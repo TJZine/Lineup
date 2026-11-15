@@ -2,6 +2,8 @@
  * @jest-environment jsdom
  */
 import { MiniGuideCoordinator } from '../MiniGuideCoordinator';
+import { MiniGuideOverlay } from '../MiniGuideOverlay';
+import { MINI_GUIDE_CONTAINER_ID } from '../constants';
 import type { IMiniGuideOverlay } from '../interfaces';
 import type { IChannelManager, ChannelConfig } from '../../../scheduler/channel-manager';
 import type { IChannelScheduler, ScheduledProgram, ScheduleConfig } from '../../../scheduler/scheduler';
@@ -109,6 +111,7 @@ const makeOverlay = (): IMiniGuideOverlay => {
         isVisible: jest.fn(() => visible),
         setViewModel: jest.fn(),
         setFocusedIndex: jest.fn(),
+        setActions: jest.fn(),
     } as unknown as IMiniGuideOverlay;
     return overlay;
 };
@@ -130,20 +133,21 @@ const makeChannel = (
 const buildScheduleConfig = (
     channel: ChannelConfig,
     items: ResolvedChannelContent['items'],
-    referenceTimeMs: number
+    _referenceTimeMs: number
 ): ScheduleConfig => ({
     channelId: channel.id,
-    anchorTime: referenceTimeMs,
+    anchorTime: 0,
     content: items,
     playbackMode: channel.playbackMode === 'random' ? 'shuffle' : channel.playbackMode,
     shuffleSeed: channel.shuffleSeed ?? 0,
 });
 
 const setup = (overrides?: Partial<{
+    overlay: IMiniGuideOverlay;
     scheduler: IChannelScheduler | null;
-    autoHideMs: number;
     channels: ChannelConfig[];
     currentChannel: ChannelConfig | null;
+    watchingChannelId: string | null;
 }>): {
     coordinator: MiniGuideCoordinator;
     overlay: IMiniGuideOverlay;
@@ -152,7 +156,7 @@ const setup = (overrides?: Partial<{
     resolveDeferred: Record<string, Deferred<ResolvedChannelContent>>;
     switchToChannel: jest.Mock<Promise<void>, [string]>;
 } => {
-    const overlay = makeOverlay();
+    const overlay = overrides?.overlay ?? makeOverlay();
     const channels = overrides?.channels ?? [
         makeChannel('ch1', 1),
         makeChannel('ch2', 2),
@@ -192,10 +196,14 @@ const setup = (overrides?: Partial<{
     const coordinator = new MiniGuideCoordinator({
         getOverlay: (): IMiniGuideOverlay => overlay,
         getChannelManager: (): IChannelManager => channelManager,
-        getScheduler: (): IChannelScheduler => (overrides?.scheduler ?? scheduler),
+        getScheduler: (): IChannelScheduler | null =>
+            overrides && 'scheduler' in overrides ? overrides.scheduler ?? null : scheduler,
+        getWatchingChannelId: (): string | null =>
+            overrides && 'watchingChannelId' in overrides
+                ? overrides.watchingChannelId ?? null
+                : currentChannel?.id ?? null,
         buildDailyScheduleConfig: buildScheduleConfig,
         switchToChannel,
-        getAutoHideMs: (): number => overrides?.autoHideMs ?? AUTO_HIDE_MS,
     });
 
     return { coordinator, overlay, channelManager, scheduler, resolveDeferred, switchToChannel };
@@ -211,6 +219,88 @@ describe('MiniGuideCoordinator', () => {
         jest.useRealTimers();
     });
 
+    it('refreshes visible program progress and rollover on the shared clock tick', async () => {
+        const current = makeChannel('ch1', 1);
+        const peer = makeChannel('ch2', 2);
+        const scheduler = {
+            getState: jest.fn(() => ({ isActive: true, channelId: current.id })),
+            getCurrentProgram: jest.fn(() => ({
+                ...makeProgram(Date.now() >= 60_000 ? 'Current-Second' : 'Current-First'),
+                scheduledStartTime: Date.now() >= 60_000 ? 60_000 : 0,
+                scheduledEndTime: Date.now() >= 60_000 ? 120_000 : 60_000,
+                elapsedMs: Date.now() % 60_000,
+            })),
+            getNextProgram: jest.fn(() => makeProgram('Current-Up-Next')),
+        } as unknown as IChannelScheduler;
+        const { coordinator, overlay, resolveDeferred } = setup({
+            channels: [current, peer], currentChannel: current, scheduler,
+        });
+        coordinator.show();
+        resolveDeferred[peer.id]?.resolve(makeResolvedContent(peer.id));
+        await Promise.resolve();
+        await Promise.resolve();
+        const actions = (overlay.setActions as jest.Mock).mock.calls[0]?.[0] as { tick: () => void };
+        const latestRows = (): Array<{ channelId: string; nowTitle: string; nowProgress: number; isWatching?: boolean }> =>
+            ((overlay.setViewModel as jest.Mock).mock.lastCall?.[0] as {
+                channels: Array<{ channelId: string; nowTitle: string; nowProgress: number; isWatching?: boolean }>;
+            }).channels;
+
+        jest.setSystemTime(30_000);
+        actions.tick();
+        expect(latestRows().find((row) => row.channelId === peer.id)?.nowProgress).toBeCloseTo(0.5);
+        expect(latestRows().find((row) => row.channelId === current.id)?.nowProgress).toBeCloseTo(0.5);
+
+        jest.setSystemTime(65_000);
+        actions.tick();
+        expect(latestRows().find((row) => row.channelId === peer.id)?.nowTitle).toBe('ch2-Next');
+        expect(latestRows().find((row) => row.channelId === current.id)?.nowTitle).toBe('Current-Second');
+        expect(latestRows().find((row) => row.channelId === current.id)?.isWatching).toBe(true);
+        expect((overlay.setFocusedIndex as jest.Mock).mock.lastCall?.[0]).toBe(0);
+
+        const renders = (overlay.setViewModel as jest.Mock).mock.calls.length;
+        coordinator.hide();
+        actions.tick();
+        expect((overlay.setViewModel as jest.Mock).mock.calls.length).toBe(renders);
+    });
+
+    it('renders elapsed and remaining program time initially, on tick, and after rollover', () => {
+        const container = document.createElement('div');
+        container.id = MINI_GUIDE_CONTAINER_ID;
+        document.body.appendChild(container);
+        const overlay = new MiniGuideOverlay();
+        overlay.initialize({ containerId: MINI_GUIDE_CONTAINER_ID });
+        const current = makeChannel('ch1', 1);
+        const scheduler = {
+            getState: jest.fn(() => ({ isActive: true, channelId: current.id })),
+            getCurrentProgram: jest.fn(() => ({
+                ...makeProgram(Date.now() >= 60_000 ? 'Second' : 'First'),
+                scheduledStartTime: Date.now() >= 60_000 ? 60_000 : 0,
+                scheduledEndTime: Date.now() >= 60_000 ? 120_000 : 60_000,
+                elapsedMs: Date.now() % 60_000,
+            })),
+            getNextProgram: jest.fn(() => makeProgram('Next')),
+        } as unknown as IChannelScheduler;
+        const { coordinator } = setup({ overlay, channels: [current], currentChannel: current, scheduler });
+        const now = (): string | null => document.getElementById('mini-guide-now-time-0')?.textContent ?? null;
+
+        try {
+            coordinator.show();
+            expect(now()).toContain('0:00 elapsed · 1:00 left');
+
+            jest.advanceTimersByTime(30_000);
+            expect(now()).toContain('0:30 elapsed · 0:30 left');
+
+            jest.setSystemTime(35_000);
+            jest.advanceTimersByTime(30_000);
+            expect(document.getElementById('mini-guide-now-0')?.textContent).toBe('Second');
+            expect(now()).toContain('0:05 elapsed · 0:55 left');
+        } finally {
+            coordinator.hide();
+            overlay.destroy();
+            container.remove();
+        }
+    });
+
     it('shows immediately with loading placeholders', () => {
         const { coordinator, overlay } = setup();
 
@@ -223,7 +313,7 @@ describe('MiniGuideCoordinator', () => {
         expect(firstVm.channels[2].nowTitle).toBe('Current-Now');
     });
 
-    it('does not show when there are no channels', () => {
+    it('shows a bounded empty state when there are no channels', () => {
         const { coordinator, overlay } = setup({
             channels: [],
             currentChannel: null,
@@ -231,11 +321,13 @@ describe('MiniGuideCoordinator', () => {
 
         coordinator.show();
 
-        expect(overlay.show).not.toHaveBeenCalled();
-        expect(overlay.setViewModel).not.toHaveBeenCalled();
+        expect(overlay.show).toHaveBeenCalledTimes(1);
+        expect(overlay.setViewModel).toHaveBeenCalledWith({ channels: [], emptyMessage: 'No channels available' });
+        expect(coordinator.handleNavigation('down')).toBe(true);
+        expect(coordinator.handlePage('down')).toBe(true);
     });
 
-    it('uses current channel view model for all rows when only one channel', () => {
+    it('shows a single row when only one channel exists', () => {
         const singleChannel = makeChannel('ch1', 1);
         const scheduler = {
             getState: jest.fn().mockReturnValue({ isActive: true, channelId: 'ch1' }),
@@ -252,10 +344,23 @@ describe('MiniGuideCoordinator', () => {
 
         const firstVm = (overlay.setViewModel as jest.Mock).mock.calls[0]?.[0];
         expect(firstVm.channels[0].nowTitle).toBe('Current-Now');
-        expect(firstVm.channels[1].nowTitle).toBe('Current-Now');
-        expect(firstVm.channels[2].nowTitle).toBe('Current-Now');
-        expect(firstVm.channels[3].nowTitle).toBe('Current-Now');
-        expect(firstVm.channels[4].nowTitle).toBe('Current-Now');
+        expect(firstVm.channels).toHaveLength(1);
+        expect(firstVm.channels[0].isWatching).toBe(true);
+    });
+
+    it('marks only an accepted watching channel, separate from selected channel', () => {
+        const channels = [makeChannel('ch1', 1), makeChannel('ch2', 2)];
+        const { coordinator, overlay } = setup({
+            channels,
+            currentChannel: channels[1]!,
+            watchingChannelId: 'ch1',
+        });
+
+        coordinator.show();
+
+        const rows = (overlay.setViewModel as jest.Mock).mock.calls[0]?.[0].channels;
+        expect(rows.find((row: { channelId: string }) => row.channelId === 'ch1').isWatching).toBe(true);
+        expect(rows.find((row: { channelId: string }) => row.channelId === 'ch2').isWatching).toBe(false);
     });
 
     it('formats episode titles with series context in the mini guide', () => {
@@ -276,7 +381,7 @@ describe('MiniGuideCoordinator', () => {
         coordinator.show();
 
         const firstVm = (overlay.setViewModel as jest.Mock).mock.calls[0]?.[0];
-        expect(firstVm.channels[2].nowTitle).toBe('Series Title • S02E03 • Episode Name');
+        expect(firstVm.channels[0].nowTitle).toBe('Series Title • S02E03 • Episode Name');
     });
 
     it('formats episode titles without season/episode metadata', () => {
@@ -297,7 +402,7 @@ describe('MiniGuideCoordinator', () => {
         coordinator.show();
 
         const firstVm = (overlay.setViewModel as jest.Mock).mock.calls[0]?.[0];
-        expect(firstVm.channels[2].nowTitle).toBe('Series Title • Episode Name');
+        expect(firstVm.channels[0].nowTitle).toBe('Series Title • Episode Name');
     });
 
     it('sets showBrandingIcon based on whether channel.icon is present', () => {
@@ -313,7 +418,7 @@ describe('MiniGuideCoordinator', () => {
         });
         withIconSetup.coordinator.show();
         const withIconVm = (withIconSetup.overlay.setViewModel as jest.Mock).mock.calls[0]?.[0];
-        expect(withIconVm.channels[2].showBrandingIcon).toBe(false);
+        expect(withIconVm.channels[0].showBrandingIcon).toBe(false);
 
         const noIconSetup = setup({
             channels: [noIcon],
@@ -321,7 +426,7 @@ describe('MiniGuideCoordinator', () => {
         });
         noIconSetup.coordinator.show();
         const noIconVm = (noIconSetup.overlay.setViewModel as jest.Mock).mock.calls[0]?.[0];
-        expect(noIconVm.channels[2].showBrandingIcon).toBe(true);
+        expect(noIconVm.channels[0].showBrandingIcon).toBe(true);
     });
 
     it('includes formatted current start time when current program has scheduledStartTime', () => {
@@ -343,7 +448,7 @@ describe('MiniGuideCoordinator', () => {
         coordinator.show();
 
         const firstVm = (overlay.setViewModel as jest.Mock).mock.calls[0]?.[0];
-        expect((firstVm.channels[2] as { nowStartTime?: string | null }).nowStartTime).toMatch(
+        expect((firstVm.channels[0] as { nowStartTime?: string | null }).nowStartTime).toMatch(
             /^\d{1,2}:\d{2} [AP]M$/
         );
     });
@@ -364,7 +469,7 @@ describe('MiniGuideCoordinator', () => {
         unavailableSetup.coordinator.show();
 
         const unavailableVm = (unavailableSetup.overlay.setViewModel as jest.Mock).mock.calls[0]?.[0];
-        expect((unavailableVm.channels[2] as { nowStartTime?: string | null }).nowStartTime).toBeNull();
+        expect((unavailableVm.channels[0] as { nowStartTime?: string | null }).nowStartTime).toBeNull();
     });
 
     it('threads buildStrategy into ready, loading, and unavailable rows', () => {
@@ -382,7 +487,7 @@ describe('MiniGuideCoordinator', () => {
         });
         ready.coordinator.show();
         const readyVm = (ready.overlay.setViewModel as jest.Mock).mock.calls[0]?.[0];
-        expect(readyVm.channels[2].buildStrategy).toBe('genres');
+        expect(readyVm.channels[0].buildStrategy).toBe('genres');
 
         const loading = setup({
             channels: [
@@ -405,7 +510,7 @@ describe('MiniGuideCoordinator', () => {
         });
         unavailable.coordinator.show();
         const unavailableVm = (unavailable.overlay.setViewModel as jest.Mock).mock.calls[0]?.[0];
-        expect(unavailableVm.channels[2].buildStrategy).toBe('actors');
+        expect(unavailableVm.channels[0].buildStrategy).toBe('actors');
     });
 
     it('dedupes resolve for duplicate non-current channels', () => {
@@ -433,8 +538,8 @@ describe('MiniGuideCoordinator', () => {
         coordinator.show();
 
         const firstVm = (overlay.setViewModel as jest.Mock).mock.calls[0]?.[0];
-        expect(firstVm.channels[2].channelId).toBe('ch1');
-        expect(firstVm.channels[2].channelNumber).toBe(1);
+        expect(firstVm.channels[0].channelId).toBe('ch1');
+        expect(firstVm.channels[0].channelNumber).toBe(1);
     });
 
     it('resolves prev/next channels and updates view model', async () => {
@@ -526,9 +631,9 @@ describe('MiniGuideCoordinator', () => {
                 getOverlay: (): IMiniGuideOverlay => overlay,
                 getChannelManager: (): IChannelManager => channelManager,
                 getScheduler: (): IChannelScheduler => scheduler,
+                getWatchingChannelId: (): string | null => 'ch3',
                 buildDailyScheduleConfig: buildScheduleConfig,
                 switchToChannel,
-                getAutoHideMs: (): number => AUTO_HIDE_MS,
                 notifyToast,
             });
 
@@ -544,18 +649,18 @@ describe('MiniGuideCoordinator', () => {
         }
     });
 
-    it('auto-hide hides after timeout after mini-guide interaction', () => {
-        const { coordinator, overlay } = setup({ autoHideMs: AUTO_HIDE_MS });
+    it('remains open after browsing beyond the old timeout', () => {
+        const { coordinator, overlay } = setup();
         coordinator.show();
         coordinator.handleNavigation('down');
 
         jest.advanceTimersByTime(AUTO_HIDE_MS + 1);
 
-        expect(overlay.hide).toHaveBeenCalledTimes(1);
+        expect(overlay.hide).not.toHaveBeenCalled();
     });
 
     it('does not auto-hide without interaction', () => {
-        const { coordinator, overlay } = setup({ autoHideMs: AUTO_HIDE_MS });
+        const { coordinator, overlay } = setup();
         coordinator.show();
 
         jest.advanceTimersByTime(AUTO_HIDE_MS + 1);

@@ -14,13 +14,13 @@ describe('ThemePreferencesStore', () => {
         store = new ThemePreferencesStore();
     });
 
-    it('reads trimmed themes and removes blank persisted values', () => {
+    it('reads trimmed themes while leaving normalization writes to the controller', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.THEME, '  swiss  ');
-        expect(store.readThemeAndClean()).toBe('swiss');
+        expect(store.readTheme()).toEqual({ ok: true, value: 'swiss' });
 
         localStorage.setItem(LINEUP_STORAGE_KEYS.THEME, '   ');
-        expect(store.readThemeAndClean()).toBeNull();
-        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.THEME)).toBeNull();
+        expect(store.readTheme()).toEqual({ ok: true, value: null });
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.THEME)).toBe('   ');
     });
 
     it('writes trimmed values and removes empty themes', () => {
@@ -36,6 +36,14 @@ describe('ThemePreferencesStore', () => {
             throw new DOMException('Blocked', 'SecurityError');
         });
 
-        expect(store.writeTheme('glass')).toEqual({ ok: false, reason: 'unavailable' });
+        expect(store.writeTheme('directv')).toEqual({ ok: false, reason: 'unavailable' });
+    });
+
+    it('reports blocked reads separately from missing values', () => {
+        jest.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+            throw new DOMException('Blocked', 'SecurityError');
+        });
+
+        expect(store.readTheme()).toEqual({ ok: false, reason: 'unavailable' });
     });
 });

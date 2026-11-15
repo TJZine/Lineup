@@ -159,8 +159,8 @@ export class StrategyStepController {
 
     render(ctx: StepRenderContext, deps: StrategyStepDeps): void {
         const state = deps.state;
-        ctx.stepEl.textContent = 'Step 2 of 3';
-        ctx.statusEl.textContent = 'Choose channel types to build.';
+        ctx.stepEl.textContent = '2 Configure';
+        ctx.statusEl.textContent = 'Configure your lineup';
         ctx.errorEl.textContent = '';
 
         const split = document.createElement('div');
@@ -253,11 +253,21 @@ export class StrategyStepController {
             state,
             deps
         );
-        const baseModeButton = this._createAdjustableToggleFromDescriptor(
-            this._requireControlDescriptor(STEP2_CONTROL_IDS.seriesBaseMode),
-            state,
-            deps
-        );
+        const playbackModes = [
+            { mode: 'shuffle', label: 'Shuffle', detail: 'Mix programs into a shuffled schedule.' },
+            { mode: 'sequential', label: 'In order', detail: 'Keep the order supplied by the source.' },
+            { mode: 'block', label: 'Mini-marathons', detail: 'Play a few episodes of one show, then move to another.' },
+            { mode: 'random', label: 'Random', detail: 'Use a stable seed for repeatable random choices.' },
+        ] as const;
+        const playbackCards = playbackModes.map(({ mode, label, detail }) => this._createToggleButton({
+            id: `setup-playback-${mode}`,
+            className: `setup-toggle setup-playback-card${state.seriesOrdering.basePlaybackMode === mode ? ' selected' : ''}`,
+            label, meta: detail,
+            stateText: state.seriesOrdering.basePlaybackMode === mode ? 'Selected' : 'Choose',
+            onClick: () => deps.applySettingChange(`setup-playback-${mode}`, (draft) => {
+                draft.seriesOrdering.basePlaybackMode = mode;
+            }),
+        }));
         const baseBlockSizeButton = this._createAdjustableToggleFromDescriptor(
             this._requireControlDescriptor(STEP2_CONTROL_IDS.seriesBaseBlockSize),
             state,
@@ -298,7 +308,59 @@ export class StrategyStepController {
             },
         });
 
-        const controlsByCategory: Record<StrategyCategoryKey, HTMLButtonElement[]> = {
+        const includeSpecialsButton = this._createToggleButton({
+            id: 'setup-include-specials',
+            className: `setup-toggle${state.seriesOrdering.includeSpecials !== false ? ' selected' : ''}`,
+            label: 'Include specials',
+            meta: 'Season 0 episodes in block playback.',
+            stateText: state.seriesOrdering.includeSpecials !== false ? 'On' : 'Off',
+            onClick: () => deps.applySettingChange('setup-include-specials', (draft) => {
+                if (draft.seriesOrdering.includeSpecials === false) delete draft.seriesOrdering.includeSpecials;
+                else draft.seriesOrdering.includeSpecials = false;
+            }),
+        });
+        const seedInput = document.createElement('input');
+        seedInput.id = 'setup-lineup-seed';
+        seedInput.type = 'number';
+        seedInput.className = 'setup-programming-input';
+        seedInput.placeholder = 'Lineup seed · Auto';
+        seedInput.setAttribute('aria-label', 'Lineup seed; blank uses automatic seed');
+        seedInput.value = state.seriesOrdering.lineupSeed === undefined ? '' : String(state.seriesOrdering.lineupSeed);
+        seedInput.addEventListener('change', () => {
+            const value = seedInput.value.trim();
+            if (value && !Number.isSafeInteger(Number(value))) {
+                seedInput.setCustomValidity('Enter a whole number.');
+                seedInput.reportValidity();
+                return;
+            }
+            seedInput.setCustomValidity('');
+            deps.applySettingChange(seedInput.id, (draft) => {
+                if (value) draft.seriesOrdering.lineupSeed = Number(value);
+                else delete draft.seriesOrdering.lineupSeed;
+            });
+        });
+        const anchorInput = document.createElement('input');
+        anchorInput.id = 'setup-start-anchor';
+        anchorInput.type = 'datetime-local';
+        anchorInput.className = 'setup-programming-input';
+        anchorInput.setAttribute('aria-label', 'Start anchor; blank uses automatic anchor');
+        if (state.seriesOrdering.startTimeAnchor !== undefined) {
+            const date = new Date(state.seriesOrdering.startTimeAnchor);
+            if (Number.isFinite(date.getTime())) {
+                const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+                anchorInput.value = local.toISOString().slice(0, 16);
+            }
+        }
+        anchorInput.addEventListener('change', () => {
+            const value = anchorInput.value;
+            const ms = value ? new Date(value).getTime() : undefined;
+            if (ms !== undefined && !Number.isFinite(ms)) return;
+            deps.applySettingChange(anchorInput.id, (draft) => {
+                if (ms !== undefined) draft.seriesOrdering.startTimeAnchor = ms;
+                else delete draft.seriesOrdering.startTimeAnchor;
+            });
+        });
+        const controlsByCategory: Record<StrategyCategoryKey, HTMLElement[]> = {
             'content-sources': contentButtons,
             'advanced-sources': advancedButtons,
             'build-options': [
@@ -307,7 +369,7 @@ export class StrategyStepController {
                 addAlternateLineupsButton,
                 alternateCopiesButton,
             ],
-            'series-ordering': [baseModeButton, baseBlockSizeButton, variantTypeButton, variantBlockSizeButton],
+            'series-ordering': [...playbackCards, baseBlockSizeButton, includeSpecialsButton, seedInput, anchorInput, variantTypeButton, variantBlockSizeButton],
             'limits': [maxButton, minItemsButton, expandLineupButton],
             'priority-order': priorityRowButtons,
         };
@@ -316,13 +378,16 @@ export class StrategyStepController {
         const activeCategoryTitle = CATEGORY_TITLES[state.activeStrategyCategory];
 
         const isGuideOrderActive = state.activeStrategyCategory === 'priority-order';
-        const detailScroll = this._renderDetailPane(activeControls, activeCategoryTitle, { isCompactGuideOrder: isGuideOrderActive });
+        const detailScroll = this._renderDetailPane(activeControls, activeCategoryTitle, {
+            isCompactGuideOrder: isGuideOrderActive,
+            isSeriesOrdering: state.activeStrategyCategory === 'series-ordering',
+        });
 
         right.appendChild(detailScroll);
         split.appendChild(left);
         split.appendChild(right);
         ctx.contentEl.appendChild(split);
-        this._renderFooterActions(ctx, deps, state, categoryButtons, activeControls);
+        this._renderFooterActions(ctx, deps, categoryButtons, activeControls);
     }
 
     private _renderCategoryRail(
@@ -366,9 +431,9 @@ export class StrategyStepController {
     }
 
     private _renderDetailPane(
-        activeControls: HTMLButtonElement[],
+        activeControls: HTMLElement[],
         activeCategoryTitle: string,
-        options: { isCompactGuideOrder?: boolean } = {}
+        options: { isCompactGuideOrder?: boolean; isSeriesOrdering?: boolean } = {}
     ): HTMLElement {
         const detailScroll = document.createElement('div');
         detailScroll.className = `setup-detail-scroll setup-focus-safe-scroll${options.isCompactGuideOrder ? ' setup-detail-scroll--guide-order' : ''}`;
@@ -392,9 +457,22 @@ export class StrategyStepController {
 
         detailScroll.appendChild(header);
         const detailControls = document.createElement('div');
-        detailControls.className = 'setup-list';
+        detailControls.className = options.isSeriesOrdering ? 'setup-list setup-playback-grid' : 'setup-list';
         detailControls.append(...detailControlsToRender);
         detailScroll.appendChild(detailControls);
+        if (options.isSeriesOrdering) {
+            const illustrative = document.createElement('div');
+            illustrative.className = 'setup-illustrative';
+            const heading = document.createElement('p');
+            heading.textContent = 'Illustrative schedule · Each tile is one episode';
+            illustrative.appendChild(heading);
+            for (let index = 0; index < 6; index++) {
+                const tile = document.createElement('span');
+                tile.textContent = `${index < 3 ? 'Harbor' : 'Summit'} · Episode 0${index % 3 + 1}`;
+                illustrative.appendChild(tile);
+            }
+            detailScroll.appendChild(illustrative);
+        }
         return detailScroll;
     }
 
@@ -473,12 +551,17 @@ export class StrategyStepController {
     private _renderFooterActions(
         ctx: StepRenderContext,
         deps: StrategyStepDeps,
-        state: StrategyStepDeps['state'],
         categoryButtons: HTMLButtonElement[],
-        activeControls: HTMLButtonElement[]
+        activeControls: HTMLElement[]
     ): void {
+        const footer = document.createElement('div');
+        footer.className = 'setup-configure-footer';
+        const summary = document.createElement('p');
+        summary.className = 'setup-configure-footer-summary';
+        summary.textContent = deps.detailText;
+        footer.appendChild(summary);
         const actions = document.createElement('div');
-        actions.className = 'button-row';
+        actions.className = 'button-row setup-configure-footer-actions';
 
         const backButton = document.createElement('button');
         backButton.id = 'setup-back';
@@ -492,13 +575,14 @@ export class StrategyStepController {
         const nextButton = document.createElement('button');
         nextButton.id = 'setup-next';
         nextButton.className = 'screen-button';
-        nextButton.textContent = state.setupContext === 'first-time' ? 'Build Channels' : 'Review';
+        nextButton.textContent = 'Review channels';
         nextButton.addEventListener('click', () => {
             deps.onNext();
         });
         actions.appendChild(nextButton);
 
-        ctx.contentEl.appendChild(actions);
+        footer.appendChild(actions);
+        ctx.contentEl.appendChild(footer);
         deps.registerStep2Focusables(
             categoryButtons,
             activeControls,
@@ -506,6 +590,6 @@ export class StrategyStepController {
             nextButton
         );
 
-        ctx.detailEl.textContent = deps.detailText;
+        ctx.detailEl.textContent = '';
     }
 }

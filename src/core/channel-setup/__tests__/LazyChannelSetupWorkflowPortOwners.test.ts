@@ -158,13 +158,7 @@ describe('createLazyChannelSetupWorkflowPortOwners', () => {
         } as unknown as ChannelSetupPlanningService;
         const firstError = new Error('build executor chunk failed');
         const recoveredBuildExecutor = {
-            createChannelsFromSetup: jest.fn().mockResolvedValue({
-                created: 1,
-                skipped: 0,
-                reachedMaxChannels: false,
-                errorCount: 0,
-                canceled: false,
-            }),
+            prepareSetupReview: jest.fn().mockResolvedValue({ preparedId: 'review-1' }),
         } as unknown as ChannelSetupBuildExecutor;
         mockPlanningServiceConstructor.mockImplementation(() => planningService);
         mockBuildExecutorConstructor
@@ -176,18 +170,12 @@ describe('createLazyChannelSetupWorkflowPortOwners', () => {
         const owners = createLazyChannelSetupWorkflowPortOwners(createDeps());
         const config = { serverId: 'server-1' };
 
-        await expect(owners.buildExecutor.createChannelsFromSetup(config as never)).rejects.toThrow(firstError);
-        await expect(owners.buildExecutor.createChannelsFromSetup(config as never)).resolves.toEqual({
-            created: 1,
-            skipped: 0,
-            reachedMaxChannels: false,
-            errorCount: 0,
-            canceled: false,
-        });
+        await expect(owners.buildExecutor.prepareSetupReview(config as never)).rejects.toThrow(firstError);
+        await expect(owners.buildExecutor.prepareSetupReview(config as never)).resolves.toEqual({ preparedId: 'review-1' });
 
         expect(mockPlanningServiceConstructor).toHaveBeenCalledTimes(1);
         expect(mockBuildExecutorConstructor).toHaveBeenCalledTimes(2);
-        expect(recoveredBuildExecutor.createChannelsFromSetup).toHaveBeenCalledTimes(1);
+        expect(recoveredBuildExecutor.prepareSetupReview).toHaveBeenCalledTimes(1);
     });
 
     it('clears rerun request only after setup completion is durable', () => {
@@ -206,12 +194,25 @@ describe('createLazyChannelSetupWorkflowPortOwners', () => {
             .mockReturnValueOnce(success);
         const owners = createLazyChannelSetupWorkflowPortOwners(deps);
 
-        expect(owners.completionTracker.markSetupComplete('server-1', { serverId: 'server-1' } as never))
+        expect(owners.completionTracker.markSetupComplete('server-1', { serverId: 'server-1' } as never, JSON.stringify(['user-1', 'server-1'])))
             .toBe(failure);
         expect(deps.clearRerunRequest).not.toHaveBeenCalled();
 
-        expect(owners.completionTracker.markSetupComplete('server-1', { serverId: 'server-1' } as never))
+        expect(owners.completionTracker.markSetupComplete('server-1', { serverId: 'server-1' } as never, JSON.stringify(['user-1', 'server-1'])))
             .toBe(success);
         expect(deps.clearRerunRequest).toHaveBeenCalledTimes(1);
+    });
+
+    it.each(['profile', 'server'] as const)('does not write completion into a changed %s scope', (changed) => {
+        const deps = createDeps();
+        const owners = createLazyChannelSetupWorkflowPortOwners(deps);
+        if (changed === 'profile') (deps.getActiveUserId as jest.Mock).mockReturnValue('user-2');
+        else (deps.getSelectedServerId as jest.Mock).mockReturnValue('server-2');
+
+        const result = owners.completionTracker.markSetupComplete('server-1',
+            { serverId: 'server-1' } as never, JSON.stringify(['user-1', 'server-1']));
+        expect(result).toMatchObject({ ok: false, reason: 'scope-changed' });
+        expect(deps.recordStore.markSetupComplete).not.toHaveBeenCalled();
+        expect(deps.clearRerunRequest).not.toHaveBeenCalled();
     });
 });

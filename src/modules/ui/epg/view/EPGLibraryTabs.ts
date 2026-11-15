@@ -1,4 +1,5 @@
 interface EPGLibraryTabsConfig {
+    onFocus?: () => void;
     onSelect: (libraryId: string | null) => void;
 }
 
@@ -13,7 +14,7 @@ type PickerNodes = {
 export class EPGLibraryTabs {
     private static idCounter = 0;
     private element: HTMLElement | null = null;
-    private gridElement: HTMLElement | null = null;
+    private overlayHost: HTMLElement | null = null;
     private pill: HTMLButtonElement | null = null;
     private picker: PickerNodes | null = null;
     private libraries: LibraryOption[] = [];
@@ -26,13 +27,13 @@ export class EPGLibraryTabs {
         this.panelId = `epg-library-picker-panel-${EPGLibraryTabs.idCounter++}`;
     }
 
-    initialize(gridElement: HTMLElement): void {
+    initialize(host: HTMLElement, overlayHost: HTMLElement = host): void {
         if (this.element) return;
         const el = document.createElement('div');
         el.className = 'epg-library-tabs';
-        gridElement.appendChild(el);
+        host.prepend(el);
         this.element = el;
-        this.gridElement = gridElement;
+        this.overlayHost = overlayHost;
     }
 
     isVisible(): boolean {
@@ -69,6 +70,7 @@ export class EPGLibraryTabs {
         const index = allTabs.findIndex((id) => id === this.selectedId);
         this.focusedIndex = index >= 0 ? index : 0; // 0 is "All"
         this.isPillFocused = true;
+        this.config.onFocus?.();
         this.applyPillClasses();
         this.applyPickerClasses();
     }
@@ -120,7 +122,7 @@ export class EPGLibraryTabs {
         this.closePicker();
         this.element?.remove();
         this.element = null;
-        this.gridElement = null;
+        this.overlayHost = null;
         this.pill = null;
         this.libraries = [];
     }
@@ -155,6 +157,7 @@ export class EPGLibraryTabs {
     }
 
     private openPicker(): void {
+        this.config.onFocus?.();
         this.focusedIndex = this.getFocusedIndexForOpen();
         this.renderPicker();
         this.applyPickerClasses();
@@ -173,7 +176,7 @@ export class EPGLibraryTabs {
     }
 
     private renderPicker(): void {
-        if (!this.gridElement) return;
+        if (!this.overlayHost) return;
 
         if (!this.picker) {
             const overlay = document.createElement('div');
@@ -189,7 +192,7 @@ export class EPGLibraryTabs {
 
             overlay.appendChild(scrim);
             overlay.appendChild(panel);
-            this.gridElement.appendChild(overlay);
+            this.overlayHost.appendChild(overlay);
 
             this.picker = { overlay, panel, items: [] };
         }

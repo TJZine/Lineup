@@ -49,10 +49,17 @@ If another architecture doc disagrees with this one, update the other doc or arc
 - owns the channel-setup screen's selected-server projection as runtime state (`getSelectedServerId`) only; channel setup UI must not construct `ServerSelectionStore` or consume selected-server storage-key getters
 - keeps `src/App.ts` at composition wiring by replacing the previous inline lazy-screen runtime object-literal assembly
 
+### `src/core/app-shell/deferred-screens/AppAuthoringScreenRegistry.ts`
+
+- owns lazy Channel Directory and Channel Studio instances, route-generation checks for late loads, and recreation when the server/profile scope changes
+- receives scoped manager, library, navigation, and Air Check capabilities from `AppAuthoringPortFactory`; persistence and playback remain with their runtime owners
+- presents the exact Studio create/edit request supplied by the route rather than inferring it from the selected channel
+
 ### `src/core/app-shell/chrome/AppScreenVisibilityCoordinator.ts`
 
 - owner for route-driven app-shell show/hide policy
 - owns splash-backed deferred-screen reveal sequencing for startup and setup routes
+- reveals and hides Channel Directory and Channel Studio from the active route; Settings recovery can open the Support category after its lazy screen is shown
 
 ### `src/core/app-shell/runtime/AppThemeController.ts`
 
@@ -67,13 +74,6 @@ If another architecture doc disagrees with this one, update the other doc or arc
 - is the only app-shell runtime file permitted to dynamically import
   `../../orchestrator/AppOrchestrator`; static implementation imports and dynamic
   implementation imports from sibling runtime files remain forbidden
-
-### `src/core/app-shell/chrome/AppStartupUiInitializer.ts`
-
-- app-shell-owned startup UI initializer
-- owns startup-time initialization calls for now-playing-info, playback-options, and exit-confirm overlays
-- is constructed directly by `AppOrchestrator` and consumed through the narrow initialization startup-UI port
-- keeps startup UI readiness sequencing explicit through `src/core/initialization/InitializationCoordinator.ts`'s narrow startup-UI port
 
 ### `src/core/app-shell/`
 
@@ -90,7 +90,7 @@ If another architecture doc disagrees with this one, update the other doc or arc
 - focused startup sequencing collaborator between app shell and orchestrator
 - owns each startup pass's opaque Plex-auth guard through discovery, runtime/EPG work, routing, event wiring, ready/lifecycle publication, queued continuation, resume cleanup, and guarded warmup scheduling
 - every separate phase entry validates stored credentials first; same-pass queued work retains its guard, while queued work after supersession re-enters validation under a fresh lineage
-- `InitializationSelectedServerTransaction` owns selected-server auth/server gating, runtime and EPG preparation, raw EPG outcome mapping, initial-tune routing under an opaque lineage, and the commit boundary that withholds event wiring, routing, ready/lifecycle-ready state, and resume cleanup on stop or failure
+- `InitializationSelectedServerTransaction` owns selected-server auth/server gating, runtime and EPG preparation, raw EPG outcome mapping, untuned Guide routing, and the commit boundary that withholds event wiring, routing, ready/lifecycle-ready state, and resume cleanup on stop or failure
 - `InitializationStartupHandoff` stamps selected-server work and ordinary/queued startup requests with opaque initialization-owned lineage. A stale selection may await only a strictly newer startup settlement associated with its exact lineage; it does not consume that startup's result or infer ownership from server-selection serialization
 
 ### `src/core/server-selection/`
@@ -339,10 +339,9 @@ after this extraction.
   current manager identity so a later edit cannot inherit old resolved items.
 - `src/core/channel-tuning/ChannelTuningCoordinator.ts` remains the channel-switch
   workflow owner. `ChannelTuningOperationContext.ts` owns general admission and
-  retained suspension currentness, `ChannelInitialTuneAuthority.ts` owns opaque
-  single-use initialization lineage/permits, and ChannelManager mints the matching
-  channel-bound one-use resolution authorization while its general resolution
-  scope remains suspended.
+  retained suspension currentness. ChannelManager keeps general resolution
+  admission closed through a scope transition and reopens it only after commit
+  or coherent rollback.
 
 ### Player
 
@@ -382,6 +381,20 @@ after this extraction.
 - these are the current designated owners for storage-backed state
 - `src/modules/ui/settings/SettingsStore.ts` is a UI-facing facade; it translates typed owner-write outcomes into normalized setting targets while controls own optimistic rollback and accessible inline failure status. Runtime setting effects are applied only after persistence succeeds.
 - `src/modules/settings/PlaybackSettingsStore.ts` owns target-aware, two-key HDR fallback writes and exact compensation/effective-mode reporting while preserving force-before-smart read precedence.
+- `src/modules/settings/SupportReportPreferencesStore.ts` owns off-by-default local Support report consent. `src/modules/support/SupportReportStore.ts` owns the separate versioned, bounded, allowlisted report; it rejects arbitrary payloads and never reads developer diagnostics records. Turning consent off persists the effective policy before clearing the report, with a visible retry path if cleanup fails.
+- Accepted Guide range refreshes and admitted program playback starts publish
+  `guide-load` and `playback-start` lifecycle outcomes through that Support
+  report owner. Producers send only code, time, and outcome; titles, URLs,
+  tokens, channel IDs, and error objects stay outside the report.
+- `src/modules/ui/player-osd/PlayerOsdCoordinator.ts` owns compact Player
+  controls, expanded details, and Audio/Subtitles child drawers. Track choice
+  policy stays in `PlaybackOptionsCoordinator`; the old Info, Playback Options
+  modal, and Exit Confirm presentation modules are retired. The Mini Guide
+  coordinator reads accepted watching identity from playback runtime, separate
+  from its focused row and refreshes visible schedule rows on the overlay's
+  clock tick. Navigation admits remote transport only in the active Player
+  context, outside child drawers, Mini Guide, dialogs, and other screens. Blue
+  routes through the visible Guide Lineup menu.
 - `src/core/app-shell/runtime/AppThemeController.ts` persists theme selection before changing active runtime/DOM theme state; startup theme normalization remains best-effort.
 - `debugLogging` and `subtitleDebugLogging` persistence routes through `src/modules/settings/DeveloperSettingsStore.ts`.
 - runtime consumers route mapped key families through typed stores (for example `PlayerOsdCoordinator` -> `NowPlayingDisplayStore`, `ProfileSelectScreen` -> `ProfileSessionStore`, `AppThemeController` -> `ThemePreferencesStore`, `EPGInfoPanel` -> `NowPlayingDisplayStore`/`EpgPreferencesStore`, `SettingsStore` -> dedicated settings stores, `AudioSetupScreen`/`Orchestrator`/`AudioTrackManager` -> `AudioSettingsStore` policy reads and setup completion state, `Orchestrator` -> `SubtitlePreferencesStore` subtitle mode policy for burn-in decisions)
@@ -408,7 +421,7 @@ after this extraction.
 - `src/shared/toast.ts` owns the UI-neutral toast payload contract, and `src/core/app-shell/chrome/AppToastPresenter.ts` owns toast presentation; `src/modules/ui/` does not own a separate toast package.
 - `src/modules/ui/theme/` owns the public theme metadata contract (`ThemeName`, `DEFAULT_THEME`, `THEME_CLASSES`, `THEME_OPTIONS`); runtime theme state/control lives in app-shell ownership (`AppThemeController`), and `src/modules/ui/settings/` consumes theme callbacks through app-composed ports
 - `src/modules/ui/common/` owns cross-surface UI presentation helpers such as `appShellContainerIds`, `channelDisplay`, and the pure `formatTimecode` helper shared by overlay owners
-- `src/modules/ui/common/appShellContainerIds.ts` is the shared owner for app-shell-owned container IDs created by `src/core/app-shell/chrome/AppContainerFactory.ts` and consumed by app-shell/runtime wiring, including the bounded `runtime-chrome-host`; feature-owned mount container IDs such as EPG, player OSD, mini guide, channel badge, channel transition, and exit confirm remain with their feature modules even though `AppContainerFactory` may canonicalize their materialized DOM nodes at document scope
+- `src/modules/ui/common/appShellContainerIds.ts` is the shared owner for app-shell-owned container IDs created by `src/core/app-shell/chrome/AppContainerFactory.ts` and consumed by app-shell/runtime wiring, including the bounded `runtime-chrome-host`; feature-owned mount container IDs such as EPG, player OSD, mini guide, channel badge, and channel transition remain with their feature modules even though `AppContainerFactory` may canonicalize their materialized DOM nodes at document scope
 - `src/modules/ui/epg/coordinator/EPGCoordinator.ts` owns EPG runtime policy entrypoints (open/close/toggle/guide-setting handling and schedule-policy orchestration), while `src/Orchestrator.ts` remains a delegation surface that wires this owner
 - `src/modules/ui/epg/constants.ts` owns canonical EPG default config values, including row height; cross-module callers consume fresh default config objects through the EPG package seam, and app-shell config assembly does not own an independent EPG row-height override
 - `src/modules/ui/epg/startup/EPGStartupConfigRuntime.ts` owns EPG startup-config shaping consumed through the EPG package seam by `InitializationCoordinator`
@@ -416,14 +429,14 @@ after this extraction.
 - `src/modules/ui/epg/coordinator/EPGCoordinatorPolicies.ts` keeps library-filter normalization pure, while `EPGCoordinator` and `EPGRefreshController` own explicit persisted-selection cleanup writes through the scoped selected-library filter API on `EpgPreferencesStore`
 - `EPGRetainedOperationContext` carries opaque selected-server transaction authority through EPG channel priming and schedule refresh. `EPGChannelPrimePublisher` owns the ordered, currentness-gated prime publication; visible-range requests coalesce only within one authority; and detached background refresh retains that authority through queue settlement so superseded work cannot publish UI, diagnostics, cache, loaded-marker, focus, or result suffixes. EPG channel ranges use the canonical half-open `[channelStart, channelEndExclusive)` contract from component/grid producers through emitter, refresh queue, coordinator, and schedule runtime; external abort listeners may invalidate schedule work only while their originating refresh session still owns the active token.
 - `src/modules/ui/epg/` keeps one package root seam at `src/modules/ui/epg/index.ts`; view and runtime subfolder barrels were removed, so package-local consumers import view/runtime leaf owners directly. `src/modules/ui/epg/view/EPGVirtualizer.ts` remains the current virtualized-grid owner, runtime/focus-imported grid/navigation leaves stay at the view root, and approved owner folders live under `src/modules/ui/epg/view/cells/`, `src/modules/ui/epg/view/info-panel/`, and `src/modules/ui/epg/view/shell/`. `src/modules/ui/epg/view/EPGEpisodeTitlePresentation.ts` owns shared episode show/title display policy for EPG view callers. `src/modules/ui/epg/view/cells/EPGCellRenderer.ts` owns cell DOM rendering and secondary-text clear/apply state, `src/modules/ui/epg/view/cells/EPGCellPresentation.ts` stays pure cell presentation policy, and the EPG package split continues to stage leaf owners under `src/modules/ui/epg/component/`, `src/modules/ui/epg/coordinator/`, `src/modules/ui/epg/startup/`, `src/modules/ui/epg/debug/`, `src/modules/ui/epg/view/`, `src/modules/ui/epg/runtime/`, and `src/modules/ui/epg/model/`
-- overlay package roots (`now-playing-info`, `player-osd`, `mini-guide`, `channel-transition`, `playback-options`, `exit-confirm`) are the intended cross-module seams for coordinator/value imports used by core/app-shell wiring
+- overlay package roots (`player-osd`, `mini-guide`, `channel-transition`) and the retained `playback-options` track policy are the intended cross-module seams used by core/app-shell wiring
 - `src/core/app-shell/chrome/AppContainerFactory.ts` materializes a bounded `runtime-chrome-host` under `#app`, canonicalizes app-shell-owned containers plus app-materialized feature mount nodes at document scope, and reparents exactly `player-osd`, `channel-number-overlay`, `channel-badge`, `mini-guide`, and `channel-transition` into that host; the host owns shell-plane structure only, while feature packages keep their DOM markup, visibility, and local z-index ownership
 - `src/modules/ui/channel-setup/ChannelSetupSessionController.ts` is now a UI-facing composition wrapper over `ChannelSetupSessionState` (session state/config serialization/record hydration) and `ChannelSetupSessionRuntime` (workflow I/O, abort/timer lifecycle)
 - `src/modules/ui/channel-setup/ChannelSetupSessionRuntime.ts` owns string-only UI runtime error summaries for load, preview/review, build, blocked, and bookkeeping outcomes; durable channel replacement remains authoritative across stale UI sessions, while post-commit guide aborts are represented as committed-with-guide-interrupted outcomes; typed planning/build failure details stay in core contracts/logs rather than `ChannelSetupScreen`
 - `src/modules/ui/channel-setup/ChannelSetupScreen.ts` is the screen shell and step-router owner; package-local collaborators own focused wizard behavior: `strategyConstants.ts` owns shared strategy and Step 2 control constants, `stepContracts.ts` owns render/dropdown contracts shared by the parent and step presenters, `steps/LibraryStepPresenter.ts` owns Step 1 library render adapters, SVG/DOM-id/count formatting, bulk focus-neighbor policy, selective toggle refresh, and session mutation callbacks; `ChannelSetupWorkflowPresenter.ts` owns Step 2 workflow/presenter glue, preset stepping, dropdown handoff, and build presenter wiring; `steps/StrategyStepControlDescriptors.ts` owns the Step 2 adjustable-control descriptor source consumed by rendering and interaction; `ChannelSetupDropdownController.ts` owns dropdown lifecycle, `ChannelSetupBuildStepPresenter.ts` owns build review/progress/success presentation, session/runtime ownership stays in `ChannelSetupSessionController` / `ChannelSetupSessionRuntime`, focus ownership stays in `focus/ChannelSetupFocusCoordinator.ts`, and DOM rendering remains in the step controllers.
 - `src/modules/ui/server-select/ServerSelectScreen.ts` is the public screen/DOM adapter for server select. Runtime workflow, discovery/select/clear/reconnect, visibility generation, and idle ownership live in `ServerSelectRuntimeCoordinator.ts`; focus registration/restore lives in `ServerSelectFocusCoordinator.ts`; status and server-display policy live in `ServerSelectStatusPolicy.ts`; `ServerSelectListView.ts` remains DOM-list rendering only.
 - `src/modules/ui/server-select/types.ts` owns shared server-select display state shapes consumed by both the screen and list view; list rendering must not import screen-owned state types.
-- `src/modules/debug/NowPlayingDebugManager.ts` owns the minimal debug overlay presence port it needs; orchestrator builders adapt the full now-playing-info overlay at the boundary.
+- `src/modules/debug/NowPlayingDebugManager.ts` builds stream debug text and refreshes the expanded Player details through a narrow Player coordinator port.
 - visual rules are governed by [`docs/design/ui-design-language.md`](../design/ui-design-language.md)
 
 ### Shared Runtime Contracts

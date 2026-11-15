@@ -1,13 +1,9 @@
-/*
- * Top-edge shelf: flush top/left/right, bottom-rounded, gradient scrim.
- * Design: docs/design/ui-design-language.md
- */
 .mini-guide {
   --mini-guide-layer: 780;
   position: absolute;
   top: 0;
-  left: 0;
   right: 0;
+  left: 0;
   z-index: var(--mini-guide-layer);
   pointer-events: none;
   opacity: 0;
@@ -23,210 +19,181 @@
 
 .mini-guide-panel {
   --mini-guide-scrim-fallback-rgb: 0, 0, 0;
-  --mini-guide-stop-1: 50%;
-  --mini-guide-stop-2: 40%;
-  --mini-guide-stop-3: 18%;
-  --mini-guide-border-alpha: 8%;
-  --mini-guide-space-6: 6px;
-  background: linear-gradient(
-    to bottom,
-    rgba(var(--mini-guide-scrim-fallback-rgb), 0.50) 0%,
-    rgba(var(--mini-guide-scrim-fallback-rgb), 0.40) 50%,
-    rgba(var(--mini-guide-scrim-fallback-rgb), 0.18) 80%,
-    transparent 100%
-  );
-  background: linear-gradient(
-    to bottom,
+  --mini-guide-stop-1: 88%;
+  --mini-guide-stop-2: 66%;
+  --mini-guide-stop-3: 0%;
+  background: linear-gradient(to bottom,
+    rgba(var(--mini-guide-scrim-fallback-rgb), .88) 0%,
+    rgba(var(--mini-guide-scrim-fallback-rgb), .66) 72%,
+    transparent 100%);
+  background: linear-gradient(to bottom,
     rgb(var(--scrim-tint-rgb) / var(--mini-guide-stop-1)) 0%,
-    rgb(var(--scrim-tint-rgb) / var(--mini-guide-stop-2)) 50%,
-    rgb(var(--scrim-tint-rgb) / var(--mini-guide-stop-3)) 80%,
-    transparent 100%
-  );
-  border: none;
-  border-bottom: 1px solid rgba(255, 255, 255, var(--mini-guide-border-alpha));
-  border-radius: 0 0 var(--panel-radius, 16px) var(--panel-radius, 16px);
-  overflow: hidden;
-  box-shadow: none;
+    rgb(var(--scrim-tint-rgb) / var(--mini-guide-stop-2)) 72%,
+    rgb(var(--scrim-tint-rgb) / var(--mini-guide-stop-3)) 100%);
+  padding: 24px 48px 30px;
+  color: var(--color-text-primary);
 }
 
-.mini-guide-row {
+.mini-guide-header {
   display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-3) var(--space-6);
-  color: var(--color-text-primary);
+  align-items: baseline;
+  min-height: 48px;
 }
+.mini-guide-header > * + * { margin-left: 20px; }
 
-.mini-guide-row.focused {
-  background: rgba(255, 255, 255, 0.10);
-  border-left: 3px solid var(--focus-color);
-}
-
-.mini-guide-row:not(.focused) {
-  border-left: 3px solid transparent;
-}
-
-.mini-guide-row.loading .mini-guide-now,
-.mini-guide-row.loading .mini-guide-next {
-  position: relative;
-  color: transparent;
-}
-
-.mini-guide-row.loading .mini-guide-now::before,
-.mini-guide-row.loading .mini-guide-next::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: var(--space-1);
-  height: 14px;
-  border-radius: 4px;
-  background: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0.08) 0%,
-    rgba(255, 255, 255, 0.16) 50%,
-    rgba(255, 255, 255, 0.08) 100%
-  );
-  animation: mini-guide-loading-shimmer 1.2s ease-in-out infinite;
-}
-
-.mini-guide-row.loading .mini-guide-now::before {
-  right: 0;
-}
-
-.mini-guide-row.loading .mini-guide-next::before {
-  width: 70%;
-}
-
-.mini-guide-row.loading .mini-guide-progress-fill {
-  width: 0%;
-}
-
-.mini-guide-channel-num {
-  flex: 0 0 clamp(40px, 3.5vw, 73px);
-  font-size: var(--text-base);
-  font-weight: 700;
-  color: var(--color-text-primary);
-  min-width: 0;
-}
-
-.mini-guide-branding-icon-slot {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.mini-guide-channel-name {
-  flex: 0 0 clamp(154px, 14vw, 286px);
-  font-size: var(--text-md);
+.mini-guide-title {
+  font-size: var(--text-xl);
   font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+.mini-guide-clock,
+.mini-guide-labels,
+.mini-guide-time,
+.mini-guide-next,
+.mini-guide-footer-hint,
+.mini-guide-watching {
   color: var(--color-text-secondary);
 }
 
-.mini-guide-row .channel-branding-icon {
-  flex: 0 0 auto;
-  opacity: 0.7;
-  margin-right: var(--mini-guide-space-6);
+.mini-guide-full-guide { margin-left: auto; }
+.mini-guide-full-guide,
+.mini-guide-close {
+  border: 0;
+  background: transparent;
+  color: var(--color-text-primary);
+  font: inherit;
+  padding: 6px 8px;
+  cursor: pointer;
+}
+
+.mini-guide-full-guide:focus,
+.mini-guide-close:focus {
+  outline: var(--focus-ring-width) solid var(--focus-border-color);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.mini-guide-labels,
+.mini-guide-row {
+  display: grid;
+  grid-template-columns: minmax(240px, 23%) minmax(0, 42fr) minmax(0, 35fr);
+  align-items: center;
+  column-gap: 18px;
+}
+
+.mini-guide-labels {
+  font-size: var(--text-sm);
+  padding: 4px 18px 10px;
+  border-left: 3px solid transparent;
+}
+
+.mini-guide-row {
+  min-height: 72px;
+  padding: 8px 18px;
+  border-left: 3px solid transparent;
+  border-bottom: 1px solid rgba(var(--scrim-tint-rgb-legacy), .18);
+  border-bottom: 1px solid rgb(var(--scrim-tint-rgb) / 18%);
+  cursor: pointer;
+}
+
+.mini-guide-row[hidden],
+.mini-guide-empty[hidden],
+.mini-guide-watching[hidden] { display: none; }
+
+.mini-guide-row.focused {
+  border-left-color: var(--focus-color);
+  background: rgba(var(--focus-color-rgb), .18);
+  outline: var(--focus-ring-width) solid var(--focus-border-color);
+  outline-offset: calc(-1 * var(--focus-ring-offset));
+}
+
+.mini-guide-row.watching:not(.focused) {
+  background: rgba(var(--scrim-tint-rgb-legacy), .16);
+  background: rgb(var(--scrim-tint-rgb) / 16%);
+}
+
+.mini-guide-channel-cell {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.mini-guide-channel-cell > * + * { margin-left: 12px; }
+
+.mini-guide-channel-num {
+  flex: 0 0 36px;
+  font-weight: 700;
+}
+.mini-guide-branding-icon-slot { flex: 0 0 auto; }
+.mini-guide-branding-icon-slot .channel-branding-icon {
   width: 18px;
   height: 18px;
 }
-
-.mini-guide-now {
-  flex: 1 1 auto;
-  min-width: clamp(140px, 20vw, 300px);
-  font-size: var(--text-base);
-  font-weight: 600;
+.mini-guide-channel-name,
+.mini-guide-program-cell { min-width: 0; }
+.mini-guide-channel-name,
+.mini-guide-now,
+.mini-guide-next {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.mini-guide-start-time {
-  color: var(--color-text-muted);
-  font-size: var(--text-xs, 14px);
-  margin-right: var(--space-2);
-  white-space: nowrap;
-  flex-shrink: 0;
+.mini-guide-watching {
+  display: block;
+  font-size: var(--text-xs);
 }
-
+.mini-guide-now { font-weight: 600; }
+.mini-guide-time {
+  font-size: var(--text-sm);
+  margin-top: 2px;
+}
 .mini-guide-progress {
-  flex: 0 0 clamp(112px, 10vw, 208px);
   height: var(--progress-height);
+  margin-top: 4px;
   background: var(--progress-track);
-  border-radius: var(--progress-radius);
   overflow: hidden;
 }
-
 .mini-guide-progress-fill {
   height: 100%;
-  width: 0%;
   background: var(--progress-fill);
 }
-
-.mini-guide-next {
-  flex: 0 0 clamp(182px, 18vw, 338px);
-  font-size: var(--text-md);
-  color: var(--color-text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .mini-guide-footer-hint {
-  padding: var(--space-3) var(--space-6);
-  font-size: var(--text-md);
-  color: var(--color-text-muted);
+  padding-top: 12px;
+  font-size: var(--text-sm);
 }
+.mini-guide-empty {
+  min-height: 120px;
+  padding: 32px 18px;
+}
+.mini-guide-row.loading .mini-guide-now,
+.mini-guide-row.loading .mini-guide-next { opacity: .6; }
 
 @media (forced-colors: active) {
   .mini-guide-panel {
     background: Canvas;
-    border-bottom-color: CanvasText;
-  }
-
-  .mini-guide-row {
     color: CanvasText;
   }
-
-  .mini-guide-row:not(.focused) {
-    border-left-color: CanvasText;
-  }
-
+  .mini-guide-row { border-bottom-color: CanvasText; }
   .mini-guide-row.focused {
     background: Highlight;
+    color: HighlightText;
     border-left-color: Highlight;
     outline: 2px solid Highlight;
-    outline-offset: -2px;
   }
-
   .mini-guide-row.focused .mini-guide-channel-num,
   .mini-guide-row.focused .mini-guide-channel-name,
-  .mini-guide-row.focused .mini-guide-now,
+  .mini-guide-row.focused .mini-guide-time,
   .mini-guide-row.focused .mini-guide-next,
-  .mini-guide-row.focused .mini-guide-start-time {
-    color: HighlightText;
-  }
-
+  .mini-guide-row.focused .mini-guide-watching { color: HighlightText; }
+  .mini-guide-footer-hint { color: CanvasText; }
   .mini-guide-progress {
-    background: CanvasText;
-  }
-
-  .mini-guide-row.focused .mini-guide-progress {
-    background: HighlightText;
-  }
-
-  .mini-guide-progress-fill {
-    background: Highlight;
-  }
-
-  .mini-guide-row.focused .mini-guide-progress-fill {
+    border: 1px solid CanvasText;
     background: Canvas;
   }
-
-  .mini-guide-footer-hint {
-    color: CanvasText;
+  .mini-guide-progress-fill { background: Highlight; }
+  .mini-guide-row.focused .mini-guide-progress {
+    background: HighlightText;
+    border-color: HighlightText;
   }
+  .mini-guide-row.focused .mini-guide-progress-fill { background: Canvas; }
+  .mini-guide-full-guide, .mini-guide-close { color: CanvasText; }
 }

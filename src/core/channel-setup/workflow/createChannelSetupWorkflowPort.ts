@@ -2,7 +2,7 @@ import type {
     ChannelSetupWorkflowPort,
 } from './ChannelSetupWorkflowPort';
 import { ChannelSetupWorkflowUnavailableError } from './ChannelSetupWorkflowPort';
-import type { ChannelSetupContext } from '../types';
+import type { ChannelSetupCompletionResult, ChannelSetupConfig, ChannelSetupContext } from '../types';
 import type { ChannelSetupRecordStore } from '../persistence/ChannelSetupRecordStore';
 import type { ChannelSetupBuildExecutor } from '../build/ChannelSetupBuildExecutor';
 import type { ChannelSetupPlanningService } from '../planning/ChannelSetupPlanningService';
@@ -17,13 +17,16 @@ export interface ChannelSetupWorkflowPortOwners {
         | 'invalidateFacetSnapshot'
         | 'invalidateSessionData'
         | 'getLibrariesForSetup'
+        | 'scanSetupInventory'
+        | 'retrySetupInventory'
         | 'getSetupPreview'
-        | 'getSetupReview'
         | 'getSetupPlanDiagnostics'
     >;
-    buildExecutor: Pick<ChannelSetupBuildExecutor, 'createChannelsFromSetup'>;
+    buildExecutor: Pick<ChannelSetupBuildExecutor,
+        'prepareSetupReview' | 'applySetupReview' | 'cancelPreparedReview'>;
     recordStore: Pick<ChannelSetupRecordStore, 'getRecord'>;
-    completionTracker: Pick<ChannelSetupRecordStore, 'markSetupComplete'>;
+    completionTracker: { markSetupComplete(serverId: string, setupConfig: ChannelSetupConfig,
+        expectedScopeKey: string): ChannelSetupCompletionResult };
     getSelectedServerId: () => string | null;
     getExistingChannelCount: () => number;
 }
@@ -44,6 +47,9 @@ export const createChannelSetupWorkflowPort = (
         invalidateSessionData: (): void => requireOwners().planningService.invalidateSessionData(),
         getLibrariesForSetup: async (signal?: AbortSignal | null) =>
             requireOwners().planningService.getLibrariesForSetup(signal ?? null),
+        scanSetupInventory: async (config, options) =>
+            requireOwners().planningService.scanSetupInventory(config, options),
+        retrySetupInventory: (libraryId) => requireOwners().planningService.retrySetupInventory(libraryId),
         getChannelSetupRecord: (serverId: string) => requireOwners().recordStore.getRecord(serverId),
         getSetupContextForSelectedServer: (): ChannelSetupContext => {
             const owners = requireOwners();
@@ -54,12 +60,13 @@ export const createChannelSetupWorkflowPort = (
             return owners.getExistingChannelCount() === 0 ? 'first-time' : 'existing';
         },
         getSetupPreview: async (config, options) => requireOwners().planningService.getSetupPreview(config, options),
-        getSetupReview: async (config, options) => requireOwners().planningService.getSetupReview(config, options),
+        getSetupReview: async (config, options) => requireOwners().buildExecutor.prepareSetupReview(config, options),
+        applySetupReview: async (reviewId, config, consent, options) =>
+            requireOwners().buildExecutor.applySetupReview(reviewId, config, consent, options),
+        cancelPreparedReview: () => requireOwners().buildExecutor.cancelPreparedReview(),
         getSetupPlanDiagnostics: async (config, options) =>
             requireOwners().planningService.getSetupPlanDiagnostics(config, options),
-        createChannelsFromSetup: async (config, options) =>
-            requireOwners().buildExecutor.createChannelsFromSetup(config, options),
-        markSetupComplete: (serverId, setupConfig) =>
-            requireOwners().completionTracker.markSetupComplete(serverId, setupConfig),
+        markSetupComplete: (serverId, setupConfig, expectedScopeKey) =>
+            requireOwners().completionTracker.markSetupComplete(serverId, setupConfig, expectedScopeKey),
     };
 };

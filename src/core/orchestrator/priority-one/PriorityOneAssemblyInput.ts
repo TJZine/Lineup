@@ -16,5 +16,4 @@ export interface PriorityOneAssemblyInput {
     playerEvents: PriorityOnePlayerEventPort;
     uiRuntime: PriorityOneUiRuntimePort;
     events: PriorityOneEventRuntimePort;
-    nowPlayingModalId: string;
 }

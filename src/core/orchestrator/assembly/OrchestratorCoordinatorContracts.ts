@@ -23,15 +23,14 @@ import type {
 import type {
     IChannelScheduler,
     ScheduleConfig,
+    ScheduledProgramIdentity,
 } from '../../../modules/scheduler/scheduler';
 import type {
     IVideoPlayer,
+    StreamDescriptor,
 } from '../../../modules/player';
 import type { IEPGComponent } from '../../../modules/ui/epg/interfaces';
 import type { IEPGDebugRuntime } from '../../../modules/ui/epg/debug/EPGDebugRuntime';
-import type {
-    INowPlayingInfoOverlay,
-} from '../../../modules/ui/now-playing-info';
 import type {
     IPlayerOsdOverlay,
 } from '../../../modules/ui/player-osd';
@@ -41,13 +40,6 @@ import type {
 import type {
     IChannelTransitionOverlay,
 } from '../../../modules/ui/channel-transition';
-import type {
-    IPlaybackOptionsModal,
-} from '../../../modules/ui/playback-options';
-import type {
-    ExitConfirmCoordinator,
-    ExitConfirmModal,
-} from '../../../modules/ui/exit-confirm';
 import type { SleepTimerManager } from '../../../modules/ui/sleep-timer';
 import type { ChannelSwitchOutcome } from '../../../types/channelSwitch';
 import type { GuideSelectionSnapshot } from '../../channel-tuning';
@@ -69,7 +61,6 @@ import type {
 import type { ChannelSetupCoordinator } from '../../channel-setup/ChannelSetupCoordinator';
 import type { ChannelSetupWorkflowPortOwners } from '../../channel-setup/workflow/createChannelSetupWorkflowPort';
 import type { EPGCoordinator } from '../../../modules/ui/epg/coordinator/EPGCoordinator';
-import type { NowPlayingInfoCoordinator } from '../../../modules/ui/now-playing-info';
 import type { PlayerOsdCoordinator } from '../../../modules/ui/player-osd';
 import type { MiniGuideCoordinator } from '../../../modules/ui/mini-guide';
 import type { ChannelTransitionCoordinator } from '../../../modules/ui/channel-transition';
@@ -101,13 +92,10 @@ export interface OrchestratorCoordinatorAssemblyInput {
         epg: IEPGComponent;
     };
     overlays: {
-        nowPlayingInfo: INowPlayingInfoOverlay;
         playerOsd: IPlayerOsdOverlay;
         channelNumberOverlay: ChannelNumberOverlayRuntimePort;
         miniGuide: IMiniGuideOverlay;
         channelTransitionOverlay: IChannelTransitionOverlay;
-        playbackOptionsModal: IPlaybackOptionsModal;
-        exitConfirmModal: ExitConfirmModal;
         sleepTimer: SleepTimerManager;
     };
     stores: {
@@ -127,6 +115,16 @@ export interface OrchestratorCoordinatorAssemblyInput {
         getPlaybackInfoSnapshot: () => import('../../../utils/playbackSummary').PlaybackInfoSnapshotLike | null;
         refreshPlaybackInfoSnapshot: () => Promise<import('../../../utils/playbackSummary').PlaybackInfoSnapshotLike>;
         stopPlayback: () => void;
+        setPlaybackIntent: (intent: 'playing' | 'paused' | 'stopped') => boolean;
+        setPlaybackRouteBlocking: (blocked: boolean) => void;
+        capturePlaybackAdmission: () => number | null;
+        isPlaybackAdmissionCurrent: (generation: number) => boolean;
+        canActivateRetainedSession: () => boolean;
+        getWatchingChannelId: () => string | null;
+        captureRecoveryAdmission: () => number | null;
+        isRecoveryAdmissionCurrent: (generation: number) => boolean;
+        canPlayForRecovery: (generation: number) => boolean;
+        acceptCommittedSession: (descriptor: StreamDescriptor) => void;
         stopActiveTranscodeSession: () => void;
         getMimeType: (decision: StreamDecision) => string;
         buildPlexResourceUrl: (pathOrUrl: string) => string | null;
@@ -148,11 +146,17 @@ export interface OrchestratorCoordinatorAssemblyInput {
     actions: {
         switchToChannel: (
             channelId: string,
-            options?: { guideSelectionSnapshot?: GuideSelectionSnapshot }
+            options?: { guideSelectionSnapshot?: GuideSelectionSnapshot;
+                fromGuideSelection?: boolean;
+                selectedProgram?: ScheduledProgramIdentity;
+                signal?: AbortSignal }
         ) => Promise<void>;
         switchToChannelWithOutcome: (
             channelId: string,
-            options?: { guideSelectionSnapshot?: GuideSelectionSnapshot }
+            options?: { guideSelectionSnapshot?: GuideSelectionSnapshot;
+                fromGuideSelection?: boolean;
+                selectedProgram?: ScheduledProgramIdentity;
+                signal?: AbortSignal }
         ) => Promise<ChannelSwitchOutcome>;
         switchToNextChannel: () => void;
         switchToPreviousChannel: () => void;
@@ -160,7 +164,6 @@ export interface OrchestratorCoordinatorAssemblyInput {
         toggleEPG: () => void;
         onOverlayVisibilityChange: (visible: boolean) => void;
         onChannelTransitionActivityChange: (active: boolean) => void;
-        toggleNowPlayingInfoOverlay: () => void;
     };
     errors: {
         handleGlobalError: (error: AppError, context: string) => void;
@@ -232,6 +235,10 @@ export interface OrchestratorPlaybackRecoveryBuilderInput {
         | 'state'
         | 'buildPlexResourceUrl'
         | 'getMimeType'
+        | 'captureRecoveryAdmission'
+        | 'isRecoveryAdmissionCurrent'
+        | 'canPlayForRecovery'
+        | 'acceptCommittedSession'
     >;
     errors: OrchestratorCoordinatorAssemblyInput['errors'];
     nowPlaying: OrchestratorCoordinatorAssemblyInput['nowPlaying'];
@@ -240,7 +247,7 @@ export interface OrchestratorPlaybackRecoveryBuilderInput {
 export interface OrchestratorChannelTuningBuilderInput {
     modules: Pick<CoordinatorModules, 'channelManager' | 'scheduler' | 'videoPlayer' | 'lifecycle'>;
     diagnostics: Pick<OrchestratorCoordinatorAssemblyInput['diagnostics'], 'appendIssueDiagnostic'>;
-    playback: Pick<CoordinatorPlayback, 'state' | 'stopActiveTranscodeSession'>;
+    playback: Pick<CoordinatorPlayback, 'state' | 'stopActiveTranscodeSession' | 'capturePlaybackAdmission' | 'isPlaybackAdmissionCurrent' | 'canActivateRetainedSession'>;
     schedule: Pick<
         CoordinatorSchedule,
         'buildDailyScheduleConfig' | 'getLocalDayKey' | 'setActiveScheduleDayKey'
@@ -256,7 +263,7 @@ export interface OrchestratorNavigationCoordinatorBuilderInput {
     >;
     overlays: Pick<
         OrchestratorCoordinatorAssemblyInput['overlays'],
-        'playerOsd' | 'miniGuide' | 'nowPlayingInfo' | 'channelNumberOverlay'
+        'playerOsd' | 'miniGuide' | 'channelNumberOverlay'
     >;
     stores: Pick<
         OrchestratorCoordinatorAssemblyInput['stores'],
@@ -266,7 +273,7 @@ export interface OrchestratorNavigationCoordinatorBuilderInput {
         reportRecoverableAsyncFailure: NavigationAsyncFailureReporter;
         appendIssueDiagnostic: AppendIssueDiagnostic;
     };
-    playback: Pick<OrchestratorCoordinatorAssemblyInput['playback'], 'stopPlayback'>;
+    playback: Pick<OrchestratorCoordinatorAssemblyInput['playback'], 'stopPlayback' | 'setPlaybackIntent' | 'setPlaybackRouteBlocking'>;
     schedule: Pick<OrchestratorCoordinatorAssemblyInput['schedule'], 'setLastChannelChangeSource'>;
     actions: Pick<
         OrchestratorCoordinatorAssemblyInput['actions'],
@@ -274,48 +281,33 @@ export interface OrchestratorNavigationCoordinatorBuilderInput {
         | 'switchToPreviousChannel'
         | 'switchToChannelByNumberWithOutcome'
         | 'toggleEPG'
-        | 'toggleNowPlayingInfoOverlay'
     >;
     nowPlaying: OrchestratorCoordinatorAssemblyInput['nowPlaying'];
 }
 
 export interface OrchestratorNowPlayingDebugManagerBuilderInput {
     modules: Pick<CoordinatorModules, 'navigation' | 'plexStreamResolver' | 'scheduler'>;
-    overlays: Pick<CoordinatorOverlays, 'nowPlayingInfo'>;
     stores: Pick<CoordinatorStores, 'debugOverridesStore'>;
     playback: Pick<CoordinatorPlayback, 'state'>;
 }
 
-export interface OrchestratorNowPlayingInfoCoordinatorBuilderInput {
-    config: OrchestratorCoordinatorAssemblyInput['config'];
-    modules: Pick<CoordinatorModules, 'navigation' | 'scheduler' | 'plexLibrary'>;
-    overlays: Pick<CoordinatorOverlays, 'nowPlayingInfo'>;
-    stores: Pick<CoordinatorStores, 'nowPlayingDisplayStore'>;
-    playback: Pick<
-        CoordinatorPlayback,
-        | 'state'
-        | 'buildPlexResourceUrl'
-        | 'getPlaybackInfoSnapshot'
-        | 'refreshPlaybackInfoSnapshot'
-    >;
-    actions: Pick<CoordinatorActions, 'onOverlayVisibilityChange'>;
-}
-
 export interface OrchestratorPlayerOsdCoordinatorBuilderInput {
     config: OrchestratorCoordinatorAssemblyInput['config'];
-    modules: Pick<CoordinatorModules, 'navigation' | 'scheduler' | 'channelManager' | 'videoPlayer'>;
-    overlays: Pick<CoordinatorOverlays, 'playerOsd' | 'sleepTimer'>;
+    modules: Pick<CoordinatorModules, 'navigation' | 'scheduler' | 'channelManager' | 'videoPlayer' | 'plexLibrary'>;
+    overlays: Pick<CoordinatorOverlays, 'playerOsd' | 'miniGuide' | 'sleepTimer'>;
     stores: Pick<CoordinatorStores, 'nowPlayingDisplayStore'>;
-    playback: Pick<CoordinatorPlayback, 'state' | 'buildPlexResourceUrl'>;
-    actions: Pick<CoordinatorActions, 'onOverlayVisibilityChange'>;
+    playback: Pick<CoordinatorPlayback, 'state' | 'buildPlexResourceUrl' | 'setPlaybackIntent' | 'getPlaybackInfoSnapshot'>;
+    schedule: Pick<CoordinatorSchedule, 'getActiveUserId' | 'getSelectedServerId'>;
+    actions: Pick<CoordinatorActions, 'onOverlayVisibilityChange' | 'toggleEPG' | 'switchToChannel'>;
 }
 
 export interface OrchestratorMiniGuideCoordinatorBuilderInput {
     config: OrchestratorCoordinatorAssemblyInput['config'];
     modules: Pick<CoordinatorModules, 'channelManager' | 'scheduler'>;
+    playback: Pick<CoordinatorPlayback, 'getWatchingChannelId'>;
     overlays: Pick<CoordinatorOverlays, 'miniGuide'>;
     schedule: Pick<CoordinatorSchedule, 'buildDailyScheduleConfig'>;
-    actions: Pick<CoordinatorActions, 'switchToChannel'>;
+    actions: Pick<CoordinatorActions, 'switchToChannel' | 'toggleEPG'>;
     nowPlaying: OrchestratorCoordinatorAssemblyInput['nowPlaying'];
 }
 
@@ -326,15 +318,11 @@ export interface OrchestratorChannelTransitionCoordinatorBuilderInput {
 }
 
 export interface OrchestratorPlaybackOptionsCoordinatorBuilderInput {
-    modules: Pick<CoordinatorModules, 'navigation' | 'videoPlayer'>;
-    overlays: Pick<CoordinatorOverlays, 'playbackOptionsModal'>;
+    modules: Pick<CoordinatorModules, 'videoPlayer' | 'scheduler' | 'channelManager'>;
     stores: Pick<CoordinatorStores, 'subtitlePreferencesStore'>;
+    playback: Pick<CoordinatorPlayback, 'state'>;
+    schedule: Pick<CoordinatorSchedule, 'getActiveUserId' | 'getSelectedServerId'>;
     nowPlaying: OrchestratorCoordinatorAssemblyInput['nowPlaying'];
-}
-
-export interface OrchestratorExitConfirmCoordinatorBuilderInput {
-    modules: Pick<CoordinatorModules, 'navigation'>;
-    overlays: Pick<CoordinatorOverlays, 'exitConfirmModal'>;
 }
 
 export interface OrchestratorCoordinators {
@@ -342,12 +330,10 @@ export interface OrchestratorCoordinators {
     channelSetup: ChannelSetupCoordinator;
     channelSetupPortOwners: ChannelSetupWorkflowPortOwners;
     nowPlayingDebugManager: NowPlayingDebugManager;
-    nowPlayingInfoCoordinator: NowPlayingInfoCoordinator;
     playerOsdCoordinator: PlayerOsdCoordinator;
     miniGuideCoordinator: MiniGuideCoordinator;
     channelTransitionCoordinator: ChannelTransitionCoordinator;
     playbackOptionsCoordinator: PlaybackOptionsCoordinator;
-    exitConfirmCoordinator: ExitConfirmCoordinator;
     playbackRecovery: PlaybackRecoveryManager;
     channelTuning: ChannelTuningCoordinator;
     navigationCoordinator: NavigationCoordinator;

@@ -1,5 +1,4 @@
 import { CHANNEL_BADGE_CONTAINER_ID } from '../../../modules/ui/channel-badge/constants';
-import { EXIT_CONFIRM_CONTAINER_ID } from '../../../modules/ui/exit-confirm/constants';
 import { EPG_CONTAINER_ID } from '../../../modules/ui/epg/constants';
 import { PLAYER_OSD_CONTAINER_ID } from '../../../modules/ui/player-osd/constants';
 import { CHANNEL_NUMBER_OVERLAY_CONTAINER_ID } from '../../../modules/ui/channel-number-overlay/constants';
@@ -13,6 +12,8 @@ export interface AppContainerRefs {
     profileSelectContainer: HTMLElement;
     serverSelectContainer: HTMLElement;
     channelSetupContainer: HTMLElement;
+    channelDirectoryContainer: HTMLElement;
+    channelStudioContainer: HTMLElement;
     audioSetupContainer: HTMLElement;
     settingsContainer: HTMLElement;
     errorOverlay: HTMLElement;
@@ -150,12 +151,6 @@ export function createAppContainers(root: HTMLElement): AppContainerRefs {
     const epgContainer = ensureCanonicalContainerDiv(root, EPG_CONTAINER_ID);
     epgContainer.className = 'epg-container';
 
-    const nowPlayingInfoContainer = ensureCanonicalContainerDiv(root, APP_SHELL_CONTAINER_IDS.NOW_PLAYING_INFO);
-
-    const playbackOptionsContainer = ensureCanonicalContainerDiv(root, APP_SHELL_CONTAINER_IDS.PLAYBACK_OPTIONS);
-
-    const exitConfirmContainer = ensureCanonicalContainerDiv(root, EXIT_CONFIRM_CONTAINER_ID);
-
     const splashContainer = ensureCanonicalContainerDiv(root, APP_SHELL_CONTAINER_IDS.SPLASH);
     splashContainer.className = 'screen';
 
@@ -170,6 +165,12 @@ export function createAppContainers(root: HTMLElement): AppContainerRefs {
 
     const channelSetupContainer = ensureCanonicalContainerDiv(root, APP_SHELL_CONTAINER_IDS.CHANNEL_SETUP);
     channelSetupContainer.className = 'screen';
+
+    const channelDirectoryContainer = ensureCanonicalContainerDiv(root, APP_SHELL_CONTAINER_IDS.CHANNEL_DIRECTORY);
+    channelDirectoryContainer.className = 'screen';
+
+    const channelStudioContainer = ensureCanonicalContainerDiv(root, APP_SHELL_CONTAINER_IDS.CHANNEL_STUDIO);
+    channelStudioContainer.className = 'screen';
 
     const audioSetupContainer = ensureCanonicalContainerDiv(root, APP_SHELL_CONTAINER_IDS.AUDIO_SETUP);
     audioSetupContainer.className = 'screen';
@@ -223,14 +224,13 @@ export function createAppContainers(root: HTMLElement): AppContainerRefs {
         videoContainer,
         runtimeChromeHost,
         epgContainer,
-        nowPlayingInfoContainer,
-        playbackOptionsContainer,
-        exitConfirmContainer,
         splashContainer,
         authContainer,
         profileSelectContainer,
         serverSelectContainer,
         channelSetupContainer,
+        channelDirectoryContainer,
+        channelStudioContainer,
         audioSetupContainer,
         settingsContainer,
         errorOverlay,
@@ -246,6 +246,8 @@ export function createAppContainers(root: HTMLElement): AppContainerRefs {
         profileSelectContainer,
         serverSelectContainer,
         channelSetupContainer,
+        channelDirectoryContainer,
+        channelStudioContainer,
         audioSetupContainer,
         settingsContainer,
         errorOverlay,

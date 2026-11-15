@@ -3,7 +3,22 @@
  */
 
 import { createPlexIdentityMetadata } from '../modules/plex/auth/config';
-import { createPlatformIdentityService } from './webosPlatformServices';
+import { createPlatformIdentityService, requestPlatformBack } from './webosPlatformServices';
+
+describe('requestPlatformBack', () => {
+    afterEach(() => { Reflect.deleteProperty(window, 'webOS'); });
+
+    it('calls the official webOS root Back API exactly once', () => {
+        const platformBack = jest.fn();
+        Object.defineProperty(window, 'webOS', { configurable: true, value: { platformBack } });
+        expect(requestPlatformBack()).toBe(true);
+        expect(platformBack).toHaveBeenCalledTimes(1);
+    });
+
+    it('reports absence without inventing a legacy exit path', () => {
+        expect(requestPlatformBack()).toBe(false);
+    });
+});
 
 describe('createPlatformIdentityService', () => {
     beforeEach(() => {

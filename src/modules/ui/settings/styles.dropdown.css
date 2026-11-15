@@ -91,19 +91,6 @@
   margin-left: var(--settings-space-6);
 }
 
-/* Glass theme dropdown overrides */
-.theme-glass .settings-dropdown {
-  background: var(--glass-panel-strong, rgba(16, 18, 24, 0.66));
-  border: 1px solid var(--glass-border-strong, rgba(255, 255, 255, 0.24));
-  box-shadow: none;
-}
-
-.theme-glass .settings-dropdown-option:hover,
-.theme-glass .settings-dropdown-option:focus,
-.theme-glass .settings-dropdown-option.focused {
-  background: var(--glass-panel-soft-hover, rgba(255, 255, 255, 0.10));
-}
-
 .theme-swiss .settings-dropdown,
 .theme-swiss .settings-dropdown-option {
   border-radius: 0;
@@ -187,4 +174,13 @@
   .settings-dropdown-option.focused {
     outline: 2px solid Highlight;
   }
+}
+
+/* Flex gap fallback for engines that support grid gap but not flex gap. */
+.no-flex-gap .settings-dropdown > :not([hidden]) ~ :not([hidden]) {
+  margin-top: var(--settings-space-2);
+}
+
+.no-flex-gap .settings-dropdown-option > :not([hidden]) ~ :not([hidden]) {
+  margin-left: var(--space-3);
 }

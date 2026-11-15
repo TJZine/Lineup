@@ -12,7 +12,7 @@ export const EPG_CONSTANTS = {
     VISIBLE_HOURS: 2,
     TOTAL_HOURS: 24,
     PIXELS_PER_MINUTE: 4,
-    ROW_HEIGHT: 108,
+    ROW_HEIGHT: 114,
     /** Virtualization row buffer above/below visible */
     ROW_BUFFER: 2,
     /** Virtualization time buffer (minutes) */
@@ -31,8 +31,6 @@ export const EPG_CONSTANTS = {
 export const EPG_CLASSES = {
     CONTAINER: 'epg-container',
     CONTAINER_VISIBLE: 'visible',
-    CONTAINER_PEEK: 'peek',
-    CONTAINER_CLASSIC: 'layout-classic',
     GRID: 'epg-grid',
     CHANNEL_LIST: 'epg-channel-list',
     CHANNEL_ROW: 'epg-channel-row',
@@ -111,14 +109,7 @@ export const EPG_CLASSES = {
     INFO_DESCRIPTION_INNER: 'epg-info-description-inner',
     INFO_QUALITY: 'epg-info-quality',
     INFO_QUALITY_BADGE: 'epg-info-quality-badge',
-    OVERLAY_SHOWCASE: 'epg-overlay-showcase',
-    DASHBOARD_BOTTOM: 'epg-dashboard-bottom',
     CHANNEL_LIST_WRAP_FLASH: 'wrap-flash',
-    NOW_WATCHING_BANNER: 'epg-now-watching-banner',
-    NOW_WATCHING_LIVE: 'epg-now-watching-live',
-    NOW_WATCHING_CHANNEL: 'epg-now-watching-channel',
-    NOW_WATCHING_PROGRAM: 'epg-now-watching-program',
-    NOW_WATCHING_TIME: 'epg-now-watching-time',
 } as const;
 
 /**
@@ -126,8 +117,7 @@ export const EPG_CLASSES = {
  */
 export const EPG_ERRORS = {
     CONTAINER_NOT_FOUND: 'EPG container element not found',
-    DASHBOARD_CONTAINER_NOT_FOUND: 'EPG dashboard container element not found',
-    OVERLAY_SHOWCASE_CONTAINER_NOT_FOUND: 'EPG overlay showcase container element not found',
+    SHOWCASE_INFO_HOST_NOT_FOUND: 'EPG showcase info host element not found',
     NO_CHANNELS_LOADED: 'No channels loaded',
     SCHEDULE_NOT_LOADED: 'Schedule not loaded for channel',
     INVALID_CHANNEL_INDEX: 'Invalid channel index',
@@ -149,7 +139,7 @@ export const DEFAULT_EPG_CONFIG: EPGConfig = {
     maxPixelsPerMinute: 12,
     rowHeight: EPG_CONSTANTS.ROW_HEIGHT,
     autoScrollToNow: true,
-    layoutMode: 'classic',
+    sourceLabelsEnabled: false,
     showNowWatchingBanner: true,
     debugRenderGridLogIntervalMs: 1000,
 };

@@ -1,4 +1,6 @@
 import type { ServerSelectNavigationParams } from '../../../modules/navigation';
+import type { ChannelStudioRequest } from '../../../modules/ui/channels/ChannelDirectoryPorts';
+import type { AppAuthoringScreenRegistry } from '../deferred-screens/AppAuthoringScreenRegistry';
 
 interface VisibilityScreen {
     show: () => void;
@@ -43,6 +45,10 @@ export interface AppScreenVisibilityCoordinatorOptions {
     getServerSelectParams: () => ServerSelectNavigationParams | null;
     getSplashScreen: () => VisibilityScreen | null;
     getLazyScreenRegistry: () => ScreenVisibilityLazyRegistry | null;
+    getAuthoringScreenRegistry?: () => AppAuthoringScreenRegistry | null;
+    getStudioRequest?: () => ChannelStudioRequest | null;
+    getDirectoryPreferredId?: () => string | undefined;
+    onSettingsShown?: () => void;
     onLazyScreenError?: (error: unknown) => void;
 }
 
@@ -53,6 +59,10 @@ export class AppScreenVisibilityCoordinator {
     private readonly _getServerSelectParams: () => ServerSelectNavigationParams | null;
     private readonly _getSplashScreen: () => VisibilityScreen | null;
     private readonly _getLazyScreenRegistry: () => ScreenVisibilityLazyRegistry | null;
+    private readonly _getAuthoringScreenRegistry: () => AppAuthoringScreenRegistry | null;
+    private readonly _getStudioRequest: () => ChannelStudioRequest | null;
+    private readonly _getDirectoryPreferredId: () => string | undefined;
+    private readonly _onSettingsShown: () => void;
     private readonly _onLazyScreenError: (error: unknown) => void;
 
     constructor(options: AppScreenVisibilityCoordinatorOptions) {
@@ -61,6 +71,10 @@ export class AppScreenVisibilityCoordinator {
         this._getServerSelectParams = options.getServerSelectParams;
         this._getSplashScreen = options.getSplashScreen;
         this._getLazyScreenRegistry = options.getLazyScreenRegistry;
+        this._getAuthoringScreenRegistry = options.getAuthoringScreenRegistry ?? ((): AppAuthoringScreenRegistry | null => null);
+        this._getStudioRequest = options.getStudioRequest ?? ((): ChannelStudioRequest | null => null);
+        this._getDirectoryPreferredId = options.getDirectoryPreferredId ?? ((): string | undefined => undefined);
+        this._onSettingsShown = options.onSettingsShown ?? ((): void => undefined);
         this._onLazyScreenError = options.onLazyScreenError ?? (() : void => undefined);
     }
 
@@ -77,6 +91,8 @@ export class AppScreenVisibilityCoordinator {
             !isStartupScreen &&
             screen !== 'audio-setup' &&
             screen !== 'channel-setup' &&
+            screen !== 'channels' &&
+            screen !== 'channel-studio' &&
             screen !== 'settings'
         ) {
             this._getSplashScreen()?.hide();
@@ -86,6 +102,7 @@ export class AppScreenVisibilityCoordinator {
             lazyRegistry?.getAudioSetupScreen()?.hide();
             lazyRegistry?.getChannelSetupScreen()?.hide();
             lazyRegistry?.getSettingsScreen()?.hide();
+            this._getAuthoringScreenRegistry()?.hide();
             lazyRegistry?.cancelChannelSetupPrefetch();
             lazyRegistry?.scheduleSettingsPrefetch();
             return;
@@ -95,6 +112,13 @@ export class AppScreenVisibilityCoordinator {
         const showAudioSetup = screen === 'audio-setup';
         const showChannelSetup = screen === 'channel-setup';
         const showSettings = screen === 'settings';
+        const authoring = this._getAuthoringScreenRegistry();
+        if (screen === 'channels') authoring?.showDirectory(this._getDirectoryPreferredId());
+        else if (screen === 'channel-studio') {
+            const request = this._getStudioRequest();
+            if (request) authoring?.showStudio(request);
+            else this._onLazyScreenError(new Error('Channel Studio request is unavailable.'));
+        } else authoring?.hide();
 
         const splashScreen = this._getSplashScreen();
         if (splashScreen) {
@@ -171,7 +195,8 @@ export class AppScreenVisibilityCoordinator {
             this._showLazyScreen(
                 () => this._getLazyScreenRegistry()?.ensureSettingsScreen(),
                 'settings',
-                presentationGeneration
+                presentationGeneration,
+                this._onSettingsShown
             );
         } else {
             lazyRegistry?.getSettingsScreen()?.hide();
@@ -243,7 +268,8 @@ export class AppScreenVisibilityCoordinator {
     private _showLazyScreen(
         ensureScreen: () => Promise<LazyVisibilityScreen | null> | null | undefined,
         expectedScreen: string,
-        presentationGeneration: number
+        presentationGeneration: number,
+        onShown?: () => void
     ): void {
         const pendingScreen = ensureScreen();
         if (!pendingScreen) {
@@ -255,6 +281,7 @@ export class AppScreenVisibilityCoordinator {
                 if (!screenInstance) return;
                 if (!this._isCurrentPresentation(expectedScreen, presentationGeneration)) return;
                 screenInstance.show();
+                onShown?.();
             })
             .catch((error: unknown) => {
                 if (!this._isCurrentPresentation(expectedScreen, presentationGeneration)) return;

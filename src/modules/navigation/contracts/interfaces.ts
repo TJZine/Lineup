@@ -11,6 +11,8 @@ export interface INavigationManager {
     /** Returns false at the root screen. */
     goBack(): boolean;
     replaceScreen(screen: Screen): void;
+    /** Clear protected route history when credentials become pending. */
+    resetToAuth(): void;
     getServerSelectParams(): ServerSelectNavigationParams | null;
 
     setFocus(elementId: string, options?: SetFocusOptions): void;
@@ -106,7 +108,8 @@ export type Screen =
     | 'home'
     | 'player'
     | 'guide'
-    | 'channel-edit'
+    | 'channels'
+    | 'channel-studio'
     | 'settings'
     | 'error';
 

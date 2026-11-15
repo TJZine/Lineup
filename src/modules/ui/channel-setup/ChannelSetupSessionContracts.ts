@@ -6,10 +6,12 @@ import type {
     ChannelSetupContext,
     ChannelSetupPreview,
     ChannelSetupReview,
+    ChannelSetupApplyFailure,
     SeriesOrderingConfig,
     SetupStrategyConfig,
 } from '../../../core/channel-setup/types';
 import type { PlexLibrarySection } from '../../plex/library';
+import type { ChannelSetupInventory } from '../../../core/channel-setup/planning/ChannelSetupInventory';
 import type { SetupStrategyKey } from './strategyConstants';
 
 type SetupStrategyStateItem = Pick<SetupStrategyConfig, 'enabled' | 'scope'>;
@@ -21,7 +23,7 @@ export type ChannelExpansionState = Pick<
     'addAlternateLineups' | 'alternateLineupCopies' | 'variantType' | 'variantBlockSize'
 >;
 
-export type SeriesOrderingState = Pick<SeriesOrderingConfig, 'basePlaybackMode' | 'baseBlockSize'>;
+export type SeriesOrderingState = SeriesOrderingConfig;
 
 export type StrategyStepMutableState = {
     strategies: SetupStrategyState;
@@ -43,6 +45,12 @@ export type ChannelSetupPreviewUiStatus = 'idle' | 'loading' | 'ready' | 'blocke
 export type ChannelSetupSessionSnapshot = {
     step: SetupStep;
     libraries: PlexLibrarySection[];
+    inventory: ChannelSetupInventory | null;
+    isInventoryLoading: boolean;
+    inventoryError: string | null;
+    acceptedReadyLibraryIds: Set<string>;
+    confirmedDeselectedLibraryIds: Set<string>;
+    knownReadyLibraryIds: Set<string>;
     selectedLibraryIds: Set<string>;
     loadError: string | null;
     strategies: SetupStrategyState;
@@ -58,6 +66,9 @@ export type ChannelSetupSessionSnapshot = {
     isPreviewLoading: boolean;
     isReviewLoading: boolean;
     replaceConfirm: boolean;
+    replaceConfirmReviewId: string | null;
+    wholeLineupReplacementConfirm: boolean;
+    wholeLineupReplacementConfirmReviewId: string | null;
     preview: ChannelSetupPreview | null;
     previewError: string | null;
     previewStatus: ChannelSetupPreviewUiStatus;
@@ -79,7 +90,7 @@ type ChannelSetupCompletedBuildOutcome = {
 export type ChannelSetupBuildOutcome =
     | { kind: 'missing-server' }
     | { kind: 'canceled' }
-    | { kind: 'blocked'; message: string }
+    | { kind: 'blocked'; message: string; reason?: ChannelSetupApplyFailure }
     | { kind: 'error'; message: string }
     | ({ kind: 'success' } & ChannelSetupCompletedBuildOutcome)
     | ({ kind: 'committed-with-guide-interrupted' } & ChannelSetupCompletedBuildOutcome);

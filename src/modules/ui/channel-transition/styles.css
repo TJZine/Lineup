@@ -123,3 +123,12 @@
     color: CanvasText;
   }
 }
+
+/* Flex gap fallback for engines that support grid gap but not flex gap. */
+.no-flex-gap .channel-transition-panel > :not([hidden]) ~ :not([hidden]) {
+  margin-left: var(--space-3);
+}
+
+.no-flex-gap .channel-transition-text > :not([hidden]) ~ :not([hidden]) {
+  margin-top: var(--runtime-overlay-space-2);
+}

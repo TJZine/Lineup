@@ -3,7 +3,6 @@
  */
 
 import { ChannelSetupPlanningService } from '../planning/ChannelSetupPlanningService';
-import { ChannelSetupBuildExecutor } from '../build/ChannelSetupBuildExecutor';
 import { ChannelSetupFacetSnapshotLoader } from '../planning/ChannelSetupFacetSnapshotLoader';
 import * as PlanningCheckpoint from '../planning/ChannelSetupPlanningCheckpoint';
 import { PLEX_MEDIA_TYPES } from '../../../modules/plex/library';
@@ -41,6 +40,25 @@ const resolvePendingAfterMacrotask = async (): Promise<'pending'> => {
 };
 
 describe('ChannelSetupPlanningService', () => {
+    it('uses one complete shared playlist snapshot for a multi-library accepted Review', async () => {
+        const libraries = [makeLibrary({ id: 'movies', type: 'movie', contentCount: 10 }),
+            makeLibrary({ id: 'shows', type: 'show', contentCount: 10 })];
+        const getPlaylists = jest.fn().mockResolvedValue([{ ratingKey: 'playlist-1', key: '/playlist-1',
+            title: 'Shared', thumb: null, duration: 0, leafCount: 8 }]);
+        const plexLibrary = { getLibraries: jest.fn().mockResolvedValue(libraries), getPlaylists } as unknown as jest.Mocked<IPlexLibrary>;
+        const channelManager = { getAllChannels: jest.fn().mockReturnValue([]) } as unknown as jest.Mocked<IChannelManager>;
+        const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+        const choices = createConfig({ selectedLibraryIds: ['movies', 'shows'],
+            strategyConfig: { playlists: { enabled: true, priority: 2, scope: 'per-library' } } });
+
+        const inventory = await service.scanSetupInventory(choices);
+        const plan = await service.buildAcceptedPlan(choices, ['movies', 'shows']);
+        expect(inventory.acceptedReadyLibraryIds).toEqual(['movies', 'shows']);
+        expect(inventory.sharedPlaylistsStatus).toBe('ready');
+        expect(plan.plan?.pendingChannels.map((channel) => channel.contentSource.type)).toEqual(['playlist']);
+        expect(getPlaylists).toHaveBeenCalledTimes(1);
+    });
+
     it('prepares a movie-people Review with one item scan and no per-person count requests', async () => {
         const movies = Array.from({ length: 5 }, (_, index): PlexMediaItem => ({
             ratingKey: `movie-${index}`,
@@ -91,9 +109,10 @@ describe('ChannelSetupPlanningService', () => {
             },
         }));
 
-        const review = await service.getSetupReview(config);
+        await service.scanSetupInventory(config);
+        const reviewPlan = await service.buildAcceptedPlan(config, ['movies']);
 
-        expect(review.preview.estimates).toMatchObject({ actors: 1, directors: 1 });
+        expect(reviewPlan.plan?.estimates).toMatchObject({ actors: 1, directors: 1 });
         expect(plexLibrary.getLibraryItems).toHaveBeenCalledTimes(1);
         expect(plexLibrary.getLibraryItems).toHaveBeenCalledWith('movies', expect.objectContaining({
             filter: { type: PLEX_MEDIA_TYPES.MOVIE },
@@ -120,17 +139,12 @@ describe('ChannelSetupPlanningService', () => {
         } as unknown as jest.Mocked<IChannelManager>;
         const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
         const config = service.normalizeConfig(createConfig({ selectedLibraryIds: ['shows'] }));
-        const buildExecutor = new ChannelSetupBuildExecutor({
-            channelManager,
-            planningService: service,
-            buildCommitter: {} as never,
-        });
 
         const loaded = await service.getLibrariesForSetup();
         await service.getSetupPreview(config);
-        await service.getSetupReview(config);
+        await service.scanSetupInventory(config);
         await service.getSetupPlanDiagnostics(config);
-        await buildExecutor.createChannelsFromSetup(config);
+        await service.scanSetupInventory(config);
 
         expect(getLibraries).toHaveBeenCalledTimes(1);
         expect(loaded[0]).toMatchObject({ id: 'shows', contentCount: 1200 });
@@ -1751,12 +1765,13 @@ describe('ChannelSetupPlanningService', () => {
         }));
 
         const preview = await service.getSetupPreview(config);
-        const review = await service.getSetupReview(config);
-        const planResult = await service.buildSetupPlan(config, libraries, null, 'build');
+        const inventory = await service.scanSetupInventory(config);
+        const reviewPlan = await service.buildAcceptedPlan(config, ['shows']);
 
         expect(preview.estimates.total).toBeGreaterThan(0);
-        expect(review.preview.estimates.total).toBe(planResult.plan?.estimates.total);
-        expect(planResult.plan).not.toBeNull();
+        expect(inventory.acceptedReadyLibraryIds).toEqual(['shows']);
+        expect(reviewPlan.plan?.estimates.total).toBeGreaterThan(0);
+        expect(reviewPlan.plan).not.toBeNull();
         expect(plexLibrary.getGenres).toHaveBeenCalledTimes(2);
         expect(plexLibrary.getDirectors).toHaveBeenCalledTimes(2);
         expect(plexLibrary.getYears).toHaveBeenCalledTimes(2);
@@ -2851,7 +2866,7 @@ describe('ChannelSetupPlanningService', () => {
             const preview = await service.getSetupPreview(createConfig({
                 selectedLibraryIds: ['shows'],
             }));
-            const review = await service.getSetupReview(createConfig({
+            const inventory = await service.scanSetupInventory(createConfig({
                 selectedLibraryIds: ['shows'],
             }));
 
@@ -2861,12 +2876,9 @@ describe('ChannelSetupPlanningService', () => {
                 failureReason: 'timeout',
                 warnings: ['timed out during genre scan'],
             }));
-            expect(review.preview).toEqual(expect.objectContaining({
-                status: 'blocked',
-                message: '',
-                failureReason: 'timeout',
-                warnings: ['timed out during genre scan'],
-            }));
+            expect(inventory.libraries).toEqual(expect.arrayContaining([
+                expect.objectContaining({ libraryId: 'shows', status: 'failed' }),
+            ]));
         } finally {
             loadSnapshotSpy.mockRestore();
         }

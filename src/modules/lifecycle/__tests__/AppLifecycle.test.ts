@@ -321,6 +321,32 @@ describe('AppLifecycle', () => {
             expect(added).toBeDefined();
             expect(removed).toBe(added);
         });
+
+        it('ignores relaunch while still hidden and coalesces duplicate foreground signals', async () => {
+            const relaunch: { current: ((event: Event) => void) | null } = { current: null };
+            const service: PlatformLifecycleService = {
+                bindRelaunch: jest.fn((handler) => { relaunch.current = handler; return jest.fn(); }),
+            };
+            const instance = new AppLifecycle(mockLifecycleStateStore, mockErrorMessages, service);
+            const pause = jest.fn();
+            const resume = jest.fn();
+            instance.onPause(pause);
+            instance.onResume(resume);
+            await instance.initialize();
+            Object.defineProperty(document, 'hidden', { value: true, configurable: true });
+            document.dispatchEvent(new Event('visibilitychange'));
+            await instance.waitForPendingTransition();
+            relaunch.current?.(new Event('webOSRelaunch'));
+            await instance.waitForPendingTransition();
+            expect(resume).not.toHaveBeenCalled();
+            Object.defineProperty(document, 'hidden', { value: false, configurable: true });
+            document.dispatchEvent(new Event('visibilitychange'));
+            relaunch.current?.(new Event('webOSRelaunch'));
+            await instance.waitForPendingTransition();
+            expect(pause).toHaveBeenCalledTimes(1);
+            expect(resume).toHaveBeenCalledTimes(1);
+            await instance.shutdown();
+        });
     });
 
     describe('persistence', () => {
@@ -657,6 +683,89 @@ describe('AppLifecycle', () => {
             pauseDeferred.resolve();
             await lifecycle.waitForPendingTransition();
 
+            expect(lifecycle.getState().isVisible).toBe(true);
+            expect(lifecycle.getPhase()).toBe('ready');
+        });
+
+        it('flushes queued persistence before ordered pause and resume callbacks', async () => {
+            await lifecycle.initialize();
+            await lifecycle.setPhaseAndWait('loading_data');
+            await lifecycle.setPhaseAndWait('ready');
+            const pauseWork = createDeferred<void>();
+            const calls: string[] = [];
+            let lifecycleHold = false;
+            mockLifecycleStateStore.save.mockImplementationOnce((): void => {
+                expect(calls).toEqual([]);
+                calls.push('persist');
+            });
+            const savedState = lifecycle.saveState();
+            lifecycle.onPause(async (): Promise<void> => {
+                calls.push('pause-start');
+                await pauseWork.promise;
+                lifecycleHold = true;
+                calls.push('pause-complete');
+            });
+            lifecycle.onResume((): void => {
+                calls.push('resume');
+                lifecycleHold = false;
+            });
+
+            Object.defineProperty(document, 'hidden', { value: true, configurable: true });
+            document.dispatchEvent(new Event('visibilitychange'));
+            Object.defineProperty(document, 'hidden', { value: false, configurable: true });
+            document.dispatchEvent(new Event('visibilitychange'));
+            await savedState;
+            await Promise.resolve();
+            await Promise.resolve();
+            expect(calls).toEqual(['persist', 'pause-start']);
+            expect(lifecycleHold).toBe(false);
+
+            pauseWork.resolve();
+            await lifecycle.waitForPendingTransition();
+            expect(calls).toEqual(['persist', 'pause-start', 'pause-complete', 'resume']);
+            expect(lifecycleHold).toBe(false);
+            expect(lifecycle.getPhase()).toBe('ready');
+        });
+
+        it('reconciles repeated visibility changes while a resume callback is pending', async () => {
+            await lifecycle.initialize();
+            await lifecycle.setPhaseAndWait('loading_data');
+            await lifecycle.setPhaseAndWait('ready');
+            const resumeWork = createDeferred<void>();
+            const calls: string[] = [];
+            let lifecycleHold = false;
+            lifecycle.onPause((): void => { lifecycleHold = true; calls.push('pause'); });
+            lifecycle.onResume(async (): Promise<void> => {
+                calls.push('resume-start');
+                if (calls.filter((call) => call === 'resume-start').length === 1) {
+                    await resumeWork.promise;
+                }
+                lifecycleHold = false;
+                calls.push('resume-complete');
+            });
+
+            Object.defineProperty(document, 'hidden', { value: true, configurable: true });
+            document.dispatchEvent(new Event('visibilitychange'));
+            await lifecycle.waitForPendingTransition();
+            expect(lifecycleHold).toBe(true);
+
+            Object.defineProperty(document, 'hidden', { value: false, configurable: true });
+            document.dispatchEvent(new Event('visibilitychange'));
+            await Promise.resolve();
+            await Promise.resolve();
+            Object.defineProperty(document, 'hidden', { value: true, configurable: true });
+            document.dispatchEvent(new Event('visibilitychange'));
+            Object.defineProperty(document, 'hidden', { value: false, configurable: true });
+            document.dispatchEvent(new Event('visibilitychange'));
+            expect(lifecycleHold).toBe(true);
+
+            resumeWork.resolve();
+            await lifecycle.waitForPendingTransition();
+            expect(calls).toEqual([
+                'pause', 'resume-start', 'resume-complete',
+                'pause', 'resume-start', 'resume-complete',
+            ]);
+            expect(lifecycleHold).toBe(false);
             expect(lifecycle.getState().isVisible).toBe(true);
             expect(lifecycle.getPhase()).toBe('ready');
         });

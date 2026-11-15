@@ -28,6 +28,7 @@ export function toEpgChannel(channel: SchedulerChannelConfig): EpgChannel {
         ...(channel.blockSize !== undefined ? { blockSize: channel.blockSize } : {}),
         ...(channel.phaseSeed !== undefined ? { phaseSeed: channel.phaseSeed } : {}),
         startTimeAnchor: channel.startTimeAnchor,
+        ...(channel.scheduleAnchorMode !== undefined ? { scheduleAnchorMode: channel.scheduleAnchorMode } : {}),
         ...(channel.contentFilters !== undefined ? { contentFilters: channel.contentFilters.map((filter) => ({ ...filter })) } : {}),
         ...(channel.sortOrder !== undefined ? { sortOrder: channel.sortOrder } : {}),
         skipIntros: channel.skipIntros,

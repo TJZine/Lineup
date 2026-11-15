@@ -21,6 +21,10 @@ import {
 const QA_003B_ISSUE_ID = 'QA-003b';
 
 export interface PlaybackRecoveryDeps {
+    captureRecoveryAdmission: () => number | null;
+    isRecoveryAdmissionCurrent: (generation: number) => boolean;
+    canPlayForRecovery: (generation: number) => boolean;
+    acceptCommittedSession: (descriptor: StreamDescriptor) => void;
     getVideoPlayer: () => IVideoPlayer | null;
     getStreamResolver: () => IPlexStreamResolver | null;
     getScheduler: () => IChannelScheduler | null;
@@ -98,6 +102,10 @@ export class PlaybackRecoveryManager {
                 this._descriptorBuilder.build(program, decision, startOffsetMs),
         });
         this._reloadController = new PlaybackReloadController({
+            captureRecoveryAdmission: deps.captureRecoveryAdmission,
+            isRecoveryAdmissionCurrent: deps.isRecoveryAdmissionCurrent,
+            canPlayForRecovery: deps.canPlayForRecovery,
+            acceptCommittedSession: deps.acceptCommittedSession,
             getVideoPlayer: deps.getVideoPlayer,
             getStreamResolver: deps.getStreamResolver,
             getCurrentProgramForPlayback: deps.getCurrentProgramForPlayback,
@@ -247,7 +255,8 @@ export class PlaybackRecoveryManager {
         }
         if (
             restoreOutcome.outcome === 'unavailable' &&
-            restoreOutcome.reason === 'program_changed'
+            (restoreOutcome.reason === 'program_changed'
+                || restoreOutcome.reason === 'admission_changed')
         ) {
             return;
         }
@@ -609,6 +618,9 @@ export class PlaybackRecoveryManager {
         ) {
             return { outcome: 'unavailable', reason: 'program_changed' };
         }
+        if (!this.deps.isRecoveryAdmissionCurrent(failure.admissionGeneration)) {
+            return { outcome: 'unavailable', reason: 'admission_changed' };
+        }
         if (failure.failureStage !== 'load' && failure.failureStage !== 'after_load' && failure.failureStage !== 'play') {
             return { outcome: 'unavailable', reason: 'failure_stage_not_loaded' };
         }
@@ -619,13 +631,33 @@ export class PlaybackRecoveryManager {
         };
         try {
             await failure.player.loadStream(restoredDescriptor);
-            if (shouldResumeAfterRestore) {
+            if (!this.deps.isRecoveryAdmissionCurrent(failure.admissionGeneration)) {
+                if (failure.player.getCurrentDescriptor?.() === restoredDescriptor) failure.player.unloadStream();
+                return { outcome: 'unavailable', reason: 'admission_changed' };
+            }
+            if (shouldResumeAfterRestore && this.deps.canPlayForRecovery(failure.admissionGeneration)) {
                 await failure.player.play();
+            }
+            if (!this.deps.isRecoveryAdmissionCurrent(failure.admissionGeneration)) {
+                if (failure.player.getCurrentDescriptor?.() === restoredDescriptor) failure.player.unloadStream();
+                return { outcome: 'unavailable', reason: 'admission_changed' };
             }
             this.deps.setCurrentStreamDecision(priorDecision);
             this.deps.setCurrentStreamDescriptor(restoredDescriptor);
+            if (!this.deps.isRecoveryAdmissionCurrent(failure.admissionGeneration)) {
+                if (failure.player.getCurrentDescriptor?.() === restoredDescriptor) failure.player.unloadStream();
+                if (this.deps.getCurrentStreamDescriptor() === restoredDescriptor) {
+                    this.deps.setCurrentStreamDecision(null);
+                    this.deps.setCurrentStreamDescriptor(null);
+                }
+                return { outcome: 'unavailable', reason: 'admission_changed' };
+            }
+            this.deps.acceptCommittedSession(restoredDescriptor);
             return { outcome: 'restored' };
         } catch (error: unknown) {
+            if (!this.deps.isRecoveryAdmissionCurrent(failure.admissionGeneration)) {
+                return { outcome: 'unavailable', reason: 'admission_changed' };
+            }
             return { outcome: 'failed', safeError: summarizeErrorForLog(error) };
         }
     }

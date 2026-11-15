@@ -19,10 +19,13 @@ type RolloverHarness = {
     scheduler: {
         getCurrentProgram: jest.MockedFunction<() => ScheduledProgram | null>;
         loadChannel: jest.MockedFunction<(config: ScheduleConfig) => void>;
+        stageChannelReplacement: jest.MockedFunction<(config: ScheduleConfig) => void>;
+        hasPendingChannelReplacement: jest.MockedFunction<() => boolean>;
         syncToCurrentTime: jest.MockedFunction<() => void>;
     };
     channelManager: {
         getCurrentChannel: jest.MockedFunction<() => ChannelConfig | null>;
+        getChannel: jest.MockedFunction<(id: string) => ChannelConfig | null>;
         resolveChannelContent: jest.MockedFunction<
             (
                 channelId: string,
@@ -126,6 +129,7 @@ const makeHarness = (): RolloverHarness => {
 
     const channelManager = {
         getCurrentChannel: jest.fn(() => channel),
+        getChannel: jest.fn((_id: string) => channel),
         resolveChannelContent: jest.fn(
             async (channelId: string, _options?: { signal?: AbortSignal | null }) => ({
                 channelId,
@@ -139,8 +143,11 @@ const makeHarness = (): RolloverHarness => {
     };
 
     const scheduler = {
+        getState: jest.fn(() => ({ isActive: true, channelId: channel.id })),
         getCurrentProgram: jest.fn(() => null),
         loadChannel: jest.fn(),
+        stageChannelReplacement: jest.fn(),
+        hasPendingChannelReplacement: jest.fn(() => false),
         syncToCurrentTime: jest.fn(),
     };
 
@@ -235,6 +242,14 @@ describe('ScheduleDayRolloverController', () => {
         await applyPromise;
 
         expect(harness.scheduler.loadChannel).toHaveBeenCalledTimes(1);
+    });
+
+    it('retains an authored in-flight handoff across day rollover', async () => {
+        const harness = makeHarness();
+        harness.scheduler.hasPendingChannelReplacement.mockReturnValueOnce(true).mockReturnValue(false);
+        await harness.controller.handleScheduleDayRollover();
+        expect(harness.scheduler.stageChannelReplacement).toHaveBeenCalledTimes(1);
+        expect(harness.scheduler.loadChannel).not.toHaveBeenCalled();
     });
 
     it.each([

@@ -41,8 +41,6 @@ export class ChannelSetupWorkflowPresenter {
             renderStep: () => void;
             resetStep2Scroll: () => void;
             toDomId: (raw: string) => string;
-            revealPlayerProvisionally: () => void;
-            restoreSetupAfterProvisionalReveal: () => void;
         }
     ) {
         this._strategyInteraction = new StrategyStepInteractionController({
@@ -66,8 +64,10 @@ export class ChannelSetupWorkflowPresenter {
         });
     }
 
-    cancelDoneTransition(): void {
-        this._buildStep.cancelDoneTransition();
+    resetBuildStep(): void { this._buildStep.reset(); }
+
+    handleReviewKeyPress(event: KeyEvent, nav: INavigationManager): void {
+        this._buildStep.handleKeyPress(event, nav);
     }
 
     dispose(): void {
@@ -122,6 +122,21 @@ export class ChannelSetupWorkflowPresenter {
             },
             onNext: () => {
                 this.clearStrategyStepTransientState();
+                const inventoryState = this._deps.session.getSnapshot();
+                if (!inventoryState.inventory) {
+                    void this._deps.session.scanInventory(() => this._deps.renderStep()).then(() => {
+                        const updated = this._deps.session.getSnapshot();
+                        if (updated.step !== 2) return;
+                        if (!updated.inventory || updated.inventory.libraries.some((fact) => fact.status !== 'ready')) {
+                            this._deps.session.setStep(1);
+                            this._deps.renderStep();
+                            return;
+                        }
+                        this._deps.session.setStep(3);
+                        this._deps.renderStep();
+                    });
+                    return;
+                }
                 const current = this._deps.session.getSnapshot();
                 if (current.reviewError && !current.review && !current.isReviewLoading) {
                     this._deps.session.clearReviewForEdits();
@@ -139,11 +154,12 @@ export class ChannelSetupWorkflowPresenter {
                     options
                 );
             },
-            detailText: session.strategies.genres.enabled || session.strategies.directors.enabled
-                ? 'Performance warning: may be slow on large libraries.'
-                : '',
+            detailText: session.previewStatus !== 'idle' && session.preview
+                ? `${Math.min(session.preview.estimates.total, session.maxChannels)} estimated generated · ${Math.max(0, session.preview.estimates.total - session.maxChannels)} estimated excluded by limit`
+                : session.isPreviewLoading ? 'Estimating generated channels…' : 'Generated count available after inventory scan.',
         });
         this._setPriorityRowGrabbedVisual(this._strategyInteraction.getGrabbedPriorityKey(), true);
+        this._deps.session.schedulePreview(() => this._deps.renderStep());
     }
 
     renderBuildStep(ctx: StepRenderContext): void {
@@ -155,8 +171,6 @@ export class ChannelSetupWorkflowPresenter {
             setPreferredFocusId: this._deps.setPreferredFocusId,
             getVisibilityToken: this._deps.getVisibilityToken,
             renderStep: this._deps.renderStep,
-            revealPlayerProvisionally: this._deps.revealPlayerProvisionally,
-            restoreSetupAfterProvisionalReveal: this._deps.restoreSetupAfterProvisionalReveal,
         });
     }
 
